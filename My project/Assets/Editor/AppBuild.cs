@@ -62,7 +62,8 @@ public static class AppBuild
         PlayerSettings.visibleInBackground = true;
 
         // Shaders the scripts find by name at runtime, which no scene material references.
-        AlwaysInclude("Universal Render Pipeline/Unlit");
+        AlwaysInclude("Universal Render Pipeline/Unlit", "Matchmaker/Earth", "Matchmaker/Atmosphere",
+                      "Matchmaker/Stars");
 
         string root = Path.GetFullPath(Path.Combine(Application.dataPath, "..", ".."));
         string output = Path.Combine(root, "Builds", folder, name + extension);

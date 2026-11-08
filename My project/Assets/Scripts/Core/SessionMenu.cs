@@ -47,6 +47,37 @@ public class SessionMenu : MonoBehaviour
         Instance = this;
         SceneManager.sceneLoaded += (_, _) => { open = false; hintUntil = Time.unscaledTime + 6f; };
         hintUntil = Time.unscaledTime + 6f;
+        StartCoroutine(CommandLine());
+    }
+
+    /// <summary>Development aid for checking how the app looks without sitting at it:
+    /// <c>-scene Assets/Scenes/X.unity</c> opens a scene at start; <c>-shot file.png</c>
+    /// captures the screen after <c>-shot-after</c> seconds (default 12) and quits.</summary>
+    IEnumerator CommandLine()
+    {
+        string Arg(string name)
+        {
+            var args = System.Environment.GetCommandLineArgs();
+            int i = System.Array.IndexOf(args, name);
+            return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+        }
+        string scene = Arg("-scene"), shot = Arg("-shot");
+        if (scene != null && scene != SceneManager.GetActiveScene().path)
+        {
+            yield return null;
+            Load(scene);
+        }
+        if (shot == null)
+            yield break;
+        float after = float.TryParse(Arg("-shot-after"), System.Globalization.NumberStyles.Float,
+                                     System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 12f;
+        yield return new WaitForSecondsRealtime(after);
+        hintUntil = 0f;
+        yield return new WaitForEndOfFrame();
+        ScreenCapture.CaptureScreenshot(shot);
+        Debug.Log($"SessionMenu: screenshot {shot}");
+        yield return new WaitForSecondsRealtime(1.5f);
+        Application.Quit();
     }
 
     void Update()

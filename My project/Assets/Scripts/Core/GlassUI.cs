@@ -3,19 +3,29 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// The look of every panel: frosted dark glass with rounded corners, a hairline edge and
-/// soft type, drawn with IMGUI on a 1280×720 design canvas that scales to the window.
-/// Rounded rectangles are generated once as 9-sliced textures, so panels of any size
-/// stay crisp; colours and alpha are applied per draw.
+/// The look of every panel, matched to the pitch deck: dark wine glass ("the bar at
+/// midnight") with a hairline cream edge, cream type, a rose accent that glows, editorial
+/// serif headlines, mono eyebrow labels and a neon script for the name. Drawn with IMGUI on
+/// a 1280×720 design canvas that scales to the window. Rounded rectangles are generated
+/// once as 9-sliced textures, so panels of any size stay crisp; colours and alpha are
+/// applied per draw.
+///
+/// Type comes from fonts bundled in Resources/Fonts (Bricolage Grotesque for text, Fraunces
+/// for headlines, JetBrains Mono for labels, Yellowtail for the neon name; all open
+/// licences, in Resources/Fonts/licenses). Their import settings fall back to the system's
+/// Noto fonts for Chinese, Japanese and Devanagari, so every dialect still renders.
 /// </summary>
 public static class GlassUI
 {
     public const float DesignW = 1280f, DesignH = 720f;
 
+    /// <summary>Which typeface: body text, editorial headline, mono label, neon script.</summary>
+    public enum Face { Body, Display, Mono, Neon }
+
     static readonly Dictionary<int, Texture2D> rounded = new();
     static readonly Dictionary<int, GUIStyle> slices = new();
-    static readonly Dictionary<(int, FontStyle, TextAnchor, bool), GUIStyle> styles = new();
-    static Font font;
+    static readonly Dictionary<(Face, int, FontStyle, TextAnchor, bool), GUIStyle> styles = new();
+    static readonly Dictionary<Face, Font> fonts = new();
     static Texture2D dot;
 
     /// <summary>Scale factor from design units to pixels.</summary>
@@ -23,6 +33,9 @@ public static class GlassUI
     /// <summary>Window width in design units.</summary>
     public static float Width => Screen.width / Scale;
     public static float Height => Screen.height / Scale;
+
+    // The deck's surfaces.
+    static Color Hair(float a = 0.14f) => new(Brand.Cream.r, Brand.Cream.g, Brand.Cream.b, a);
 
     /// <summary>Switch IMGUI to design units; returns the previous matrix to restore.</summary>
     public static Matrix4x4 Begin()
@@ -53,16 +66,43 @@ public static class GlassUI
         GUI.color = was;
     }
 
-    /// <summary>A glass panel: dark translucent fill, a faint lighter edge, rounded.</summary>
-    public static void Panel(Rect r, float alpha = 1f, int radius = 16, Color? tint = null)
+    /// <summary>A rounded hairline: the edge of a shape, with nothing inside.</summary>
+    public static void Outline(Rect r, Color color, int radius = 14, float thickness = 1f)
+    {
+        // Four strips, inset by the radius at the corners, plus the corner arcs from a
+        // ring texture: cheap, crisp, and transparent inside.
+        if (Event.current.type != EventType.Repaint)
+            return;
+        var style = Ring(radius);
+        var was = GUI.color;
+        GUI.color = color;
+        style.Draw(r, GUIContent.none, false, false, false, false);
+        GUI.color = was;
+    }
+
+    /// <summary>A soft glow around a shape, like the deck's neon and its rose buttons.</summary>
+    public static void Glow(Rect r, Color color, int radius = 14, float spread = 10f, int layers = 4)
+    {
+        for (int i = layers; i >= 1; i--)
+        {
+            float k = i / (float)layers;
+            float g = spread * k;
+            Rounded(new Rect(r.x - g, r.y - g, r.width + 2f * g, r.height + 2f * g),
+                    new Color(color.r, color.g, color.b, color.a * 0.10f * (1.2f - k)), radius + Mathf.RoundToInt(g));
+        }
+    }
+
+    /// <summary>A glass panel: deep wine, translucent, a hairline cream edge, rounded.</summary>
+    public static void Panel(Rect r, float alpha = 1f, int radius = 20, Color? tint = null)
     {
         var glass = tint ?? Brand.Glass;
-        Rounded(new Rect(r.x - 1f, r.y - 1f, r.width + 2f, r.height + 2f),
-                new Color(1f, 1f, 1f, 0.10f * alpha), radius + 1);
-        Rounded(r, new Color(glass.r, glass.g, glass.b, 0.72f * alpha), radius);
-        // A sheen along the top, the "glass" in glassmorphism.
-        Rounded(new Rect(r.x + 2f, r.y + 2f, r.width - 4f, Mathf.Min(18f, r.height * 0.3f)),
-                new Color(1f, 1f, 1f, 0.05f * alpha), Mathf.Max(4, radius - 2));
+        // A soft shadow under the panel lifts it off the scene.
+        Rounded(new Rect(r.x + 2f, r.y + 10f, r.width, r.height), new Color(0f, 0f, 0f, 0.28f * alpha), radius + 4);
+        Rounded(r, new Color(glass.r, glass.g, glass.b, 0.78f * alpha), radius);
+        // A warm sheen along the top edge, the candlelight in the deck's glass.
+        Rounded(new Rect(r.x + 1f, r.y + 1f, r.width - 2f, Mathf.Min(40f, r.height * 0.35f)),
+                new Color(1f, 0.85f, 0.75f, 0.035f * alpha), Mathf.Max(4, radius - 1));
+        Outline(r, Hair(0.14f * alpha), radius);
     }
 
     public static void Pill(Rect r, Color fill, string text, Color ink, int size = 13)
@@ -75,7 +115,7 @@ public static class GlassUI
     public static void Bar(Rect r, float value, Color fill, float alpha = 1f)
     {
         int radius = Mathf.RoundToInt(r.height / 2f);
-        Rounded(r, new Color(1f, 1f, 1f, 0.12f * alpha), radius);
+        Rounded(r, new Color(1f, 1f, 1f, 0.10f * alpha), radius);
         float w = Mathf.Max(r.height, r.width * Mathf.Clamp01(value));
         if (value > 0.001f)
             Rounded(new Rect(r.x, r.y, w, r.height), new Color(fill.r, fill.g, fill.b, fill.a * alpha), radius);
@@ -118,13 +158,17 @@ public static class GlassUI
 
     public static GUIStyle Style(int size, FontStyle weight = FontStyle.Normal,
                                  TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
+        => StyleFor(Face.Body, size, weight, anchor, wrap);
+
+    public static GUIStyle StyleFor(Face face, int size, FontStyle weight = FontStyle.Normal,
+                                    TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
     {
-        var key = (size, weight, anchor, wrap);
+        var key = (face, size, weight, anchor, wrap);
         if (styles.TryGetValue(key, out var style))
             return style;
         style = new GUIStyle(GUI.skin.label)
         {
-            font = Font(),
+            font = FontFor(face),
             fontSize = size,
             fontStyle = weight,
             alignment = anchor,
@@ -141,77 +185,90 @@ public static class GlassUI
     public static void Label(Rect r, string text, int size, Color color,
                              FontStyle weight = FontStyle.Normal,
                              TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
+        => Text(r, text, size, color, Face.Body, weight, anchor, wrap);
+
+    /// <summary>Text in any of the four faces.</summary>
+    public static void Text(Rect r, string text, int size, Color color, Face face,
+                            FontStyle weight = FontStyle.Normal,
+                            TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
     {
-        var style = Style(size, weight, anchor, wrap);
+        var style = StyleFor(face, size, weight, anchor, wrap);
         foreach (var state in new[] { style.normal, style.hover, style.active, style.focused })
             state.textColor = color;
         GUI.Label(r, text, style);
     }
 
-    // ---- receipt type: a monospaced face, like a thermal printer ------------------
+    /// <summary>An editorial headline (Fraunces), the deck's titles.</summary>
+    public static void Headline(Rect r, string text, int size, Color color,
+                                TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
+        => Text(r, text, size, color, Face.Display, FontStyle.Normal, anchor, wrap);
 
-    static Font mono;
-    static readonly Dictionary<(int, FontStyle, TextAnchor, bool), GUIStyle> monoStyles = new();
-
-    public static Font Mono()
+    /// <summary>The neon name: a script with a rose glow behind it.</summary>
+    public static void Neon(Rect r, string text, int size, Color color, TextAnchor anchor = TextAnchor.MiddleLeft)
     {
-        if (mono != null)
-            return mono;
-        var installed = new HashSet<string>(UnityEngine.Font.GetOSInstalledFontNames() ?? Array.Empty<string>(),
-                                            StringComparer.OrdinalIgnoreCase);
-        foreach (var name in new[] { "JetBrains Mono", "Menlo", "Consolas", "SF Mono", "DejaVu Sans Mono",
-                                     "Liberation Mono", "Noto Sans Mono", "Courier New" })
-            if (installed.Contains(name))
-            {
-                // Fallbacks keep accents, CJK and Devanagari readable on the receipt.
-                var f = UnityEngine.Font.CreateDynamicFontFromOSFont(
-                    new[] { name, "Noto Sans CJK SC", "Noto Sans Devanagari", "Microsoft YaHei",
-                            "Yu Gothic", "Hiragino Sans", "Nirmala UI", "Arial Unicode MS" }, 16);
-                if (f != null)
-                    return mono = f;
-            }
-        return mono = Font();
+        float pulse = 0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 1.7f);
+        var glow = new Color(color.r, color.g, color.b, 0.22f * pulse);
+        foreach (var o in new[] { new Vector2(-2f, 0f), new Vector2(2f, 0f), new Vector2(0f, -2f), new Vector2(0f, 2f),
+                                  new Vector2(-3f, -3f), new Vector2(3f, 3f) })
+            Text(new Rect(r.x + o.x, r.y + o.y, r.width, r.height), text, size, glow, Face.Neon, FontStyle.Normal, anchor);
+        Text(r, text, size, Color.Lerp(color, Color.white, 0.35f), Face.Neon, FontStyle.Normal, anchor);
     }
 
-    public static GUIStyle MonoStyle(int size, FontStyle weight = FontStyle.Normal,
-                                     TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
+    /// <summary>The deck's eyebrow: a short rose dash, then spaced mono capitals.</summary>
+    public static void Eyebrow(Rect r, string text, Color? color = null, int size = 11)
     {
-        var key = (size, weight, anchor, wrap);
-        if (monoStyles.TryGetValue(key, out var style))
-            return style;
-        style = new GUIStyle(Style(size, weight, anchor, wrap)) { font = Mono() };
-        monoStyles[key] = style;
-        return style;
+        var c = color ?? Brand.Accent;
+        Rounded(new Rect(r.x, r.y + r.height / 2f - 1f, 22f, 2f), c, 1);
+        Text(new Rect(r.x + 32f, r.y, r.width - 32f, r.height), Spaced(text), size, c, Face.Mono, FontStyle.Bold);
     }
 
-    public static void MonoLabel(Rect r, string text, int size, Color color,
-                                 FontStyle weight = FontStyle.Normal,
-                                 TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
+    /// <summary>Capitals with a thin space between letters, for mono labels.</summary>
+    public static string Spaced(string text)
     {
-        var style = MonoStyle(size, weight, anchor, wrap);
-        foreach (var state in new[] { style.normal, style.hover, style.active, style.focused })
-            state.textColor = color;
-        GUI.Label(r, text, style);
+        if (string.IsNullOrEmpty(text))
+            return "";
+        var up = text.ToUpperInvariant();
+        var sb = new System.Text.StringBuilder(up.Length * 2);
+        foreach (char ch in up)
+        {
+            sb.Append(ch);
+            if (ch != ' ')
+                sb.Append(' ');
+        }
+        return sb.ToString().TrimEnd();
     }
-
-    public static float MonoHeight(string text, int size, float width, FontStyle weight = FontStyle.Normal)
-        => MonoStyle(size, weight, TextAnchor.UpperLeft, true).CalcHeight(new GUIContent(text), width);
 
     public static float TextHeight(string text, int size, float width, FontStyle weight = FontStyle.Normal)
-        => Style(size, weight, TextAnchor.UpperLeft, true).CalcHeight(new GUIContent(text), width);
+        => StyleFor(Face.Body, size, weight, TextAnchor.UpperLeft, true).CalcHeight(new GUIContent(text), width);
 
     public static float TextWidth(string text, int size, FontStyle weight = FontStyle.Normal)
-        => Style(size, weight).CalcSize(new GUIContent(text)).x;
+        => StyleFor(Face.Body, size, weight).CalcSize(new GUIContent(text)).x;
 
-    /// <summary>A button drawn as a pill; returns true when clicked.</summary>
+    public static float TextWidth(string text, int size, Face face, FontStyle weight = FontStyle.Normal)
+        => StyleFor(face, size, weight).CalcSize(new GUIContent(text)).x;
+
+    /// <summary>A button drawn as a pill; returns true when clicked. The primary one is
+    /// rose with a glow; the others are hairline outlines on dark glass.</summary>
     public static bool Button(Rect r, string text, bool primary = false, bool enabled = true, int size = 15)
     {
         bool hover = enabled && r.Contains(Event.current.mousePosition);
-        Color fill = !enabled ? new Color(1f, 1f, 1f, 0.08f)
-            : primary ? (hover ? Color.Lerp(Brand.Accent, Color.white, 0.15f) : Brand.Accent)
-            : (hover ? new Color(1f, 1f, 1f, 0.22f) : new Color(1f, 1f, 1f, 0.12f));
-        Rounded(r, fill, Mathf.RoundToInt(Mathf.Min(r.height / 2f, 14f)));
-        Label(r, text, size, enabled ? Color.white : new Color(1f, 1f, 1f, 0.4f), FontStyle.Bold, TextAnchor.MiddleCenter);
+        int radius = Mathf.RoundToInt(Mathf.Min(r.height / 2f, 22f));
+        if (!enabled)
+        {
+            Rounded(r, new Color(1f, 1f, 1f, 0.05f), radius);
+            Outline(r, Hair(0.08f), radius);
+        }
+        else if (primary)
+        {
+            Glow(r, Brand.Accent, radius, hover ? 14f : 9f);
+            Rounded(r, hover ? Color.Lerp(Brand.Accent, Color.white, 0.12f) : Brand.Accent, radius);
+        }
+        else
+        {
+            Rounded(r, hover ? new Color(1f, 1f, 1f, 0.10f) : new Color(0.05f, 0.015f, 0.04f, 0.55f), radius);
+            Outline(r, Hair(hover ? 0.45f : 0.22f), radius);
+        }
+        Label(r, text, size, enabled ? Brand.Cream : new Color(1f, 1f, 1f, 0.35f), FontStyle.Bold, TextAnchor.MiddleCenter);
         return enabled && GUI.Button(r, GUIContent.none, GUIStyle.none);
     }
 
@@ -219,47 +276,97 @@ public static class GlassUI
     public static bool Chip(Rect r, string text, bool selected, int size = 13)
     {
         bool hover = r.Contains(Event.current.mousePosition);
-        Color fill = selected ? Brand.Accent : hover ? new Color(1f, 1f, 1f, 0.2f) : new Color(1f, 1f, 1f, 0.09f);
-        Rounded(r, fill, Mathf.RoundToInt(r.height / 2f));
-        Label(r, text, size, Color.white, selected ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleCenter);
+        int radius = Mathf.RoundToInt(r.height / 2f);
+        if (selected)
+        {
+            Glow(r, Brand.Accent, radius, 6f, 3);
+            Rounded(r, Brand.Accent, radius);
+        }
+        else
+        {
+            Rounded(r, hover ? new Color(1f, 1f, 1f, 0.09f) : new Color(1f, 1f, 1f, 0.03f), radius);
+            Outline(r, Hair(hover ? 0.4f : 0.16f), radius);
+        }
+        Label(r, text, size, selected ? Brand.Cream : Brand.Muted, selected ? FontStyle.Bold : FontStyle.Normal,
+              TextAnchor.MiddleCenter);
         return GUI.Button(r, GUIContent.none, GUIStyle.none);
     }
 
-    /// <summary>A text field on a glass background.</summary>
+    /// <summary>A text field on dark glass with a hairline edge.</summary>
     public static string Field(Rect r, string value, string placeholder, int max = 200, int size = 15, string control = null)
     {
-        Rounded(r, new Color(1f, 1f, 1f, 0.10f), 10);
-        var inner = new Rect(r.x + 12f, r.y, r.width - 24f, r.height);
+        Rounded(r, new Color(0f, 0f, 0f, 0.28f), 12);
+        Outline(r, Hair(0.18f), 12);
+        var inner = new Rect(r.x + 14f, r.y, r.width - 28f, r.height);
         if (string.IsNullOrEmpty(value))
-            Label(inner, placeholder, size, new Color(1f, 1f, 1f, 0.35f));
+            Label(inner, placeholder, size, new Color(Brand.Muted.r, Brand.Muted.g, Brand.Muted.b, 0.5f));
         var style = Style(size);
-        style.normal.textColor = style.focused.textColor = style.hover.textColor = Color.white;
+        style.normal.textColor = style.focused.textColor = style.hover.textColor = Brand.Cream;
         if (control != null)
             GUI.SetNextControlName(control);
         return GUI.TextField(inner, value ?? "", max, style);
     }
 
-    public static Font Font()
+    // ---- fonts ----------------------------------------------------------------------
+
+    static readonly Dictionary<Face, string> Bundled = new()
     {
-        if (font != null)
-            return font;
+        [Face.Body] = "Fonts/BricolageGrotesque",
+        [Face.Display] = "Fonts/Fraunces",
+        [Face.Mono] = "Fonts/JetBrainsMono",
+        [Face.Neon] = "Fonts/Yellowtail",
+    };
+
+    public static Font FontFor(Face face)
+    {
+        if (fonts.TryGetValue(face, out var f) && f != null)
+            return f;
+        f = Resources.Load<Font>(Bundled[face]);
+        if (f == null)
+            f = face == Face.Mono ? OsFont(true) : OsFont(false);
+        return fonts[face] = f;
+    }
+
+    public static Font Font() => FontFor(Face.Body);
+
+    /// <summary>A system font, for when the bundled ones are missing.</summary>
+    static Font OsFont(bool mono)
+    {
         var installed = new HashSet<string>(UnityEngine.Font.GetOSInstalledFontNames() ?? Array.Empty<string>(),
                                             StringComparer.OrdinalIgnoreCase);
-        // Wide-coverage faces first: the dates speak Mandarin, Hindi and Japanese too.
-        foreach (var name in new[] { "Noto Sans", "Noto Sans CJK SC", "Segoe UI", "Helvetica Neue",
-                                     "Arial Unicode MS", "Arial", "Liberation Sans", "DejaVu Sans", "Roboto" })
+        var candidates = mono
+            ? new[] { "JetBrains Mono", "Menlo", "Consolas", "DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono", "Courier New" }
+            : new[] { "Noto Sans", "Noto Sans CJK SC", "Segoe UI", "Helvetica Neue", "Arial Unicode MS", "Arial",
+                      "Liberation Sans", "DejaVu Sans", "Roboto" };
+        foreach (var name in candidates)
             if (installed.Contains(name))
             {
                 var f = UnityEngine.Font.CreateDynamicFontFromOSFont(
                     new[] { name, "Noto Sans CJK SC", "Noto Sans Devanagari", "Microsoft YaHei",
                             "Yu Gothic", "Hiragino Sans", "Nirmala UI", "Arial Unicode MS" }, 16);
                 if (f != null)
-                    return font = f;
+                    return f;
             }
         Font builtin = null;
         try { builtin = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); } catch (Exception) { }
-        return font = builtin != null ? builtin : GUI.skin.font;
+        return builtin != null ? builtin : GUI.skin.font;
     }
+
+    // ---- receipt type: a monospaced face, like a thermal printer ------------------
+
+    public static Font Mono() => FontFor(Face.Mono);
+
+    public static GUIStyle MonoStyle(int size, FontStyle weight = FontStyle.Normal,
+                                     TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
+        => StyleFor(Face.Mono, size, weight, anchor, wrap);
+
+    public static void MonoLabel(Rect r, string text, int size, Color color,
+                                 FontStyle weight = FontStyle.Normal,
+                                 TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
+        => Text(r, text, size, color, Face.Mono, weight, anchor, wrap);
+
+    public static float MonoHeight(string text, int size, float width, FontStyle weight = FontStyle.Normal)
+        => MonoStyle(size, weight, TextAnchor.UpperLeft, true).CalcHeight(new GUIContent(text), width);
 
     // ---- motion ---------------------------------------------------------------------
 
@@ -285,8 +392,26 @@ public static class GlassUI
         return style;
     }
 
-    /// <summary>White rounded square with anti-aliased corners, alpha carrying the shape.</summary>
-    static Texture2D MakeRounded(int size, int radius)
+    static readonly Dictionary<int, GUIStyle> rings = new();
+
+    static GUIStyle Ring(int radius)
+    {
+        radius = Mathf.Clamp(radius, 2, 48);
+        if (rings.TryGetValue(radius, out var style) && style.normal.background != null)
+            return style;
+        var tex = MakeRounded(radius * 2 + 4, radius, ring: true);
+        style = new GUIStyle
+        {
+            normal = { background = tex },
+            border = new RectOffset(radius + 1, radius + 1, radius + 1, radius + 1),
+        };
+        rings[radius] = style;
+        return style;
+    }
+
+    /// <summary>White rounded square with anti-aliased corners, alpha carrying the shape;
+    /// with <paramref name="ring"/>, only a one-pixel edge.</summary>
+    static Texture2D MakeRounded(int size, int radius, bool ring = false)
     {
         var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
         {
@@ -302,6 +427,12 @@ public static class GlassUI
                 float cy = Mathf.Clamp(y + 0.5f, radius, size - radius);
                 float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(cx, cy));
                 float a = Mathf.Clamp01(radius - d + 0.5f);
+                if (ring)
+                {
+                    // radius - d is the distance in from the edge, corners and straight
+                    // sides alike: keep a one-pixel band.
+                    a *= Mathf.Clamp01(1.5f - (radius - d));
+                }
                 pixels[y * size + x] = new Color32(255, 255, 255, (byte)(a * 255));
             }
         tex.SetPixels32(pixels);

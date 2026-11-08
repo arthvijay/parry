@@ -43,6 +43,36 @@ public static class LowPoly
         return palette;
     }
 
+    /// <summary>A smooth unit sphere (normals point outwards), for the shaded Earth and its
+    /// atmosphere shell. The shaders look the map up from the normal, so no UVs.</summary>
+    public static Mesh SmoothSphere(int slices = 128, int stacks = 64)
+    {
+        var verts = new List<Vector3>((slices + 1) * (stacks + 1));
+        var tris = new List<int>(slices * stacks * 6);
+        for (int j = 0; j <= stacks; j++)
+        {
+            float lat = Mathf.PI * (j / (float)stacks - 0.5f);
+            for (int i = 0; i <= slices; i++)
+            {
+                float lon = 2f * Mathf.PI * i / slices;
+                verts.Add(new Vector3(Mathf.Cos(lat) * Mathf.Sin(lon), Mathf.Sin(lat), -Mathf.Cos(lat) * Mathf.Cos(lon)));
+            }
+        }
+        int row = slices + 1;
+        for (int j = 0; j < stacks; j++)
+            for (int i = 0; i < slices; i++)
+            {
+                int a = j * row + i, b = a + 1, c = a + row, d = c + 1;
+                tris.AddRange(new[] { a, c, b, b, c, d });
+            }
+        var mesh = new Mesh { name = "SmoothSphere", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        mesh.SetVertices(verts);
+        mesh.SetNormals(verts);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
     /// <summary>An unlit shader, whatever this build kept. Shader.Find only sees shaders the
     /// build includes: URP Unlit is always included by the app build (Editor/AppBuild.cs),
     /// and URP Lit, which every scene uses, is the last resort, so the matchmaker never

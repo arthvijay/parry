@@ -5,11 +5,16 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// The front of the app: the matchmaker's studio over a low-poly Earth in the clouds.
+/// The front of the app, styled like the pitch deck: a night sky ("the bar at midnight"),
+/// a lit Earth with an atmosphere glow and city lights (shaders in Assets/Shaders/Matchmaker),
+/// and a start screen with the neon name, the two authored demo dates (one card per preset:
+/// the Spanish date and the American date) and "create your own".
 ///
+/// Create your own opens the matchmaker's studio.
 /// Three steps on one glass panel: the face scan (<see cref="AvatarOnboarding"/>: selfie in,
 /// avatar out), the language (dialect, city, level; the globe turns and pins the city), and
 /// the date (who, what personality, where, and a free-text scene that sets the world).
@@ -25,9 +30,10 @@ public class MatchmakerUI : MonoBehaviour
     public string serverUrl = DateSession.DefaultServer;
 
     [Header("Look")]
-    public Color skyZenith = new(0.36f, 0.58f, 0.86f);
-    public Color skyHorizon = new(0.84f, 0.90f, 0.97f);
-    public Color skyBelow = new(0.70f, 0.80f, 0.92f);
+    // The deck's night: ink at the zenith, wine towards the horizon, a rose glow below.
+    public Color skyZenith = new(0.035f, 0.012f, 0.03f);
+    public Color skyHorizon = new(0.17f, 0.05f, 0.11f);
+    public Color skyBelow = new(0.30f, 0.09f, 0.15f);
     public Vector3 globeCentre = new(2.4f, -0.15f, 0f);
     public float globeRadius = 1.6f;
     [Tooltip("Degrees per second the globe idles at before a city is chosen.")]
@@ -39,9 +45,9 @@ public class MatchmakerUI : MonoBehaviour
     public float arriveSeconds = 2.4f;
     public float revealSeconds = 3.2f;
 
-    enum Step { Face, Language, Date, Matching, Matched, Boarding, Departing }
+    enum Step { Start, Face, Language, Date, Matching, Matched, Boarding, Departing }
 
-    Step step = Step.Face;
+    Step step = Step.Start;
     float stepStart;
     string destinationScene = "Assets/Scenes/CancunCafe.unity";
 
@@ -70,7 +76,8 @@ public class MatchmakerUI : MonoBehaviour
     bool hasPin;
     string placeName = "";
     float pinLat, pinLon;
-    Material skyMaterial, litMaterial, cloudMaterial;
+    Material skyMaterial, litMaterial, cloudMaterial, earthMaterial, atmosMaterial, starMaterial, pinMaterial;
+    VisionPanel visionPanel;
     readonly List<Mesh> meshes = new();
     readonly List<Mesh> cloudMeshes = new();
     readonly List<Puff> puffs = new();
@@ -120,14 +127,15 @@ public class MatchmakerUI : MonoBehaviour
         onboarding = GetComponent<AvatarOnboarding>();
         if (onboarding == null)
             onboarding = gameObject.AddComponent<AvatarOnboarding>();
-        if (FindFirstObjectByType<VisionPanel>() == null)
-            gameObject.AddComponent<VisionPanel>();
+        visionPanel = FindFirstObjectByType<VisionPanel>();
+        if (visionPanel == null)
+            visionPanel = gameObject.AddComponent<VisionPanel>();
         StartCoroutine(LoadCatalog());
     }
 
     void OnDestroy()
     {
-        foreach (var m in new[] { skyMaterial, litMaterial, cloudMaterial })
+        foreach (var m in new[] { skyMaterial, litMaterial, cloudMaterial, earthMaterial, atmosMaterial, starMaterial, pinMaterial })
             if (m != null)
                 Destroy(m);
         foreach (var m in meshes)
@@ -267,7 +275,9 @@ public class MatchmakerUI : MonoBehaviour
             Depart();
 
         float t = Trip;
-        if (step == Step.Face || step == Step.Language || step == Step.Date || step == Step.Matching)
+        if (visionPanel != null)
+            visionPanel.enabled = step == Step.Face;
+        if (step <= Step.Matching)
             yawTarget = hasPin ? pinLon + 25f : yawTarget + idleSpin * Time.deltaTime;
         else
             yawTarget = pinLon;
@@ -325,14 +335,86 @@ public class MatchmakerUI : MonoBehaviour
         Piece(dome, LowPoly.Dome(), skyMaterial);
 
         RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = new Color(0.55f, 0.62f, 0.76f);
+        RenderSettings.ambientLight = new Color(0.20f, 0.14f, 0.20f);
         sun = new GameObject("Sun").AddComponent<Light>();
         sun.transform.SetParent(transform, false);
         sun.type = LightType.Directional;
-        sun.color = new Color(1f, 0.97f, 0.92f);
-        sun.intensity = 1.4f;
+        sun.color = new Color(1f, 0.93f, 0.85f);
+        sun.intensity = 1.3f;
         sun.shadows = LightShadows.None;
-        sun.transform.rotation = Quaternion.Euler(30f, -40f, 0f);
+        // From the upper left and a little behind the camera: the Earth's lit face turns
+        // towards the studio, the night side and its city lights to the right.
+        sun.transform.rotation = Quaternion.Euler(22f, 118f, 0f);
+        Stars();
+        Glow();
+    }
+
+    /// <summary>A starfield: tiny twinkling quads on a far sphere around the camera.</summary>
+    void Stars()
+    {
+        var shader = Shader.Find("Matchmaker/Stars");
+        if (shader == null || cam == null)
+            return;
+        var rng = new System.Random(7);
+        var verts = new List<Vector3>(); var cols = new List<Color>(); var uvs = new List<Vector2>(); var tris = new List<int>();
+        for (int i = 0; i < 1600; i++)
+        {
+            // Mostly in front of and around the camera; none below the horizon glow.
+            var dir = new Vector3((float)rng.NextDouble() * 2f - 1f, (float)rng.NextDouble() * 1.4f - 0.25f,
+                                  (float)rng.NextDouble() * 1.6f - 0.2f).normalized;
+            var c = dir * 48f;
+            float size = 0.05f + 0.20f * Mathf.Pow((float)rng.NextDouble(), 4f);
+            var right = Vector3.Cross(dir, Vector3.up).normalized * size;
+            var up = Vector3.Cross(right, dir).normalized * size;
+            int b = verts.Count;
+            verts.Add(c - right - up); verts.Add(c + right - up); verts.Add(c + right + up); verts.Add(c - right + up);
+            uvs.Add(new Vector2(0, 0)); uvs.Add(new Vector2(1, 0)); uvs.Add(new Vector2(1, 1)); uvs.Add(new Vector2(0, 1));
+            float bright = 0.25f + 0.75f * (float)rng.NextDouble();
+            float warm = (float)rng.NextDouble();
+            var tint = warm < 0.2f ? new Color(1f, 0.82f, 0.7f) : warm > 0.85f ? new Color(0.75f, 0.85f, 1f) : Color.white;
+            var col = new Color(tint.r * bright, tint.g * bright, tint.b * bright, (float)rng.NextDouble());
+            for (int k = 0; k < 4; k++) cols.Add(col);
+            tris.AddRange(new[] { b, b + 1, b + 2, b, b + 2, b + 3 });
+        }
+        var mesh = new Mesh { name = "Stars" };
+        mesh.SetVertices(verts); mesh.SetColors(cols); mesh.SetUVs(0, uvs); mesh.SetTriangles(tris, 0);
+        mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 200f);
+        starMaterial = new Material(shader);
+        var go = new GameObject("Stars");
+        go.transform.SetParent(transform, false);
+        go.transform.position = cam.transform.position;
+        Piece(go, mesh, starMaterial);
+    }
+
+    /// <summary>Bloom, filmic tonemapping and a vignette, so the Earth's limb, the city
+    /// lights and the neon read like the deck.</summary>
+    void Glow()
+    {
+        if (cam == null)
+            return;
+        var data = cam.GetUniversalAdditionalCameraData();
+        data.renderPostProcessing = true;
+        data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+        data.antialiasingQuality = AntialiasingQuality.High;
+        var volume = gameObject.AddComponent<Volume>();
+        volume.isGlobal = true;
+        volume.priority = 10f;
+        var profile = volume.profile;
+        var bloom = profile.Add<Bloom>(true);
+        bloom.intensity.Override(0.9f);
+        bloom.threshold.Override(0.75f);
+        bloom.scatter.Override(0.72f);
+        bloom.tint.Override(new Color(1f, 0.82f, 0.86f));
+        var tone = profile.Add<Tonemapping>(true);
+        tone.mode.Override(TonemappingMode.ACES);
+        var vignette = profile.Add<Vignette>(true);
+        vignette.intensity.Override(0.32f);
+        vignette.smoothness.Override(0.5f);
+        vignette.color.Override(new Color(0.07f, 0.02f, 0.05f));
+        var grade = profile.Add<ColorAdjustments>(true);
+        grade.postExposure.Override(0.15f);
+        grade.contrast.Override(12f);
+        grade.saturation.Override(8f);
     }
 
     void BuildGlobe()
@@ -348,11 +430,48 @@ public class MatchmakerUI : MonoBehaviour
         var earth = new GameObject("Earth");
         earth.transform.SetParent(globe, false);
         earth.transform.localScale = Vector3.one * globeRadius;
-        Piece(earth, LowPoly.Earth(map), litMaterial);
+        var earthShader = Shader.Find("Matchmaker/Earth");
+        if (earthShader == null || map == null)
+        {
+            Piece(earth, LowPoly.Earth(map), litMaterial);   // the flat-shaded fallback
+            return;
+        }
+        map.filterMode = FilterMode.Bilinear;
+        map.anisoLevel = 4;
+        earthMaterial = new Material(earthShader);
+        earthMaterial.SetTexture("_MainTex", map);
+        Piece(earth, LowPoly.SmoothSphere(160, 80), earthMaterial);
+
+        var atmosShader = Shader.Find("Matchmaker/Atmosphere");
+        if (atmosShader != null)
+        {
+            atmosMaterial = new Material(atmosShader);
+            var halo = new GameObject("Atmosphere");
+            halo.transform.SetParent(globe, false);
+            halo.transform.localScale = Vector3.one * globeRadius * 1.09f;
+            Piece(halo, LowPoly.SmoothSphere(96, 48), atmosMaterial);
+        }
+        SunToMaterials();
+    }
+
+    void SunToMaterials()
+    {
+        if (sun == null)
+            return;
+        var toSun = -sun.transform.forward;
+        foreach (var m in new[] { earthMaterial, atmosMaterial })
+            if (m != null)
+                m.SetVector("_SunDir", new Vector4(toSun.x, toSun.y, toSun.z, 0f));
     }
 
     void BuildClouds()
     {
+        if (cloudMaterial != null)
+        {
+            // Clouds at dusk, lit by the city below and the last of the sun.
+            cloudMaterial.SetColor("_BaseColor", new Color(0.62f, 0.48f, 0.60f));
+            cloudMaterial.SetColor("_Color", new Color(0.62f, 0.48f, 0.60f));
+        }
         for (int i = 0; i < 5; i++)
             cloudMeshes.Add(LowPoly.Cloud(100 + i));
         for (int i = 0; i < 34; i++)
@@ -441,7 +560,14 @@ public class MatchmakerUI : MonoBehaviour
         placeName = name;
         hasPin = true;
         var marker = new GameObject("Pin");
-        Piece(marker, LowPoly.Ball(LowPoly.Swatch.Cloud), cloudMaterial);
+        if (pinMaterial == null)
+        {
+            pinMaterial = new Material(cloudMaterial);
+            // Over-bright, so the bloom turns it into a beacon.
+            pinMaterial.SetColor("_BaseColor", new Color(2.6f, 0.55f, 0.95f));
+            pinMaterial.SetColor("_Color", new Color(2.6f, 0.55f, 0.95f));
+        }
+        Piece(marker, LowPoly.Ball(LowPoly.Swatch.Cloud), pinMaterial);
         pin = marker.transform;
         pin.SetParent(globe, false);
         pin.localPosition = PinLocal(lat, lon) * (globeRadius * 1.005f);
@@ -455,19 +581,18 @@ public class MatchmakerUI : MonoBehaviour
         var m = GlassUI.Begin();
         float W = GlassUI.Width;
 
-        if (step < Step.Boarding)
+        if (step > Step.Start && step < Step.Boarding)
         {
-            GlassUI.Label(new Rect(60f, 22f, 400f, 56f), Brand.Name, 46, Brand.Ink, FontStyle.Bold);
-            GlassUI.Label(new Rect(62f, 72f, 600f, 22f), Brand.Tagline, 15, new Color(Brand.Ink.r, Brand.Ink.g, Brand.Ink.b, 0.65f));
+            GlassUI.Neon(new Rect(56f, 14f, 300f, 60f), Brand.Name, 44, Brand.Accent);
+            if (step <= Step.Date && GlassUI.Button(new Rect(W - 330f, 26f, 130f, 34f), "←  Start", false, true, 13))
+                step = Step.Start;
         }
-        // The demo: one click to the authored café date.
-        var demo = catalog?.presets != null && catalog.presets.Length > 0 ? catalog.presets[0] : null;
-        if (demo != null && step <= Step.Date
-            && GlassUI.Button(new Rect(400f, 34f, 280f, 40f), $"▶  Demo date · {demo.label.Split('·')[0].Trim()}", true))
-            StartCoroutine(GeneratePreset(demo));
         PinLabel();
         switch (step)
         {
+            case Step.Start:
+                StartScreen();
+                break;
             case Step.Face:
             case Step.Language:
             case Step.Date:
@@ -486,6 +611,66 @@ public class MatchmakerUI : MonoBehaviour
         GlassUI.End(m);
     }
 
+    /// <summary>The first thing the app shows: the neon name, the promise, the two demo
+    /// dates (one card per authored preset) and the way into the matchmaker.</summary>
+    void StartScreen()
+    {
+        float x = 72f, y = 70f;
+        GlassUI.Eyebrow(new Rect(x, y, 420f, 20f), "Speed date · 3:00");
+        GlassUI.Neon(new Rect(x - 6f, y + 20f, 560f, 130f), Brand.Name, 112, Brand.Accent);
+        GlassUI.Headline(new Rect(x, y + 152f, 620f, 44f), "Keep up. Flirt back.", 34, Brand.Cream);
+        GlassUI.Headline(new Rect(x, y + 192f, 620f, 44f), "<i>Speak like a local.</i>", 34, Brand.Accent);
+        GlassUI.Label(new Rect(x, y + 244f, 560f, 40f),
+                      "Three minutes across the table from someone who only speaks their dialect. They read your face, warm up or cool off, and print you a receipt.",
+                      14, Brand.Muted, FontStyle.Normal, TextAnchor.UpperLeft, true);
+
+        float cy = y + 300f;
+        GlassUI.Eyebrow(new Rect(x, cy, 400f, 18f), "Jump straight in", Brand.Warn);
+        var presets = catalog?.presets ?? Array.Empty<PresetInfo>();
+        float cw = 280f, gap = 16f;
+        for (int i = 0; i < Mathf.Min(2, presets.Length); i++)
+            if (DemoCard(new Rect(x + i * (cw + gap), cy + 28f, cw, 128f), presets[i]))
+                StartCoroutine(GeneratePreset(presets[i]));
+        if (presets.Length == 0)
+            GlassUI.Label(new Rect(x, cy + 28f, 560f, 40f),
+                          string.IsNullOrEmpty(catalogError) ? "Loading the demo dates…" : catalogError, 13,
+                          string.IsNullOrEmpty(catalogError) ? Brand.Muted : Brand.Bad, FontStyle.Normal, TextAnchor.UpperLeft, true);
+
+        float ry = cy + 172f;
+        GlassUI.Label(new Rect(x, ry, 90f, 30f), "Your date is", 12, Brand.Dim);
+        if (GlassUI.Chip(new Rect(x + 92f, ry, 92f, 30f), "a woman", dateGender != "male", 12))
+            dateGender = "female";
+        if (GlassUI.Chip(new Rect(x + 192f, ry, 92f, 30f), "a man", dateGender == "male", 12))
+            dateGender = "male";
+        if (GlassUI.Button(new Rect(x + 360f, ry - 4f, 216f, 38f), "Create your own date  →", false, true, 14))
+            step = Step.Face;
+
+        GlassUI.Label(new Rect(x, GlassUI.Height - 40f, 700f, 18f),
+                      "Esc  menu      F11  fullscreen      a microphone and a webcam make it real", 11, Brand.Dim);
+    }
+
+    /// <summary>One authored demo date as a card; returns true when clicked.</summary>
+    bool DemoCard(Rect r, PresetInfo p)
+    {
+        bool hover = r.Contains(Event.current.mousePosition);
+        if (hover)
+            GlassUI.Glow(r, Brand.Accent, 18, 12f);
+        GlassUI.Panel(r, 1f, 18);
+        if (hover)
+            GlassUI.Outline(r, new Color(1f, 0.24f, 0.43f, 0.8f), 18);
+        string language = string.IsNullOrEmpty(p.language) ? p.dialect : p.language;
+        GlassUI.Text(new Rect(r.x + 18f, r.y + 14f, r.width - 36f, 16f), GlassUI.Spaced(language), 10, Brand.Warn,
+                     GlassUI.Face.Mono, FontStyle.Bold);
+        string who = dateGender == "male" ? p.dates?.male : p.dates?.female;
+        string venueName = string.IsNullOrEmpty(p.venue) ? (p.label ?? "").Split('·')[0].Trim() : p.venue;
+        GlassUI.Headline(new Rect(r.x + 18f, r.y + 32f, r.width - 36f, 36f),
+                         string.IsNullOrEmpty(who) ? venueName : $"{who} <i>at</i> {venueName}", 23, Brand.Cream);
+        GlassUI.Label(new Rect(r.x + 18f, r.y + 68f, r.width - 36f, 18f), p.city, 12, Brand.Muted);
+        GlassUI.Label(new Rect(r.x + 18f, r.yMax - 32f, r.width - 36f, 20f), "▶  Play this date", 13,
+                      hover ? Brand.Cream : Brand.Accent, FontStyle.Bold);
+        return GUI.Button(r, GUIContent.none, GUIStyle.none);
+    }
+
     void Studio(Rect panel)
     {
         GlassUI.Panel(panel);
@@ -494,8 +679,9 @@ public class MatchmakerUI : MonoBehaviour
         for (int i = 0; i < 3; i++)
         {
             var r = new Rect(panel.x + 20f + i * 196f, panel.y + 16f, 186f, 30f);
-            if (GlassUI.Chip(r, tabs[i], (int)step == i) && (i <= (int)step || onboarding != null))
-                step = (Step)i;
+            var tab = Step.Face + i;
+            if (GlassUI.Chip(r, tabs[i], step == tab) && (tab <= step || onboarding != null))
+                step = tab;
         }
         var body = new Rect(panel.x + 20f, panel.y + 62f, panel.width - 40f, panel.height - 124f);
         if (!string.IsNullOrEmpty(catalogError))
@@ -504,7 +690,7 @@ public class MatchmakerUI : MonoBehaviour
         switch (step)
         {
             case Step.Face:
-                GlassUI.Label(new Rect(body.x, body.y, body.width, 20f), "Let's scan your face. Your avatar is built from your photo and mirrors you live.", 13, new Color(1f, 1f, 1f, 0.8f));
+                GlassUI.Label(new Rect(body.x, body.y, body.width, 20f), "Let's scan your face. Your avatar is built from your photo and mirrors you live.", 13, Brand.Muted);
                 onboarding?.Draw(new Rect(body.x, body.y + 28f, body.width, body.height - 28f));
                 break;
             case Step.Language:
@@ -518,8 +704,8 @@ public class MatchmakerUI : MonoBehaviour
         // Footer.
         var back = new Rect(panel.x + 20f, panel.yMax - 54f, 110f, 38f);
         var next = new Rect(panel.xMax - 220f, panel.yMax - 54f, 200f, 38f);
-        if (step != Step.Face && GlassUI.Button(back, "Back"))
-            step = (Step)((int)step - 1);
+        if (GlassUI.Button(back, "Back"))
+            step = step - 1;
         if (step == Step.Face && GlassUI.Button(next, "Next  →", true))
             step = Step.Language;
         else if (step == Step.Language && GlassUI.Button(next, "Next  →", true, catalog != null))
@@ -533,10 +719,10 @@ public class MatchmakerUI : MonoBehaviour
     void LanguageStep(Rect r)
     {
         float y = r.y;
-        GlassUI.Label(new Rect(r.x, y, 200f, 20f), "Your name (how your date says it)", 12, new Color(1f, 1f, 1f, 0.6f));
+        GlassUI.Label(new Rect(r.x, y, 220f, 20f), "Your name (how your date says it)", 12, Brand.Muted);
         learnerName = GlassUI.Field(new Rect(r.x + 230f, y - 6f, r.width - 230f, 32f), learnerName, "e.g. Arth", 40, 14);
         y += 38f;
-        GlassUI.Label(new Rect(r.x, y, r.width, 18f), "DIALECT", 11, new Color(1f, 1f, 1f, 0.55f), FontStyle.Bold);
+        GlassUI.Eyebrow(new Rect(r.x, y, r.width, 18f), "DIALECT");
         y += 22f;
         var dialects = catalog?.dialects ?? Array.Empty<DialectInfo>();
         float cw = (r.width - 8f) / 2f;
@@ -552,7 +738,7 @@ public class MatchmakerUI : MonoBehaviour
         var d = Array.Find(dialects, x => x.code == dialect);
         if (d != null && d.cities.Length > 1)
         {
-            GlassUI.Label(new Rect(r.x, y, r.width, 18f), "CITY", 11, new Color(1f, 1f, 1f, 0.55f), FontStyle.Bold);
+            GlassUI.Eyebrow(new Rect(r.x, y, r.width, 18f), "CITY");
             y += 22f;
             for (int i = 0; i < d.cities.Length; i++)
                 if (GlassUI.Chip(new Rect(r.x + i * 150f, y, 142f, 30f), d.cities[i].name, city == d.cities[i].name, 12))
@@ -563,7 +749,7 @@ public class MatchmakerUI : MonoBehaviour
             y += 42f;
         }
 
-        GlassUI.Label(new Rect(r.x, y, r.width, 18f), "YOUR LEVEL", 11, new Color(1f, 1f, 1f, 0.55f), FontStyle.Bold);
+        GlassUI.Eyebrow(new Rect(r.x, y, r.width, 18f), "YOUR LEVEL");
         y += 22f;
         var levels = catalog?.levels ?? Array.Empty<LevelInfo>();
         float lw = (r.width - 5 * 8f) / Mathf.Max(1, levels.Length);
@@ -594,7 +780,7 @@ public class MatchmakerUI : MonoBehaviour
         Row(r, ref y, "VENUE", venueIds.ToArray(), id => id == "auto" ? "✨ Let my prompt decide" : Array.Find(venues, o => o.id == id)?.label ?? id,
             id => venue == id, id => venue = id, 3, 11);
 
-        GlassUI.Label(new Rect(r.x, y, r.width, 18f), "SET THE SCENE", 11, new Color(1f, 1f, 1f, 0.55f), FontStyle.Bold);
+        GlassUI.Eyebrow(new Rect(r.x, y, r.width, 18f), "SET THE SCENE");
         y += 20f;
         scenePrompt = GlassUI.Field(new Rect(r.x, y, r.width, 34f), scenePrompt, "a rooftop bar at sunset after the rain, city lights coming on", 300, 14);
         y += 42f;
@@ -604,7 +790,7 @@ public class MatchmakerUI : MonoBehaviour
     void Row(Rect r, ref float y, string title, string[] ids, Func<string, string> label, Func<string, bool> selected,
              Action<string> choose, int perRow, int size = 12)
     {
-        GlassUI.Label(new Rect(r.x, y, r.width, 18f), title, 11, new Color(1f, 1f, 1f, 0.55f), FontStyle.Bold);
+        GlassUI.Eyebrow(new Rect(r.x, y, r.width, 18f), title);
         y += 20f;
         float w = (r.width - (perRow - 1) * 8f) / perRow;
         for (int i = 0; i < ids.Length; i++)
@@ -618,8 +804,8 @@ public class MatchmakerUI : MonoBehaviour
         GlassUI.Panel(r);
         string[] lines = { $"Searching {(string.IsNullOrEmpty(city) ? "the city" : city)}…", "Writing their story…", "Choosing the venue…", "Picking their first line…" };
         int i = Mathf.Min(lines.Length - 1, (int)(Since / 0.6f));
-        GlassUI.Label(new Rect(r.x + 24f, r.y + 20f, r.width - 48f, 20f), "MATCHMAKING", 11, Brand.AccentSoft, FontStyle.Bold);
-        GlassUI.Label(new Rect(r.x + 24f, r.y + 48f, r.width - 48f, 40f), lines[i], 24, Color.white, FontStyle.Bold);
+        GlassUI.Eyebrow(new Rect(r.x + 24f, r.y + 20f, r.width - 48f, 20f), "Matchmaking");
+        GlassUI.Headline(new Rect(r.x + 24f, r.y + 46f, r.width - 48f, 44f), lines[i], 30, Brand.Cream);
         float t = Mathf.PingPong(Time.time * 0.8f, 1f);
         GlassUI.Bar(new Rect(r.x + 24f, r.y + 112f, r.width - 48f, 6f), Mathf.Clamp01(Since / 2.4f), Brand.Accent);
         GlassUI.Label(new Rect(r.x + 24f, r.y + 128f, r.width - 48f, 30f), "Someone in " + (string.IsNullOrEmpty(city) ? "the city" : city) + " is about to sit down.", 13,
@@ -632,8 +818,8 @@ public class MatchmakerUI : MonoBehaviour
         float a = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Since / 0.5f));
         r.y += (1f - a) * 24f;
         GlassUI.Panel(r, a);
-        GlassUI.Label(new Rect(r.x + 24f, r.y + 18f, r.width - 48f, 18f), "IT'S A DATE", 11, Brand.AccentSoft, FontStyle.Bold);
-        GlassUI.Label(new Rect(r.x + 24f, r.y + 40f, r.width - 48f, 44f), $"{c.display_name}, {c.age}", 34, Color.white, FontStyle.Bold);
+        GlassUI.Eyebrow(new Rect(r.x + 24f, r.y + 18f, r.width - 48f, 18f), "It's a date");
+        GlassUI.Headline(new Rect(r.x + 24f, r.y + 38f, r.width - 48f, 48f), $"{c.display_name}, <i>{c.age}</i>", 40, Brand.Cream);
         GlassUI.Label(new Rect(r.x + 24f, r.y + 86f, r.width - 48f, 22f), $"{Cap(c.occupation)} · {Label(match.personality_archetype)}", 15, Color.white);
         GlassUI.Label(new Rect(r.x + 24f, r.y + 114f, r.width - 48f, 20f), $"{match.venue?.label} · {match.city} · {match.dialect_label}", 13, Brand.AccentSoft);
         GlassUI.Label(new Rect(r.x + 24f, r.y + 144f, r.width - 48f, 60f), match.scene_description, 13, new Color(1f, 1f, 1f, 0.75f), FontStyle.Italic, TextAnchor.UpperLeft, true);
@@ -661,9 +847,11 @@ public class MatchmakerUI : MonoBehaviour
         float scale = GlassUI.Scale;
         var p = new Vector2(s.x / scale, (Screen.height - s.y) / scale);
         float tw = GlassUI.TextWidth(placeName, 13, FontStyle.Bold);
-        var r = new Rect(p.x + 12f, p.y - 24f, tw + 20f, 24f);
-        GlassUI.Rounded(r, new Color(1f, 1f, 1f, 0.9f), 12);
-        GlassUI.Label(r, placeName, 13, Brand.Ink, FontStyle.Bold, TextAnchor.MiddleCenter);
+        var r = new Rect(p.x + 14f, p.y - 28f, tw + 34f, 26f);
+        GlassUI.Rounded(r, new Color(0.07f, 0.02f, 0.05f, 0.85f), 13);
+        GlassUI.Outline(r, new Color(1f, 0.24f, 0.43f, 0.6f), 13);
+        GlassUI.Dot(new Vector2(r.x + 13f, r.center.y), 7f, Brand.Accent);
+        GlassUI.Label(new Rect(r.x + 22f, r.y, r.width - 26f, r.height), placeName, 13, Brand.Cream, FontStyle.Bold);
     }
 
     void Status()
@@ -679,7 +867,7 @@ public class MatchmakerUI : MonoBehaviour
         string who = match?.date_character?.display_name ?? "your date";
         string title = string.Format(Stages[i].title, where, scene, who);
         string sub = string.Format(Stages[i].sub, where, scene, who);
-        GlassUI.Label(new Rect(96f, 262f, 900f, 56f), title, 44, new Color(Brand.Ink.r, Brand.Ink.g, Brand.Ink.b, a), FontStyle.Bold);
-        GlassUI.Label(new Rect(96f, 322f, 900f, 26f), sub, 18, new Color(Brand.Ink.r, Brand.Ink.g, Brand.Ink.b, 0.6f * a));
+        GlassUI.Headline(new Rect(96f, 256f, 1000f, 64f), title, 52, new Color(Brand.Cream.r, Brand.Cream.g, Brand.Cream.b, a));
+        GlassUI.Label(new Rect(98f, 326f, 900f, 26f), sub, 18, new Color(Brand.Muted.r, Brand.Muted.g, Brand.Muted.b, a));
     }
 }

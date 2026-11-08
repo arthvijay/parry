@@ -8,12 +8,20 @@
     "ghosted": "GHOSTED"
   },
   "colors": {
-    "accent": "#FF5A7A",
-    "accentSoft": "#FFB3C1",
-    "ink": "#14151C",
-    "glass": "#1A1C26",
-    "good": "#4CD787",
-    "warn": "#FFC24B",
-    "bad": "#FF5A5A"
+    "accent": "#FF3D6E",
+    "accentSoft": "#FFB4C6",
+    "ink": "#120710",
+    "glass": "#140812",
+    "good": "#7CF5E4",
+    "warn": "#FFB454",
+    "bad": "#FF5A6E",
+    "cream": "#F7ECDF",
+    "muted": "#C9B1BD",
+    "dim": "#8D7381",
+    "match": "#FF3D6E",
+    "friendzone": "#FFB454",
+    "ghosted": "#7FA6FF",
+    "paper": "#F7ECDF",
+    "paperInk": "#2A1820"
   }
 }

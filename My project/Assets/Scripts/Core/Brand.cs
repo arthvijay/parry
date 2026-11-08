@@ -31,6 +31,10 @@ public static class Brand
         public string ghosted = "#7FA6FF";
         public string paper = "#F7ECDF";
         public string paperInk = "#2A1820";
+        // The pitch deck's type colours: primary, secondary and tertiary text.
+        public string cream = "#F7ECDF";
+        public string muted = "#C9B1BD";
+        public string dim = "#8D7381";
     }
 
     [Serializable]
@@ -84,6 +88,9 @@ public static class Brand
     public static Color Ghosted => Hex(D.colors.ghosted, new Color(0.5f, 0.65f, 1f));
     public static Color Paper => Hex(D.colors.paper, new Color(0.97f, 0.93f, 0.87f));
     public static Color PaperInk => Hex(D.colors.paperInk, new Color(0.16f, 0.09f, 0.13f));
+    public static Color Cream => Hex(D.colors.cream, new Color(0.97f, 0.93f, 0.87f));
+    public static Color Muted => Hex(D.colors.muted, new Color(0.79f, 0.69f, 0.74f));
+    public static Color Dim => Hex(D.colors.dim, new Color(0.55f, 0.45f, 0.51f));
 
     /// <summary>Chemistry at which a date ends in each verdict (the server's thresholds).</summary>
     public const int FriendzoneAt = 45, MatchAt = 65;

@@ -552,8 +552,14 @@ def presets() -> list[dict]:
             data = json.loads(path.read_text(encoding="utf-8"))
         except ValueError:
             continue
+        variants = data.get("variants", {})
+        dialect = DIALECTS.get(data["dialect"])
         found.append({"id": data["id"], "label": data["label"], "summary": data.get("summary", ""),
                       "dialect": data["dialect"], "city": data["city"]["name"],
+                      # For the start screen's cards: who you'd meet, and in what language.
+                      "venue": data.get("venue", {}).get("label", ""),
+                      "language": (dialect.nickname or dialect.label) if dialect else data["dialect"],
+                      "dates": {g: v.get("display_name", "") for g, v in variants.items()},
                       "lat": data["city"]["lat"], "lon": data["city"]["lon"],
                       "default_proficiency": data.get("default_proficiency", "B1")})
     return found

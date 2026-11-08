@@ -261,6 +261,17 @@ public class PresetInfo
     public float lat;
     public float lon;
     public string default_proficiency;
+    // For the start screen's cards.
+    public string venue;
+    public string language;
+    public PresetDates dates;
+}
+
+[Serializable]
+public class PresetDates
+{
+    public string female;
+    public string male;
 }
 
 [Serializable]
