@@ -63,10 +63,11 @@ Shader "Matchmaker/Earth"
                 float u = atan2(n.x, -n.z) / (2.0 * PI) + 0.5;
                 float v = asin(clamp(n.y, -1.0, 1.0)) / PI + 0.5;
                 half3 c = SAMPLE_TEXTURE2D_LOD(_MainTex, sampler_MainTex, float2(u, v), 0).rgb;
+                // Sea or land, judged on the map's own (sRGB) values: its seas are navy.
+                float ocean = saturate((c.b - max(c.r, c.g)) * 6.0 - 0.15);
                 #if !defined(UNITY_COLORSPACE_GAMMA)
                 c = SRGBToLinear(c);   // the map is imported as linear data
                 #endif
-                float ocean = saturate((c.b - max(c.r, c.g)) * 8.0);
 
                 float3 N = normalize(i.normalWS);
                 float3 L = normalize(_SunDir.xyz);
@@ -79,14 +80,20 @@ Shader "Matchmaker/Earth"
                 half3 albedo = lerp(land, sea, ocean);
                 half3 lit = albedo * (0.06 + 1.1 * saturate(ndl));
                 float3 H = normalize(L + V);
-                lit += pow(saturate(dot(N, H)), 70.0) * ocean * day * half3(1.0, 0.88, 0.72) * 1.1;
+                lit += pow(saturate(dot(N, H)), 140.0) * ocean * day * half3(1.0, 0.88, 0.72) * 0.18;
 
-                // City lights: sparse warm points on land, thinning towards the poles.
-                float2 g = float2(u * 1100.0, v * 550.0);
-                float lights = step(0.88, hash(floor(g))) * (1.0 - ocean);
-                lights *= 0.4 + 0.6 * hash(floor(g * 0.21));
-                lights *= 1.0 - smoothstep(0.55, 0.8, abs(n.y));
-                half3 night = _Night.rgb + _City.rgb * lights * 1.8;
+                // City lights: sparse, soft, round points on land, gathered into clusters
+                // (a coarse noise picks where people live) and thinning towards the poles.
+                float2 g = float2(u * 640.0, v * 320.0);
+                float2 cell = floor(g);
+                float2 inCell = frac(g) - 0.5;
+                float point_ = saturate(1.0 - length(inCell) * 2.2);
+                float lit_ = step(0.80, hash(cell));
+                float region = smoothstep(0.45, 0.85, hash(floor(g * 0.06)));
+                float lights = point_ * lit_ * region * (1.0 - ocean);
+                lights *= 0.5 + 0.5 * hash(cell + 17.0);
+                lights *= 1.0 - smoothstep(0.55, 0.78, abs(n.y));
+                half3 night = _Night.rgb + _City.rgb * lights * 2.2;
 
                 half3 col = lerp(night, lit, day);
                 // Scattering at the limb, brighter on the sunlit side.

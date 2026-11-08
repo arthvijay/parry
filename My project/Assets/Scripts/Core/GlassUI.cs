@@ -59,7 +59,7 @@ public static class GlassUI
     {
         if (Event.current.type != EventType.Repaint)
             return;
-        var style = Slice(radius);
+        var style = Slice(Fit(r, radius));
         var was = GUI.color;
         GUI.color = fill;
         style.Draw(r, GUIContent.none, false, false, false, false);
@@ -69,16 +69,21 @@ public static class GlassUI
     /// <summary>A rounded hairline: the edge of a shape, with nothing inside.</summary>
     public static void Outline(Rect r, Color color, int radius = 14, float thickness = 1f)
     {
-        // Four strips, inset by the radius at the corners, plus the corner arcs from a
-        // ring texture: cheap, crisp, and transparent inside.
+        // A 9-sliced ring texture: crisp at any size, transparent inside.
         if (Event.current.type != EventType.Repaint)
             return;
-        var style = Ring(radius);
+        var style = Ring(Fit(r, radius));
         var was = GUI.color;
         GUI.color = color;
         style.Draw(r, GUIContent.none, false, false, false, false);
         GUI.color = was;
     }
+
+    /// <summary>The radius a rectangle can take: its 9-slice borders (radius + 1 each side)
+    /// must fit inside it, or Unity overlaps the slices and draws a stray line across the
+    /// middle of a pill.</summary>
+    static int Fit(Rect r, int radius)
+        => Mathf.Max(2, Mathf.Min(radius, Mathf.FloorToInt(Mathf.Min(r.width, r.height) / 2f) - 1));
 
     /// <summary>A soft glow around a shape, like the deck's neon and its rose buttons.</summary>
     public static void Glow(Rect r, Color color, int radius = 14, float spread = 10f, int layers = 4)
@@ -100,8 +105,8 @@ public static class GlassUI
         Rounded(new Rect(r.x + 2f, r.y + 10f, r.width, r.height), new Color(0f, 0f, 0f, 0.28f * alpha), radius + 4);
         Rounded(r, new Color(glass.r, glass.g, glass.b, 0.78f * alpha), radius);
         // A warm sheen along the top edge, the candlelight in the deck's glass.
-        Rounded(new Rect(r.x + 1f, r.y + 1f, r.width - 2f, Mathf.Min(40f, r.height * 0.35f)),
-                new Color(1f, 0.85f, 0.75f, 0.035f * alpha), Mathf.Max(4, radius - 1));
+        Rounded(new Rect(r.x + 1f, r.y + 1f, r.width - 2f, Mathf.Min(16f, r.height * 0.2f)),
+                new Color(1f, 0.85f, 0.75f, 0.02f * alpha), Mathf.Max(4, radius - 1));
         Outline(r, Hair(0.14f * alpha), radius);
     }
 

@@ -87,6 +87,7 @@ public class MatchmakerUI : MonoBehaviour
     CloudCurtain curtain;
     float seaLift;
     bool loading;
+    bool cloudsShown = true;
 
     class Puff
     {
@@ -131,6 +132,11 @@ public class MatchmakerUI : MonoBehaviour
         if (visionPanel == null)
             visionPanel = gameObject.AddComponent<VisionPanel>();
         StartCoroutine(LoadCatalog());
+        // Development aid, with SessionMenu's -shot: open on a given step.
+        var args = Environment.GetCommandLineArgs();
+        int at = Array.IndexOf(args, "-matchmaker-step");
+        if (at >= 0 && at + 1 < args.Length && Enum.TryParse(args[at + 1], true, out Step wanted) && wanted <= Step.Date)
+            step = wanted;
     }
 
     void OnDestroy()
@@ -291,10 +297,18 @@ public class MatchmakerUI : MonoBehaviour
         var zoomed = new Vector3(0.4f, -0.2f, 0f) - pinWorldDir * globeRadius * scale;
         globe.position = Vector3.Lerp(globeCentre, zoomed, zoom);
         if (pin != null)
-            pin.localScale = Vector3.one * (0.075f + 0.02f * Mathf.Sin(Time.time * 4f));
+            pin.localScale = Vector3.one * (0.032f + 0.008f * Mathf.Sin(Time.time * 4f));
 
         float cover = step < Step.Boarding ? 0f : Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(CoverFrom, CoverTo, t));
         MoveClouds(cover);
+        // The night sky stays clear until the trip: the clouds rush in for the flight.
+        bool showClouds = step >= Step.Matched;
+        if (showClouds != cloudsShown)
+        {
+            cloudsShown = showClouds;
+            foreach (var p in puffs)
+                p.t.gameObject.SetActive(showClouds);
+        }
         if (curtain != null && step != Step.Departing)
             curtain.Cover = cover;
     }
@@ -344,7 +358,7 @@ public class MatchmakerUI : MonoBehaviour
         sun.shadows = LightShadows.None;
         // From the upper left and a little behind the camera: the Earth's lit face turns
         // towards the studio, the night side and its city lights to the right.
-        sun.transform.rotation = Quaternion.Euler(22f, 118f, 0f);
+        sun.transform.rotation = Quaternion.Euler(20f, 40f, 0f);
         Stars();
         Glow();
     }
@@ -564,8 +578,8 @@ public class MatchmakerUI : MonoBehaviour
         {
             pinMaterial = new Material(cloudMaterial);
             // Over-bright, so the bloom turns it into a beacon.
-            pinMaterial.SetColor("_BaseColor", new Color(2.6f, 0.55f, 0.95f));
-            pinMaterial.SetColor("_Color", new Color(2.6f, 0.55f, 0.95f));
+            pinMaterial.SetColor("_BaseColor", new Color(1.7f, 0.42f, 0.72f));
+            pinMaterial.SetColor("_Color", new Color(1.7f, 0.42f, 0.72f));
         }
         Piece(marker, LowPoly.Ball(LowPoly.Swatch.Cloud), pinMaterial);
         pin = marker.transform;
