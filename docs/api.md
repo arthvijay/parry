@@ -583,12 +583,12 @@ character's voice as binary frames and sends JSON events.
 | `chemistry_update` `{chemistry_score, delta, mood_label, reason, npc_posture, completed_milestones, evidence_quotes, green_flags_hit, red_flags_hit, source}` | After every learner turn, and on non-verbal events |
 | `wingman_hint` `{whisper_context, options:[{tone, target, gloss}×3]}` | 4 s of silence after the date finished, or asked for with `wingman` |
 | `clear_audio` `{npc_id}` | Acknowledges a barge-in: drop everything buffered |
-| `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame |
+| `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame. `expressions` holds baseline-relative `levels`, `smiling`, `looking`, `calibrated`, `attentive`, `away_reason` (`head_turned`, `head_tilted`, `eyes_aside`, `out_of_frame` or null) and `relative_head:{pitch,yaw}` |
 | `signal` `{kind, label, effect, during_npc}` | A smile, laugh, nod, head shake, puzzled or surprised look, look-away, look-back |
 | `user_speech` `{speaking}` | The recogniser heard speech start or end |
 | `help_card` `{said, meaning_en, suggestions:[{target, gloss}]×1–3, tip}` | The translator's answer. Without Claude, `meaning_en` says translation needs the key and the suggestions are the wingman's lines |
 | `scene_action` `{action:"order_placed", npc_id:"host", items}` | An order was placed (once per date): send the host to the table |
-| `date_started` `{seconds}` / `date_ended` `{verdict, chemistry_score, run_id, scenario_id}` | The clock |
+| `date_started` `{seconds}` / `date_ended` `{verdict, chemistry_score, run_id, scenario_id, face}` | The clock. `face` summarises the webcam over the date: `frames`, `face_visible_pct`, `attentive_pct`, `signals`, `signals_while_date_talked` |
 | `notice`, `error` `{detail, fatal}` | Human-readable problems |
 
 **Echo.** A recognised line made only of words from the line a character just spoke,

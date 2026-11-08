@@ -608,7 +608,8 @@ class StreamSession:
         self.director.save()
         await self.send({"type": "date_ended", "reason": reason, "verdict": verdict,
                          "chemistry_score": self.director.state.score, "run_id": self.run_id,
-                         "scenario_id": self.scenario.scenario_id})
+                         "scenario_id": self.scenario.scenario_id,
+                         "face": self.tracker.stats()})
 
     async def _closing_line(self, verdict: str) -> str:
         """A goodbye that remembers the conversation, or the authored one."""
@@ -674,9 +675,12 @@ class StreamSession:
         away = float(msg.get("look_away_duration_sec") or 0.0)
         seated = bool(msg.get("is_seated"))
         date_talking = self.speaking == DATE
+        # The face can overrule the game camera (head turned, phone in the lap, out of
+        # frame); the tracker holds the combined answer, which is what eye contact counts.
+        signals = self.tracker.gaze(looking, away, now, date_talking)
         if self.running and seated:
-            self.director.record_gaze(looking)
-        for signal in self.tracker.gaze(looking, away, now, date_talking):
+            self.director.record_gaze(self.tracker.looking)
+        for signal in signals:
             await self._signal(signal)
         if self.running and self.tracker.look_away_episode(
                 now, config.LOOK_AWAY_CALLOUT_SECONDS, date_talking):

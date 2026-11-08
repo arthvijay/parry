@@ -457,7 +457,7 @@ body.edit .slot{cursor:copy}
 .metric span{display:block;font-family:var(--f-mono);font-size:14px;color:var(--muted);margin-top:8px;letter-spacing:.04em}
 
 /* =====================================================================
-   SLIDE 10: WHY IT FEELS REAL
+   SLIDE 10: WHY IT'S DIFFERENT
    ===================================================================== */
 .evo{margin-top:50px;display:flex;flex-direction:column;gap:14px}
 .evo-row{display:grid;grid-template-columns:250px 1fr 70px 1.25fr;align-items:center;gap:22px;padding:20px 26px;border-radius:20px;background:rgba(255,255,255,.025);border:1px solid var(--line)}
@@ -580,7 +580,7 @@ body.edit .slot{cursor:copy}
 /* =====================================================================
    SLIDE 15: TEAM
    ===================================================================== */
-.team{display:grid;grid-template-columns:repeat(4,1fr);gap:30px;margin-top:70px}
+.team{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:70px}
 .member{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
 .photo{position:relative;width:230px;height:230px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 35% 30%,var(--wine-2),var(--wine));box-shadow:0 0 0 3px var(--ink),0 0 0 5px var(--c),0 0 40px color-mix(in srgb,var(--c) 45%,transparent);margin-bottom:16px}
 .photo .initials{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-display);font-size:80px;font-weight:600;color:var(--c)}
@@ -801,7 +801,7 @@ body.edit .slot{cursor:copy}
      SLIDE 6: HOW A DATE WORKS
      ================================================================= -->
 <section class="slide s-flow" data-id="flow" data-title="How it works"
-  data-notes="Four stages. One: snap a selfie and MediaPipe tints a rigged 3D avatar that mirrors your face; pick a dialect, a venue and your date's personality. Two: the clouds part, a host greets you in dialect and seats you. Three: the bell rings and the mic stays open for three minutes. Four: you pitch a second date and get your verdict receipt.">
+  data-notes="Four stages. One: snap a selfie and MediaPipe tints a rigged 3D avatar with your skin and hair; pick a dialect, a venue and your date's personality. Two: the clouds part, a host greets you in dialect and seats you. Three: the bell rings and the mic stays open for three minutes. Four: you pitch a second date and get your verdict receipt.">
   <p class="eyebrow a" style="--d:.1">How a date works</p>
   <h2 class="title sm a" style="--d:.2">From selfie to verdict in <em>four scenes.</em></h2>
   <div class="flow">
@@ -809,8 +809,8 @@ body.edit .slot{cursor:copy}
     <div class="stage-card a" style="--d:.5;--c:var(--ice)">
       <div class="node"><svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/><circle cx="12" cy="10.5" r="3"/><path d="M7.5 17c1-2 2.6-3 4.5-3s3.5 1 4.5 3"/></svg></div>
       <span class="k">STAGE 01</span><h3>Matchmaker studio</h3>
-      <p>Snap a selfie: MediaPipe samples your skin and hair and tints a rigged 3D avatar that mirrors your face live. Pick a dialect, a venue and your date’s archetype.</p>
-      <div class="tags"><span>52 ARKit blendshapes</span><span>MediaPipe Face Landmarker</span></div>
+      <p>Snap a selfie and a rigged 3D avatar takes on your skin and hair. Pick a dialect, a venue and your date’s archetype.</p>
+      <div class="tags"><span>52 ARKit blendshapes</span><span>MediaPipe + Rocketbox</span></div>
     </div>
     <div class="stage-card a" style="--d:1.1;--c:var(--hud)">
       <div class="node"><svg viewBox="0 0 24 24"><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M3 21h18"/><circle cx="14.5" cy="12" r="1"/></svg></div>
@@ -879,7 +879,7 @@ body.edit .slot{cursor:copy}
     </div>
     <div id="deltas"></div>
     <div class="stall" id="stall"><svg viewBox="0 0 160 160"><circle class="bg" cx="80" cy="80" r="70"/><circle class="fg" id="stallFg" cx="80" cy="80" r="70"/></svg><div class="txt"><div><b id="stallTxt">0.0s</b><span>SILENCE</span></div></div></div>
-    <div class="barge" id="barge">BARGE-IN · lip-sync cut in 84 ms</div>
+    <div class="barge" id="barge">BARGE-IN · voices cut at 120 ms</div>
     <div class="wing" id="wing">
       <h4><i></i>WINGMAN · EARPIECE</h4>
       <div class="opt" data-k="flirty"><b>FLIRTY</b><p>Ahora mismo, me dan ganas de fotografiarte a vos.</p><small>“Right now? I’m tempted to photograph you.”</small></div>
@@ -895,9 +895,9 @@ body.edit .slot{cursor:copy}
     <h2 class="title xs a" style="--d:.3">Every second <em>is scored.</em></h2>
     <div class="mechs">
       <div class="mech a" data-m="chem" style="--d:.45"><h3>Live chemistry <span>0–100%</span></h3><p>Callbacks, follow-up questions and local idioms push it up. Monologues and textbook stiffness drag it down.</p></div>
-      <div class="mech a" data-m="gaze" style="--d:.55"><h3>Eye contact &amp; smiles <span>250 ms</span></h3><p>Look away for 4.5 s while your date talks and they call you out. Your real smile mirrors onto your avatar.</p></div>
+      <div class="mech a" data-m="gaze" style="--d:.55"><h3>Eye contact &amp; smiles <span>250 ms</span></h3><p>Your webcam reads smiles, nods and where you look, calibrated to your face. Look away for 4.5 s while your date talks and they call you out.</p></div>
       <div class="mech a" data-m="wing" style="--d:.65"><h3>Digital wingman <span>4.0 s stall</span></h3><p>Freeze and an earpiece whispers three replies (flirty, curious or playful) with English glosses.</p></div>
-      <div class="mech a" data-m="barge" style="--d:.75"><h3>Barge-in <span>&lt;100 ms</span></h3><p>Interrupt like a human. Lip-sync stops instantly and the AI drops the rest of its sentence.</p></div>
+      <div class="mech a" data-m="barge" style="--d:.75"><h3>Barge-in <span>120 ms</span></h3><p>Interrupt like a human. Lip-sync stops instantly and the AI drops the rest of its sentence.</p></div>
     </div>
     <button class="replay a" style="--d:.9" id="replay" type="button">↻ Replay the date (R)</button>
   </div>
@@ -949,19 +949,19 @@ body.edit .slot{cursor:copy}
      SLIDE 9: ARCHITECTURE
      ================================================================= -->
 <section class="slide s-stack" data-id="stack" data-title="Under the hood"
-  data-notes="Under the hood: Unity 6 renders Gaussian-splat venues at 60 FPS, streams the mic and webcam, and runs voice activity detection locally for instant barge-in. One WebSocket carries mic audio and gaze telemetry up, and voice, chemistry and wingman events down. The FastAPI orchestrator runs MediaPipe face tracking on the webcam frames and fans out to NVIDIA Nemotron ASR for speech-to-text, Gemini Flash for dialogue, ElevenLabs Flash for the voice, and Claude for personas, the live chemistry judge, the wingman, grading and the learning report. Every provider has an offline fallback. Our target is under 400 milliseconds to first audio.">
+  data-notes="Under the hood: Unity 6 renders Gaussian-splat venues and catches barge-in locally. One WebSocket carries mic audio, webcam frames and gaze telemetry up, and voice, chemistry, face signals and wingman hints down. The FastAPI orchestrator fans out to NVIDIA Nemotron for streaming speech-to-text, ElevenLabs for the voice, and Claude for everything that thinks: the date's live replies, their persona, the chemistry judge, the wingman, the grade and the report. MediaPipe reads your face locally: smiles, nods, puzzled looks and where you're looking. Every provider has an offline fallback, so the whole date runs with zero keys. Our target is under 400 milliseconds to first audio.">
   <div class="stack-head">
     <div><p class="eyebrow a" style="--d:.1">Under the hood</p><h2 class="title sm a" style="--d:.2">Engineered for <em style="white-space:nowrap">sub-400 ms</em> banter.</h2></div>
-    <p class="lede a" style="--d:.35">Speech, dialogue and voice stream through low-latency cloud APIs; face tracking runs on our own server. Unity handles splat rendering, barge-in and spatial audio locally.</p>
+    <p class="lede a" style="--d:.35">Speech, Claude's replies and voice stream through cloud APIs. MediaPipe reads your face locally, and Unity renders the splat venues and catches barge-in.</p>
   </div>
   <svg class="arch-svg a fade" style="--d:.6" viewBox="0 0 1920 1080" aria-hidden="true">
     <path class="flow-up" id="pUp" d="M560 480 L790 480"/>
     <path class="flow-down" id="pDown" d="M790 650 L560 650"/>
     <path class="wire" d="M560 480 L790 480M560 650 L790 650"/>
     <text x="675" y="440" text-anchor="middle">16 kHz mic PCM</text>
-    <text x="675" y="462" text-anchor="middle">+ 250 ms telemetry →</text>
+    <text x="675" y="462" text-anchor="middle">+ webcam · gaze →</text>
     <text x="675" y="684" text-anchor="middle">← 24 kHz voice</text>
-    <text x="675" y="706" text-anchor="middle">chemistry · hints</text>
+    <text x="675" y="706" text-anchor="middle">chemistry · face signals</text>
     <path class="wire-anim" id="s1" d="M1190 570 C1300 570 1300 346 1404 346"/>
     <path class="wire-anim" id="s2" d="M1190 570 C1300 570 1300 458 1404 458"/>
     <path class="wire-anim" id="s3" d="M1190 570 C1300 570 1300 570 1404 570"/>
@@ -976,51 +976,52 @@ body.edit .slot{cursor:copy}
     <circle r="5" class="pk-c"><animateMotion dur="1.8s" begin="1.2s" repeatCount="indefinite"><mpath href="#s5"/></animateMotion></circle>
   </svg>
   <div class="box client a left" style="--d:.4">
-    <h3>Unity 6 client</h3><div class="sub2">URP · 60 FPS · local</div>
+    <h3>Unity 6 client</h3><div class="sub2">URP · Gaussian splatting · local</div>
     <ul>
       <li>Gaussian-splat venues<small>.spz + walkable .glb colliders</small></li>
-      <li>Selfie-tinted Rocketbox avatar<small>live blendshapes from the webcam</small></li>
-      <li>Voice-activity barge-in<small>flush + lip-sync stop &lt;100 ms</small></li>
+      <li>Selfie-tinted avatars<small>Rocketbox bodies mirroring 52 live blendshapes</small></li>
+      <li>Energy-VAD barge-in<small>flushes every voice after 120 ms of speech</small></li>
       <li>Streaming audio player<small>thread-safe circular ring buffer</small></li>
     </ul>
   </div>
   <div class="box orch a" style="--d:.55">
-    <h3>Orchestrator</h3><div class="sub2">Python 3.11+ · FastAPI · uv</div>
+    <h3>Orchestrator</h3><div class="sub2">Python 3.13 · FastAPI · uv</div>
     <ul>
       <li>POST /v1/matchmaker/generate · /preset</li>
       <li class="ws">WS /v1/stream</li>
-      <li>POST /v1/grade · /v1/date/report</li>
-      <li>MediaPipe Face Landmarker<small>478-point mesh, smiles, nods, gaze → chemistry</small></li>
+      <li>POST /v1/grade</li>
+      <li>chemistry_director.py<small>chemistry_update + wingman_hint</small></li>
+      <li>face_tracker + nonverbal.py<small>MediaPipe → smiles, nods, gaze</small></li>
     </ul>
   </div>
   <div class="svc a right" style="top:300px;--d:.7"><b>NVIDIA Nemotron ASR</b><span>Streaming STT over Riva gRPC</span></div>
-  <div class="svc a right" style="top:412px;--d:.8"><b>Gemini 3.8 Flash</b><span>Real-time dialogue brain · minimal thinking</span></div>
-  <div class="svc a right" style="top:524px;--d:.9"><b>ElevenLabs Flash v2.5</b><span>Streaming 24 kHz voice, sentence by sentence</span></div>
-  <div class="svc a right" style="top:636px;--d:1"><b>Claude Sonnet 5.5</b><span>Personas · live chemistry · wingman · grading</span></div>
-  <div class="svc a right" style="top:748px;--d:1.1"><b>Gemini (audio)</b><span>Pronunciation notes in the date report</span></div>
+  <div class="svc a right" style="top:412px;--d:.8"><b>Claude Sonnet 5.5</b><span>The date's live brain · personas</span></div>
+  <div class="svc a right" style="top:524px;--d:.9"><b>ElevenLabs Flash v2.5</b><span>Streaming TTS · 24 kHz dialect voices</span></div>
+  <div class="svc a right" style="top:636px;--d:1"><b>Claude · judge mode</b><span>Chemistry · wingman · grading · report</span></div>
+  <div class="svc a right" style="top:748px;--d:1.1"><b>MediaPipe Face Landmarker</b><span>Blendshapes + head pose · runs locally</span></div>
   <div class="metrics">
-    <div class="metric a" style="--d:1.3"><b>&lt;400 ms</b><span>time to first audio</span></div>
-    <div class="metric a" style="--d:1.4"><b>&lt;100 ms</b><span>barge-in cutoff</span></div>
+    <div class="metric a" style="--d:1.3"><b>&lt;400 ms</b><span>first-audio target</span></div>
+    <div class="metric a" style="--d:1.4"><b>120 ms</b><span>barge-in trigger</span></div>
     <div class="metric a" style="--d:1.5"><b>250 ms</b><span>gaze telemetry</span></div>
-    <div class="metric a" style="--d:1.6"><b>8 fps</b><span>webcam face tracking</span></div>
-    <div class="metric a" style="--d:1.7"><b>60 FPS</b><span>splat rendering</span></div>
+    <div class="metric a" style="--d:1.6"><b>8 fps</b><span>face analysis</span></div>
+    <div class="metric a" style="--d:1.7"><b>0 keys</b><span>to run fully offline</span></div>
   </div>
 </section>
 
 <!-- =================================================================
-     SLIDE 10: WHY IT FEELS REAL
+     SLIDE 10: WHY IT'S DIFFERENT
      ================================================================= -->
-<section class="slide s-evo" data-id="evolution" data-title="Why it feels real"
-  data-notes="Most language apps stop short of real conversation. Parry closes four gaps: you talk over an open mic and can interrupt; you see your own face on your avatar; your date reads your eye contact and smiles; and instead of a quiz, you get live chemistry, a wingman when you freeze, and a Match-or-Ghosted receipt.">
-  <p class="eyebrow a" style="--d:.1">Why it feels real</p>
-  <h2 class="title sm a" style="--d:.2">Not another chatbot. <em>A real conversation.</em></h2>
-  <p class="lede a" style="--d:.35;max-width:1300px">Four things a typical language app can’t do, and how Parry does them.</p>
+<section class="slide s-evo" data-id="evolution" data-title="Why it's different"
+  data-notes="Language apps teach you to recognise words. Parry makes you use them with someone who reacts. Four things change: you talk freely instead of tapping, your date sees your face, your gaze and your smile, and instead of a streak you get live chemistry, a wingman when you freeze, and a receipt quoting what you actually said.">
+  <p class="eyebrow a" style="--d:.1">Why it's different</p>
+  <h2 class="title sm a" style="--d:.2">Not another flashcard app. <em>A real conversation.</em></h2>
+  <p class="lede a" style="--d:.35;max-width:1300px">Language apps drill vocabulary. Parry puts you across the table from someone who listens, watches and reacts. Here are four differences.</p>
   <div class="evo">
-    <div class="evo-head a fade" style="--d:.5"><span>Subsystem</span><span>Typical language app</span><span></span><span>Parry</span></div>
-    <div class="evo-row a" style="--d:.7"><span class="sys">Voice &amp; turn-taking</span><span class="then">Push a button to talk, wait for the reply</span><span class="arrow">→</span><span class="now"><b>Full-duplex WebSocket.</b> Open mic, streaming Nemotron ASR, instant barge-in, under 400 ms to first audio</span></div>
-    <div class="evo-row a" style="--d:1.1"><span class="sys">Avatars</span><span class="then">A chat bubble or a cartoon mascot</span><span class="arrow">→</span><span class="now"><b>Your face, in 3D.</b> A selfie-tinted avatar driven live by 52 ARKit blendshapes from your webcam</span></div>
-    <div class="evo-row a" style="--d:1.5"><span class="sys">Social awareness</span><span class="then">Blind to gaze, expressions and hesitation</span><span class="arrow">→</span><span class="now"><b>Spatial telemetry.</b> 250 ms eye-contact checks, smiles and nods from MediaPipe, posture driven by chemistry</span></div>
-    <div class="evo-row a" style="--d:1.9"><span class="sys">Coaching loop</span><span class="then">Quizzes and streaks, graded only afterwards</span><span class="arrow">→</span><span class="now"><b>Live chemistry + wingman.</b> 0–100% match bar, 4-second stall whispers, Match-or-Ghosted receipt</span></div>
+    <div class="evo-head a fade" style="--d:.5"><span>What matters</span><span>Typical language app</span><span></span><span>Parry</span></div>
+    <div class="evo-row a" style="--d:.7"><span class="sys">Speaking</span><span class="then">Tap a tile, repeat a phrase, wait for a score</span><span class="arrow">→</span><span class="now"><b>Full-duplex voice.</b> Open mic, instant barge-in, under 400 ms to the date's first word</span></div>
+    <div class="evo-row a" style="--d:1.1"><span class="sys">Presence</span><span class="then">A cartoon mascot and a progress bar</span><span class="arrow">→</span><span class="now"><b>Your face, in 3D.</b> A selfie-tinted avatar mirroring your live expressions through 52 blendshapes</span></div>
+    <div class="evo-row a" style="--d:1.5"><span class="sys">Social awareness</span><span class="then">Blind to your gaze, expressions and hesitation</span><span class="arrow">→</span><span class="now"><b>It reads the room.</b> Eye contact, smiles, nods and puzzled looks, calibrated to your face</span></div>
+    <div class="evo-row a" style="--d:1.9"><span class="sys">Feedback</span><span class="then">Streaks and right/wrong answers</span><span class="arrow">→</span><span class="now"><b>Live chemistry + wingman.</b> A 0–100 meter, whispers when you stall, and a Match-or-Ghosted receipt</span></div>
   </div>
 </section>
 
@@ -1126,7 +1127,7 @@ body.edit .slot{cursor:copy}
      SLIDE 15: TEAM
      ================================================================= -->
 <section class="slide s-team" data-id="team" data-title="Team"
-  data-notes="Introduce each teammate in one line: what they built this weekend.">
+  data-notes="Arth, CEO: product vision and the pitch. Richard, COO: operations and partnerships. Avi, CTO: the architecture behind the live date. One line each.">
   <p class="eyebrow a" style="--d:.1">The team</p>
   <h2 class="title sm a" style="--d:.2">The people <em>behind the table.</em></h2>
   <div class="team" id="team"></div>
@@ -1185,10 +1186,9 @@ body.edit .slot{cursor:copy}
    You can also drag a photo straight onto a circle while presenting.
    ===================================================================== */
 const TEAM = [
-  { name: "Teammate One",   role: "Unity & 3D worlds",       line: "Gaussian-splat venues, avatars and the cinematic camera.", photo: "assets/team/1.jpg" },
-  { name: "Teammate Two",   role: "Realtime voice",          line: "Full-duplex streaming, VAD barge-in and the audio ring buffer.", photo: "assets/team/2.jpg" },
-  { name: "Teammate Three", role: "AI personas & grading",   line: "Matchmaker personas, chemistry director and the verdict receipt.", photo: "assets/team/3.jpg" },
-  { name: "Teammate Four",  role: "Product & design",        line: "Dialect schemas, UX flow and the story you just heard.", photo: "assets/team/4.jpg" },
+  { name: "Arth",    role: "CEO", line: "Product vision, the pitch and where Parry goes next.", photo: "assets/team/1.jpg" },
+  { name: "Richard", role: "COO", line: "Operations, partnerships and getting Parry in front of learners.", photo: "assets/team/2.jpg" },
+  { name: "Avi",     role: "CTO", line: "Architecture: real-time voice, face tracking and the AI date.", photo: "assets/team/3.jpg" },
 ];
 
 /* =====================================================================

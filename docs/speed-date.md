@@ -74,7 +74,16 @@ from ~8 webcam frames a second. `nonverbal.py` debounces these into human signal
 - **Laugh:** a smile with an open jaw.
 - **Nod / head shake:** two pitch or yaw reversals within 1.5 s.
 - **Puzzled, surprised, frown:** brow and mouth shapes.
-- **Look away / look back:** from gaze telemetry.
+- **Look away / look back:** from gaze telemetry, overruled by the face when the head
+  turns more than 28° from centre, tilts 20° up or down (a phone in the lap), the eyes hold off to
+  one side, or the face leaves the frame for a second. With no frames arriving, the game
+  camera's gaze stands alone.
+
+Everything is measured against the learner's own resting face. Each expression's
+baseline is a low quantile of the last ~20 s (capped, so a long real smile still counts),
+and the head's centre is its median pose, so a resting brow or a webcam below the chin
+is not read as a frown or as looking away. `date_ended` carries a `face` summary: frames,
+`face_visible_pct`, `attentive_pct`, and signal counts overall and while the date talked.
 
 Each signal goes to the vision panel's feed, to the date's prompt, and to the chemistry
 director (a smile while the date was joking adds +3). The same blendshapes drive the
