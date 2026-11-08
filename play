@@ -53,10 +53,18 @@ healthy() { curl -fsS --max-time 2 "$URL/health" >/dev/null 2>&1; }
 
 start_server() {
   if healthy; then echo "Server already running at $URL"; STARTED=0; return; fi
+  # uv if it's installed; otherwise the project's own environment (.venv, made by uv sync).
   local uv; uv="$(find_uv)"
-  [ -n "$uv" ] || fail "uv not found: install it from https://docs.astral.sh/uv/"
+  local run_server
+  if [ -n "$uv" ]; then
+    run_server=("$uv" run python -m orchestrator)
+  elif [ -x "$ROOT/.venv/bin/python" ]; then
+    run_server=("$ROOT/.venv/bin/python" -m orchestrator)
+  else
+    fail "Neither uv nor .venv found: install uv (https://docs.astral.sh/uv/), then run: uv sync --group face"
+  fi
   echo "Starting the server (log: runs/server.log)…"
-  (cd "$ROOT" && nohup "$uv" run python -m orchestrator >"$RUNS/server.log" 2>&1 & echo $! >"$PIDFILE")
+  (cd "$ROOT" && nohup "${run_server[@]}" >"$RUNS/server.log" 2>&1 & echo $! >"$PIDFILE")
   STARTED=1
   for _ in $(seq 1 60); do
     healthy && { echo "Server ready at $URL"; return; }
@@ -126,7 +134,11 @@ EOF
 case "${1:-}" in
   build) cmd_build ;;
   install) cmd_install ;;
-  server) cd "$ROOT" && exec "$(find_uv)" run python -m orchestrator ;;
+  server)
+    cd "$ROOT" || exit 1
+    if [ -n "$(find_uv)" ]; then exec "$(find_uv)" run python -m orchestrator; fi
+    [ -x .venv/bin/python ] || fail "Neither uv nor .venv found: install uv, then run: uv sync --group face"
+    exec .venv/bin/python -m orchestrator ;;
   stop) stop_server ;;
   ""|--fullscreen|--windowed) cmd_run "${1:-}" ;;
   -h|--help|help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
