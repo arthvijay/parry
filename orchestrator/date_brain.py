@@ -1,9 +1,9 @@
 """The date's mind during the conversation: streaming replies, token by token.
 
-Gemini Flash speaks during the date because time to first token is what the learner
-feels; its stream goes straight into the sentence chunker and on to the voice. Claude
-stands in when no Gemini credentials are set, and a scripted brain built from the
-dialect's authored lines keeps an offline demo talking.
+Claude speaks as the date. Time to first token is what the learner feels, so its stream
+goes straight into the sentence chunker and on to the voice. A scripted brain built from
+the dialect's authored lines answers a turn Claude cannot, and keeps an offline demo
+talking.
 
 Every brain gets the same input: the persona prompt, the conversation as alternating
 learner and date turns, and the silent notes for this turn ([CHEMISTRY], [NONVERBAL],
@@ -62,48 +62,6 @@ def with_notes(history: list[Turn], notes: list[str]) -> list[Turn]:
         else:
             merged.append(Turn("learner", block))
     return merged
-
-
-class GeminiBrain:
-    name = "gemini"
-
-    def __init__(self, m: config.Models):
-        from google import genai
-        if m.gemini_vertex:
-            self.client = genai.Client(enterprise=True, project=m.gemini_project,
-                                       location=m.gemini_location)
-        else:
-            self.client = genai.Client(api_key=m.gemini_key)
-        self.model = m.date_brain
-        self.thinking = m.date_brain_thinking
-
-    async def reply(self, system: str, history: list[Turn], notes: list[str],
-                    ctx: BrainContext) -> AsyncIterator[str]:
-        from google.genai import types
-        contents = [types.Content(role="user" if t.role == "learner" else "model",
-                                  parts=[types.Part(text=t.text)])
-                    for t in with_notes(history, notes)]
-        generation = types.GenerateContentConfig(
-            system_instruction=system, max_output_tokens=MAX_REPLY_TOKENS,
-            thinking_config=types.ThinkingConfig(thinking_level=self.thinking))
-        stream = await self.client.aio.models.generate_content_stream(
-            model=self.model, contents=contents, config=generation)
-        usage = None
-        try:
-            async for chunk in stream:
-                usage = getattr(chunk, "usage_metadata", None) or usage
-                if chunk.text:
-                    yield chunk.text
-        finally:
-            # The last usage seen is the reply's total, even when a barge-in cut it short.
-            if usage is not None:
-                costs.record("gemini", self.model,
-                             input_tokens=getattr(usage, "prompt_token_count", 0) or 0,
-                             output_tokens=(getattr(usage, "candidates_token_count", 0) or 0)
-                             + (getattr(usage, "thoughts_token_count", 0) or 0))
-
-    async def aclose(self):
-        return None
 
 
 class ClaudeBrain:
@@ -240,23 +198,12 @@ class ChainBrain:
 
 
 def create_brain():
-    """Who speaks as the date. Claude by default, with the scripted brain behind it for a
-    turn Claude cannot answer. DATE_BRAIN=gemini puts Gemini Flash in front of Claude."""
+    """Who speaks as the date: Claude, with the scripted brain behind it for a turn Claude
+    cannot answer; the scripted brain alone without an Anthropic key."""
     m = config.models()
-    if m.date_brain_provider != "gemini":
-        if not m.anthropic_ready:
-            return ScriptedBrain()
-        # Claude is the one real brain here: a slow first word is waited for (up to 12 s)
-        # and never benched; only a failure falls to the scripted lines for that turn.
-        return ChainBrain([ClaudeBrain(m), ScriptedBrain()], first_word_seconds=12.0,
-                          rest_when_slow=False)
-    brains: list = []
-    if m.gemini_ready:
-        try:
-            brains.append(GeminiBrain(m))
-        except Exception as error:  # noqa: BLE001
-            log.warning("Gemini unavailable (%s)", type(error).__name__)
-    if m.anthropic_ready:
-        brains.append(ClaudeBrain(m))
-    brains.append(ScriptedBrain())
-    return brains[0] if len(brains) == 1 else ChainBrain(brains)
+    if not m.anthropic_ready:
+        return ScriptedBrain()
+    # Claude is the one real brain here: a slow first word is waited for (up to 12 s)
+    # and never benched; only a failure falls to the scripted lines for that turn.
+    return ChainBrain([ClaudeBrain(m), ScriptedBrain()], first_word_seconds=12.0,
+                      rest_when_slow=False)

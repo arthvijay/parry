@@ -1,6 +1,6 @@
 """What a date costs to run, measured from the providers' own usage figures.
 
-Every paid call reports what it used: Claude and Gemini their token counts (including
+Every paid call reports what it used: Claude its token counts (including
 Claude's cache reads and writes), NVIDIA speech recognition the seconds of audio it
 heard, ElevenLabs the characters it spoke, plus the characters a cached line saved. The figures go to the
 ledger of whatever is running (the live date, the matchmaker, the grader), found through
@@ -70,8 +70,6 @@ def _priced(provider: str, model: str, u: dict[str, float]) -> CostLine:
         if rates:
             usd = (u["input_tokens"] * rates[0] + u["output_tokens"] * rates[1]
                    + u["cache_read_tokens"] * rates[2] + u["cache_write_tokens"] * rates[3]) / 1e6
-    elif provider == "gemini" and p.gemini:
-        usd = (u["input_tokens"] * p.gemini[0] + u["output_tokens"] * p.gemini[1]) / 1e6
     elif provider == "nemotron" and p.asr_per_minute is not None:
         usd = u["audio_seconds"] / 60 * p.asr_per_minute
     elif provider == "elevenlabs" and p.tts_per_million_chars is not None:

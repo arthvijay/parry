@@ -489,7 +489,7 @@ The speed date's routes sit beside the café's; the café contracts above are un
 
 `GET /health` has a `date` object saying what each part runs on: `matchmaker`
 (`claude` / `templates`), `chemistry` and `grader` (`claude` / `rules`), `brain`
-(`gemini` / `claude` / `scripted`), `stt` (`nemotron` / `none`), `tts` (`elevenlabs` /
+(`claude` / `scripted`), `stt` (`nemotron` / `none`), `tts` (`elevenlabs` /
 `sample`) and `face` (`ready` / `loading` / `unavailable` / `off`). `stt` is `nemotron`
 when `NVIDIA_API_KEY` is set or `NEMOTRON_ASR_SERVER` points at a self-hosted NIM.
 
@@ -588,19 +588,19 @@ character's voice as binary frames and sends JSON events.
 | Message | Meaning |
 | --- | --- |
 | binary | The voice: 24 kHz PCM16 LE mono, for the NPC named by the last `audio_start` |
-| `session_ready` | Joined; `providers` says which are live: `stt` (`nemotron` / `none`), `tts` (`elevenlabs` / `sample`), `brain` (`gemini` / `claude` / `scripted`), `judge` (`claude` / `rules`), `face` (`mediapipe` / `off`) |
+| `session_ready` | Joined; `providers` says which are live: `stt` (`nemotron` / `none`), `tts` (`elevenlabs` / `sample`), `brain` (`claude` / `scripted`), `judge` (`claude` / `rules`), `face` (`mediapipe` / `off`) |
 | `audio_start` `{npc_id, turn_id, kind, first_audio_ms}` | Voice frames for this NPC follow (`kind`: greeting, opening, reply, callout, closing, serve) |
 | `audio_end` `{npc_id, turn_id, duration_ms}` | Last frame of the line sent |
 | `transcript` `{speaker, text, is_final, confidence, unheard?}` | Subtitles: the learner's line filling in, the date's line sentence by sentence. `unheard: true` = said before sitting down, so the date did not hear it (a one-time `notice` says so) |
 | `chemistry_update` `{chemistry_score, delta, mood_label, reason, npc_posture, completed_milestones, evidence_quotes, green_flags_hit, red_flags_hit, source}` | After every learner turn, and on non-verbal events |
 | `wingman_hint` `{whisper_context, options:[{tone, target, gloss}×3]}` | 4 s of silence after the date finished, or asked for with `wingman` |
 | `clear_audio` `{npc_id}` | Acknowledges a barge-in: drop everything buffered |
-| `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame |
+| `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame. `expressions` holds baseline-relative `levels`, `smiling`, `looking`, `calibrated`, `attentive`, `away_reason` (`head_turned`, `head_tilted`, `eyes_aside`, `out_of_frame` or null) and `relative_head:{pitch,yaw}` |
 | `signal` `{kind, label, effect, during_npc}` | A smile, laugh, nod, head shake, head wobble (only where it means yes: hi-IN), puzzled or surprised look, look-away, look-back |
 | `user_speech` `{speaking}` | The recogniser heard speech start or end |
 | `help_card` `{said, meaning_en, suggestions:[{target, gloss}]×1–3, tip}` | The translator's answer. Without Claude, `meaning_en` says translation needs the key and the suggestions are the wingman's lines |
 | `scene_action` `{action:"order_placed", npc_id:"host", items}` | An order was placed (once per date): send the host to the table |
-| `date_started` `{seconds}` / `date_ended` `{verdict, chemistry_score, run_id, scenario_id}` | The clock |
+| `date_started` `{seconds}` / `date_ended` `{verdict, chemistry_score, run_id, scenario_id, face}` | The clock. `face` summarises the webcam over the date: `frames`, `face_visible_pct`, `attentive_pct`, `signals`, `signals_while_date_talked` |
 | `notice`, `error` `{detail, fatal}` | Human-readable problems |
 
 **Echo.** A recognised line made only of words from the line a character just spoke,
@@ -688,15 +688,15 @@ when the date had a `learner_name`, and records its cost.
 {"preset": "cafe_cancun_ar", "learner_name": "Arth", "proficiency": "B1", "date_gender": "female"}
 ```
 
-- `preset`: a file in `scenarios/speed_dating/presets/`: `cafe_cancun_ar` (Valeria,
-  Argentine Spanish; the default) or `cafe_cancun_south` (Savannah, Southern American
-  English), both at Café Rayuela. A variant may set `outfit` (e.g. `black_dress`, which
-  the client dyes into the body texture). The
+- `preset`: a file in `scenarios/speed_dating/presets/` (default `cafe_cancun_ar`). Two
+  ship, both at Café Rayuela: `cafe_cancun_ar` (Valeria or Tomás, Argentine Spanish, B1)
+  and `cafe_cancun_south` (Savannah or Beau, Southern American English, B2). A variant may set `outfit` (e.g.
+  `black_dress`, which the client dyes into the body texture). The
   catalog's `presets` lists them with `label`, `summary`, `dialect`, `city`, `lat`, `lon`
   and `default_proficiency`. An unknown id is a 404.
 - `proficiency`: optional; the preset's `default_proficiency` otherwise.
-- `date_gender`: `female` or `male`; each preset authors both variants (Café Rayuela:
-  Valeria or Tomás).
+- `date_gender`: `female` or `male`; each preset authors both variants. A variant may set
+  `outfit` (e.g. `black_dress`, which the client dyes into the body texture).
 
 The response is a `DateScenario` with `generated_by: "authored"`. Only who the learner is
 can change; the person, place and lines are fixed, so a demo is the same every time. It
@@ -756,8 +756,9 @@ the learner reads the verdict. The `DateReport` contains:
 - three `useful_phrases` in the dialect;
 - `culture_notes`;
 - `practice_words` (words the recogniser doubted);
-- `pronunciation` (Gemini's impressions of up to three recorded clips, only naming words
-  that were said) and its `pronunciation_disclaimer`;
+- `pronunciation` (Claude's tips on up to three of the learner's least-confident lines,
+  only naming words the recogniser doubted in that line) and its
+  `pronunciation_disclaimer`;
 - the `chemistry_timeline`, the full `transcript` (`learner`, `date`, `host`, `event`
   turns) and `counters` (lines, wingman hints and lines used, help requests, English and
   local-slang turns, smiles, look-away callouts);
@@ -769,5 +770,5 @@ written.
 
 Every learner quote is checked against the transcript, and nothing built on a doubted word
 is shown as a mistake. Without Claude the dialect's authored lines write a plainer
-report. The pronunciation pass needs Gemini (`PRONUNCIATION_MODEL`, default the date's
-model) and is skipped with `PRONUNCIATION=0`; if it fails, the page goes out without it.
+report. The pronunciation pass needs Claude and is skipped with `PRONUNCIATION=0`; if it
+fails, the page goes out without it.

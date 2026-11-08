@@ -15,8 +15,7 @@ From the learner's last word to the date's first sound:
    (`stt.function_for`). Its output is tidied: the language tag is dropped, a Spanish
    ¿/¡ placed after the first word is moved back, and spaces before punctuation go.
 2. **First token.** Claude (`DATE_CLAUDE_MODEL`, default Sonnet) at low effort, streamed.
-   `DATE_BRAIN=gemini` puts Gemini Flash (thinking `LOW`; it rejects `MINIMAL`) in front
-   instead. The persona prompt is identical across turns, so it stays warm.
+   The persona prompt is identical across turns, so it stays warm.
 3. **First sentence.** The token stream is cut at the first sentence or, if the opening
    runs long, at the first clause after ~60 characters (`SentenceChunker`). Each piece is
    flushed to ElevenLabs at once.
@@ -75,7 +74,16 @@ from ~8 webcam frames a second. `nonverbal.py` debounces these into human signal
 - **Laugh:** a smile with an open jaw.
 - **Nod / head shake:** two pitch or yaw reversals within 1.5 s.
 - **Puzzled, surprised, frown:** brow and mouth shapes.
-- **Look away / look back:** from gaze telemetry.
+- **Look away / look back:** from gaze telemetry, overruled by the face when the head
+  turns more than 28° from centre, tilts 20° up or down (a phone in the lap), the eyes hold off to
+  one side, or the face leaves the frame for a second. With no frames arriving, the game
+  camera's gaze stands alone.
+
+Everything is measured against the learner's own resting face. Each expression's
+baseline is a low quantile of the last ~20 s (capped, so a long real smile still counts),
+and the head's centre is its median pose, so a resting brow or a webcam below the chin
+is not read as a frown or as looking away. `date_ended` carries a `face` summary: frames,
+`face_visible_pct`, `attentive_pct`, and signal counts overall and while the date talked.
 
 Each signal goes to the vision panel's feed, to the date's prompt, and to the chemistry
 director (a smile while the date was joking adds +3). The same blendshapes drive the
@@ -109,7 +117,6 @@ instead of ending it.
 | --- | --- |
 | Anthropic | Templates build the date, a rules judge moves chemistry, a rules grader writes the receipt |
 | Claude (the date's voice) | A turn Claude cannot answer gets a scripted line in the dialect |
-| Gemini | Only used with `DATE_BRAIN=gemini` (Claude then takes over) and for the report's pronunciation notes |
 | Nemotron ASR | Voice detection still drives barge-in and the wingman's silence timer; the learner types with Enter |
 | ElevenLabs | The bundled sample voice, paced like speech so the lip-sync and barge-in still work |
 | MediaPipe | No face signals; gaze still comes from where the camera looks |
@@ -129,7 +136,7 @@ fallback. A failure after audio has started ends that line where it is.
 - **The roast** is the line people screenshot. It is held to the same honesty as the
   grades: a roast that quotes the learner must quote them exactly, or it is replaced by
   one built from what was measured. It teases what happened, never who the learner is.
-- **Unlocks.** A match unlocks the next dialect on a fixed trip around the eight
+- **Unlocks.** A match unlocks the next dialect on a fixed trip around all nine
   (es-AR unlocks Kansai-ben in Osaka); the client remembers it (🔓 in the matchmaker)
   and N opens the matchmaker on it. Anything short of a match is a rematch.
 - **Sharing.** S opens a share page with the receipt as a 9:16 card for TikTok, Reels
@@ -149,13 +156,13 @@ During the date nobody corrects the learner. There are two places help lives ins
   picture.
 - **Your date, decoded, after the verdict.** The café's old "What we heard" page, rebuilt
   for dating: what landed, at most three fixes, phrases in the dialect for the moments
-  they stalled, culture notes, words to practise, a coach's ear on their recorded voice,
-  and the whole conversation with the chemistry curve. The report keeps the grader's
-  honesty rules: a learner quote not in the transcript is dropped, and nothing built on a
-  word the recogniser doubted is shown as a mistake; those words go to "practise saying"
-  instead. Pronunciation is Gemini's impression of up to three saved clips, labelled as a
-  coach's impression, never a score. Culture notes come from each dialect file's
-  `culture` list when Claude is not available.
+  they stalled, culture notes, words to practise, pronunciation tips, and the whole
+  conversation with the chemistry curve. The report keeps the grader's honesty rules: a
+  learner quote not in the transcript is dropped, and nothing built on a word the
+  recogniser doubted is shown as a mistake; those words go to "practise saying" instead.
+  Pronunciation tips come from the words the recogniser was least sure of: Claude turns
+  them into a coach's impression, never a score. Culture notes come from each dialect
+  file's `culture` list when Claude is not available.
 
 ## The demo café
 
@@ -213,7 +220,7 @@ word, and the receipt quotes that line.
 
 Every paid call reports its usage to the ledger of whatever is running, through a context
 variable, so no call site carries it. That covers Claude tokens with cache reads and
-writes, Gemini tokens, NVIDIA speech-recognition seconds and ElevenLabs characters,
+writes, NVIDIA speech-recognition seconds and ElevenLabs characters,
 plus characters a cached line saved. The matchmaker's ledger is stored under the date's id, and the live date's
 and the grade's under the run id. The receipt's `cost` adds the two.
 

@@ -15,10 +15,9 @@ dependencies = [
     "websockets>=14,<17",
     "python-dotenv>=1,<2",
     "httpx>=0.28,<1",
-    # The speed date: Claude (matchmaker, chemistry, grading), Gemini (live replies),
+    # The speed date: Claude (the date's replies, matchmaker, chemistry, grading, report),
     # numpy for audio and voice detection. ElevenLabs is spoken to over websockets.
     "anthropic>=2.6,<3",
-    "google-genai>=3,<4",
     # Nemotron ASR Streaming over NVIDIA Riva's gRPC API.
     "nvidia-riva-client>=2.20,<3",
     "numpy>=2,<3",

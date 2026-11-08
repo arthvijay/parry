@@ -220,8 +220,7 @@ def create_app(*, speech: SpeechProvider | None = None,
                 "matchmaker": "claude" if m.anthropic_ready else "templates",
                 "chemistry": "claude" if m.anthropic_ready and plan != "free" else "rules",
                 "grader": "claude" if m.anthropic_ready else "rules",
-                "brain": ("gemini" if m.date_brain_provider == "gemini" and m.gemini_ready
-                          else "claude" if m.anthropic_ready else "scripted"),
+                "brain": "claude" if m.anthropic_ready else "scripted",
                 "stt": "nemotron" if p.nvidia_key or not p.asr_server.endswith(":443") else "none",
                 "tts": "elevenlabs" if p.elevenlabs_key else "sample",
                 "face": "off" if face is None else "ready" if face.landmarker is not None
