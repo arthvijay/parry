@@ -37,7 +37,9 @@ Every key is optional. Without one, that part falls back, so the whole flow runs
 | The date's voice | Fish Audio live TTS (`s2.1-pro`) | `FISH_AUDIO_API_KEY` | a bundled sample voice |
 | Face, smiles, nods, head pose | MediaPipe Face Landmarker (local) | none (`uv sync --group face`) | no face; the date carries on |
 
-`GET /health` reports which of these are live (`"date": {...}`).
+`GET /health` reports which of these are live (`"date": {...}`). To check the webcam
+tracker on its own, `GET /v1/face/status` should return `"available": true`. If it says
+`ModuleNotFoundError`, run `uv sync --group face`.
 
 ## The demo, end to end
 
@@ -61,7 +63,8 @@ Every key is optional. Without one, that part falls back, so the whole flow runs
      reply path, with the reason shown.
    - **Milestones** tick only with your own words as evidence.
    - **Smiling** at a joke helps. **Looking away** for 4.5 s while the date talks gets
-     called out in character.
+     called out in character. Looking away counts when the game camera is off the date
+     or when your real face says so (see *What the webcam reads* below).
    - **Barge-in:** talk over the date and they stop mid-word.
    - **Wingman:** freeze for 4 s and the wingman whispers three options.
    - **V** toggles the cinematic two-shot, where your avatar, wearing your live face,
@@ -73,6 +76,37 @@ Every key is optional. Without one, that part falls back, so the whole flow runs
    - **A text from the date**, with one correction drawn from what you said.
 
    **R** tries again with the same date; **N** goes to the next table.
+
+## What the webcam reads
+
+`face_tracker.py` runs MediaPipe Face Landmarker on ~8 frames a second (320 px JPEGs).
+It reads 52 ARKit blendshapes, the head's pitch, yaw and roll, and the face mesh.
+`nonverbal.py` turns those into the signals a person across the table would notice.
+
+- **Signals:** smile, laugh, nod, head shake, puzzled, surprised, frown, look away and
+  look back. Each must hold for a moment, so a flicker doesn't count.
+- **Calibrated to you:** every expression is measured against your own resting face, a
+  low quantile of the last ~20 s, capped so a long real smile still counts. A resting
+  furrowed brow isn't read as "puzzled".
+- **Camera position doesn't matter:** the head's centre is learned from where you
+  normally face the screen, so a webcam off to the side or below your chin isn't read
+  as looking away. Looking away never moves that centre.
+- **The face can overrule the game camera:** any of these is looking away, even if the
+  in-game view is on the date:
+  - head turned more than 28° from centre;
+  - head tilted 20° up or down (a phone in your lap);
+  - eyes held off to one side;
+  - face out of frame for a second.
+
+  Blinks and quick glances are ignored. If no frames arrive, the game camera's gaze
+  stands alone. Eye contact % on the receipt uses this combined answer.
+- **Where it goes:** the vision panel's feed, the date's prompt (`[NONVERBAL]` notes),
+  and the chemistry meter. Each `face_analysis` message also carries `calibrated`,
+  `attentive` and `away_reason` (`head_turned`, `head_tilted`, `eyes_aside`,
+  `out_of_frame`).
+- **After the date:** `date_ended` carries a `face` summary: frames analysed,
+  `face_visible_pct`, `attentive_pct`, and signal counts overall and while the date
+  was talking.
 
 ## How the pieces talk
 
