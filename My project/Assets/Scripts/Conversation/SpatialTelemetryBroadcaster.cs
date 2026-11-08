@@ -14,7 +14,7 @@ public class SpatialTelemetryBroadcaster : MonoBehaviour
     public static SpatialTelemetryBroadcaster Instance { get; private set; }
 
     [Tooltip("Degrees around the date's eyes that count as eye contact.")]
-    public float eyeContactAngle = 13f;
+    public float eyeContactAngle = 18f;
     [Tooltip("Degrees of webcam head yaw beyond which the learner is looking away from the screen.")]
     public float screenYawLimit = 32f;
     public string eyeBone = "Bip01 Head";
@@ -79,8 +79,11 @@ public class SpatialTelemetryBroadcaster : MonoBehaviour
         Distance = to.magnitude;
         float angle = Vector3.Angle(eyes.forward, to);
         bool inCone = angle < eyeContactAngle && Distance < 6f;
-        if (inCone && Physics.Raycast(eyes.position, to.normalized, out var hit, Distance - 0.15f, ~0, QueryTriggerInteraction.Ignore))
-            inCone = hit.transform.IsChildOf(date.transform);
+        // Only another person standing in between breaks eye contact: the venue's scanned
+        // collision mesh is rough and would block the line to the date's face.
+        if (inCone && Physics.Raycast(eyes.position, to.normalized, out var hit, Distance - 0.15f, ~0, QueryTriggerInteraction.Ignore)
+            && !hit.transform.IsChildOf(date.transform) && hit.transform.GetComponentInParent<NpcAvatarLoader>() != null)
+            inCone = false;
 
         var vision = VisionFeed.Instance;
         bool facingScreen = vision == null || !vision.HasFace || Mathf.Abs(vision.HeadYaw) < screenYawLimit;

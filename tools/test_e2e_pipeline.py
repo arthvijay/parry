@@ -4,10 +4,12 @@ Starts the orchestrator on a free port (or uses --url), then:
 
 1. POST /v1/matchmaker/generate in every dialect, and checks each date is complete.
 2. Opens /v1/stream for one date: host greeting, start_date, streams the sample voice
-   as microphone audio (so live recognition is exercised when DEEPGRAM_API_KEY is set),
+   as microphone audio (so live recognition is exercised when NVIDIA_API_KEY is set),
    sends telemetry every 250 ms, waits for the wingman after a silence, answers by
    text, barges in on the reply, looks away mid-line, and ends the date.
-3. POST /v1/grade for the run and checks the verdict receipt.
+3. Plays the authored demo (Café Rayuela, Cancún): orders so the host serves, asks the
+   translator for help.
+4. POST /v1/grade for the run and checks the verdict receipt, then the learning report.
 
 Prints one line per check with timings and exits non-zero on any failure.
 
@@ -34,7 +36,7 @@ import httpx
 
 ROOT = Path(__file__).resolve().parent.parent
 PROVIDER_KEYS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "GEMINI_API_KEY", "GOOGLE_API_KEY",
-                 "GOOGLE_CLOUD_PROJECT", "DEEPGRAM_API_KEY", "FISH_AUDIO_API_KEY",
+                 "GOOGLE_CLOUD_PROJECT", "NVIDIA_API_KEY", "NEMOTRON_ASR_SERVER",
                  "OPENAI_API_KEY", "ELEVENLABS_API_KEY")
 DIALECTS = ("es-MX", "es-AR", "es-ES", "zh-CN", "hi-IN", "ja-JP", "ja-JP-kansai", "fr-FR")
 ANSWERS = {
@@ -186,15 +188,18 @@ async def live_date(url: str, date: dict, wingman_wait: float) -> str | None:
                                           "look_away_duration_sec": 0.0, "player_smiling": False,
                                           "distance_m": 1.15, "is_seated": True}))
             await asyncio.sleep(0.02)
-        await ws.send(b"\x00\x00" * 16000)
+        # An open mic keeps sending (silence), which is what lets the recogniser close the line.
+        for _ in range(150):
+            await ws.send(b"\x00\x00" * 320)
+            await asyncio.sleep(0.02)
         silence_from = time.monotonic()
         heard = await wait("user_speech", mark, 5)
         check(heard is not None, "microphone speech detected", "voice activity from streamed audio")
-        if ready["providers"]["stt"] == "deepgram":
-            await asyncio.sleep(3)
+        if ready["providers"]["stt"] == "nemotron":
+            await asyncio.sleep(1)
             user = [m for t, m in seen.get("transcript", []) if t >= mark and m["speaker"] == "user"
                     and m["is_final"]]
-            check(bool(user), "deepgram transcribed the microphone",
+            check(bool(user), "nemotron transcribed the microphone",
                   f"“{user[-1]['text'][:60]}”" if user else "nothing heard")
             # A recognised line gets a reply; wait for it before the silence test.
             if user:
@@ -210,6 +215,12 @@ async def live_date(url: str, date: dict, wingman_wait: float) -> str | None:
         answer = ANSWERS.get(date["dialect"]) or (hint["options"][1]["target"] if hint else "Hola")
         await ws.send(json.dumps({"type": "user_text", "text": answer}))
         start = await wait("audio_start", mark, 30)
+        # Barge in while that reply is still playing (it may be over by the time the
+        # chemistry judgement lands).
+        barge_mark = time.monotonic()
+        await asyncio.sleep(0.8)
+        await ws.send(json.dumps({"type": "barge_in", "timestamp_ms": 1}))
+        cleared = await wait("clear_audio", barge_mark, 5)
         update = await wait("chemistry_update", mark, 20)
         if start:
             first_audio.append(start.get("first_audio_ms") or 0)
@@ -219,9 +230,29 @@ async def live_date(url: str, date: dict, wingman_wait: float) -> str | None:
               f"{update['chemistry_score']} ({update['delta']:+d}) {update['mood_label']}: "
               f"{update['reason']}" if update else "")
 
-        mark = time.monotonic()
-        await ws.send(json.dumps({"type": "barge_in", "timestamp_ms": 1}))
-        cleared = await wait("clear_audio", mark, 5)
+        if date.get("menu"):
+            mark = time.monotonic()
+            await ws.send(json.dumps({"type": "user_text",
+                                      "text": "Dale, pedimos unas medialunas y yo quiero un cortado, che."}))
+            action = await wait("scene_action", mark, 25)
+            check(action is not None, "ordering sends the host",
+                  ", ".join(action["items"]) if action else "no order detected")
+            if action:
+                mark = time.monotonic()
+                await ws.send(json.dumps({"type": "scene_event", "event": "host_at_table"}))
+                served = None
+                deadline = time.monotonic() + 25
+                while served is None and time.monotonic() < deadline:
+                    served = next((m for t, m in seen.get("audio_start", [])
+                                   if t >= mark and m.get("kind") == "serve"), None)
+                    await asyncio.sleep(0.1)
+                check(served is not None, "the host serves at the table", "Don Julio speaks")
+            mark = time.monotonic()
+            await ws.send(json.dumps({"type": "help"}))
+            card = await wait("help_card", mark, 15)
+            check(card is not None and len(card.get("suggestions", [])) >= 1, "translator card",
+                  (card.get("meaning_en") or "")[:70] if card else "no card")
+
         check(cleared is not None, "barge-in clears the date's audio")
 
         mark = time.monotonic()
@@ -252,6 +283,7 @@ def main():
     parser.add_argument("--url", help="use a running server instead of starting one")
     parser.add_argument("--offline", action="store_true", help="start the server with no keys")
     parser.add_argument("--dialect", default="es-AR")
+    parser.add_argument("--preset", default="cafe_cancun_ar", help="authored date to play live")
     args = parser.parse_args()
 
     runs = Path(tempfile.mkdtemp(prefix="parry-e2e-"))
@@ -265,7 +297,13 @@ def main():
             health = client.get("/health").json()
             check(True, "health", json.dumps(health.get("date")))
             dates = generate_all(client)
-            date = dates.get(args.dialect) or next(iter(dates.values()), None)
+            response = client.post("/v1/matchmaker/preset", json={"preset": args.preset,
+                                                                   "learner_name": "Arth"}, timeout=30)
+            demo = response.json() if response.status_code == 200 else None
+            check(demo is not None, f"demo date {args.preset}",
+                  f"{demo['date_character']['display_name']} at {demo['venue']['label']}, {demo['city']}"
+                  if demo else response.text[:120])
+            date = demo or dates.get(args.dialect) or next(iter(dates.values()), None)
             if date is None:
                 raise SystemExit("no date generated")
             run_id = asyncio.run(live_date(url, date, wingman_wait=12.0))
@@ -285,6 +323,18 @@ def main():
                 if ok:
                     check(bool(verdict["followup"]["text"]), "follow-up text from the date",
                           f"“{verdict['followup']['text'][:70]}”")
+                started = time.monotonic()
+                response = client.post("/v1/date/report", json={"run_id": run_id,
+                                                               "scenario_id": date["scenario_id"]},
+                                       timeout=150)
+                ok = response.status_code == 200
+                report = response.json() if ok else {}
+                page = client.get(f"/v1/date/report/{run_id}.html") if ok else None
+                check(ok and page is not None and page.status_code == 200,
+                      "learning report and page",
+                      f"{int((time.monotonic() - started) * 1000)} ms, {report.get('written_by')}, "
+                      f"{len(report.get('fixes', []))} fixes, {len(report.get('useful_phrases', []))} phrases, "
+                      f"{len(report.get('pronunciation', []))} pronunciation notes" if ok else response.text[:160])
     finally:
         if process is not None:
             process.terminate()

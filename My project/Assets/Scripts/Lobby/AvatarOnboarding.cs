@@ -107,6 +107,30 @@ public class AvatarOnboarding : MonoBehaviour
             avatar.transform.localRotation = Quaternion.Euler(0f, Mathf.Sin(Time.time * 0.4f) * 18f, 0f);
     }
 
+    void LateUpdate() => FrameHead();
+
+    /// <summary>Head and shoulders in frame, whatever the model's height: aims the preview
+    /// camera at the top of the avatar once its meshes have loaded.</summary>
+    void FrameHead()
+    {
+        if (avatar == null || previewCamera == null)
+            return;
+        float top = float.MinValue;
+        foreach (var r in avatar.GetComponentsInChildren<Renderer>())
+            if (r.enabled)
+                top = Mathf.Max(top, r.bounds.max.y);
+        if (top == float.MinValue)
+            return;
+        float head = top - rig.transform.position.y - 0.28f;   // the face, below the crown
+        if (head < 0.5f || head > 2.5f)
+            return;
+        var target = new Vector3(0f, head - 0.12f, 0f);
+        var eye = new Vector3(0f, head + 0.05f, 1.35f);
+        var t = previewCamera.transform;
+        t.localPosition = Vector3.Lerp(t.localPosition, eye, 0.2f);
+        t.localRotation = Quaternion.Slerp(t.localRotation, Quaternion.LookRotation(target - eye), 0.2f);
+    }
+
     // ---- choices ---------------------------------------------------------------------
 
     public void SetBody(string baseModel)

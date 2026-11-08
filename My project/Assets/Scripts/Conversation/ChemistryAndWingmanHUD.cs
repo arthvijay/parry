@@ -19,13 +19,23 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
 
     public Key endKey = Key.Q;
     public Key typeKey = Key.Enter;
+    public Key helpKey = Key.T;
+    [Tooltip("Asks the wingman for three ways to answer (seated, during the date: W does not walk then).")]
+    public Key wingmanKey = Key.W;
+    public Key menuKey = Key.M;
     [Tooltip("Seat the learner must sit in to start the date; empty = any seat the player may take.")]
     public string playerSeat = "table_b";
     public float subtitleSeconds = 9f;
+    [Tooltip("Seconds the translator and wingman cards stay up, even while the learner talks.")]
+    public float cardSeconds = 12f;
 
     public int Chemistry { get; private set; } = 50;
     public float SecondsLeft { get; private set; }
     public bool DateRunning => client != null && client.DateRunning;
+
+    /// <summary>True when game keys may act: no line is being typed. (The Input System itself
+    /// only delivers the keyboard while the game window has focus.)</summary>
+    public static bool KeysFree => Instance == null || !Instance.typing;
 
     FullDuplexStreamClient client;
     PlayerSeating seating;
@@ -49,11 +59,23 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
 
     Dictionary<string, object> hint;
     float hintAt = -10f;
+    float wingmanAskedAt = -10f;
     float hintSlide;
 
     bool typing;
     float typingSince;
     string typed = "";
+
+    Dictionary<string, object> helpCard;
+    float helpAt = -10f, helpSlide;
+    bool helpPending;
+    bool menuOpen;
+    float menuSlide;
+    List<string> served;
+    float servedAt = -10f;
+    NpcSchedule hostSchedule;
+    float orderSentAt = -1f;
+    bool hostArrived;
 
     void Awake()
     {
@@ -114,8 +136,28 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
         var kb = Keyboard.current;
         if (kb == null)
             return;
-        if (!typing && client.DateRunning && kb[endKey].wasPressedThisFrame && Cursor.lockState == CursorLockMode.Locked)
+        if (!typing && client.DateRunning && kb[endKey].wasPressedThisFrame)
             End("quit");
+        if (!typing && kb[helpKey].wasPressedThisFrame && client.DateRunning && !helpPending)
+        {
+            helpPending = true;
+            helpAt = Time.time;
+            client.Send(new Dictionary<string, object> { ["type"] = "help" });
+        }
+        if (!typing && kb[wingmanKey].wasPressedThisFrame && client.DateRunning && SeatedAtTable()
+            && Time.time - wingmanAskedAt > 2f)
+        {
+            wingmanAskedAt = Time.time;
+            client.Send(new Dictionary<string, object> { ["type"] = "wingman" });
+        }
+        if (!typing && kb[menuKey].wasPressedThisFrame && (scenario?.menu?.Length ?? 0) > 0)
+            menuOpen = !menuOpen;
+        // The cards stay up while the learner reads them out; they go after cardSeconds.
+        if (helpCard != null && !helpPending && Time.time - helpAt > cardSeconds && !client.UserSpeaking)
+            helpCard = null;
+        // The host was sent with the order; if the walk is blocked, serve anyway.
+        if (orderSentAt > 0f && !hostArrived && Time.time - orderSentAt > 12f)
+            HostAtTable();
         if (!typing && kb[typeKey].wasPressedThisFrame && client.Ready && !client.DateOver)
         {
             typing = true;
@@ -124,7 +166,7 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
         }
 
         // A spoken answer clears the wingman card.
-        if (hint != null && client.UserSpeaking && Time.time - hintAt > 0.8f)
+        if (hint != null && Time.time - hintAt > cardSeconds && !client.UserSpeaking)
             hint = null;
     }
 
@@ -196,10 +238,59 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
                 hint = msg;
                 hintAt = Time.time;
                 break;
+            case "help_card":
+                helpCard = msg;
+                helpAt = Time.time;
+                helpPending = false;
+                break;
+            case "scene_action":
+                if (msg.Str("action") == "order_placed")
+                    SendHost(msg);
+                break;
             case "date_ended":
                 hint = null;
                 break;
         }
+    }
+
+    // ---- the café ---------------------------------------------------------------------
+
+    /// <summary>The order is in: the host walks over (NpcSchedule "action" move) and serves on arrival.</summary>
+    void SendHost(Dictionary<string, object> msg)
+    {
+        served = new List<string>();
+        foreach (var item in msg.List("items") ?? new List<object>())
+            if (item is string s)
+                served.Add(s);
+        servedAt = Time.time;
+        orderSentAt = Time.time;
+        hostArrived = false;
+        var host = NpcManager.Instance != null ? NpcManager.Instance.Find("host") : null;
+        if (host == null)
+            return;
+        hostSchedule = host.GetComponent<NpcSchedule>();
+        if (hostSchedule != null)
+        {
+            hostSchedule.MoveFinished -= OnHostMoved;
+            hostSchedule.MoveFinished += OnHostMoved;
+        }
+        var talk = host.GetComponent<NpcConversation>();
+        if (talk != null)
+            talk.RaiseAction("order_placed");
+    }
+
+    void OnHostMoved(string move)
+    {
+        if (move == "bring_order")
+            HostAtTable();
+    }
+
+    void HostAtTable()
+    {
+        if (hostArrived)
+            return;
+        hostArrived = true;
+        client.Send(new Dictionary<string, object> { ["type"] = "scene_event", ["event"] = "host_at_table" });
     }
 
     // ---- drawing --------------------------------------------------------------------
@@ -232,6 +323,9 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
         }
         Subtitles(W, H);
         Wingman(H);
+        Help(W, H);
+        Menu(H);
+        Legend(W);
         TypeBox(W, H);
         GlassUI.End(m);
     }
@@ -372,6 +466,88 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
             GlassUI.Label(new Rect(card.x + 10f, card.y + 17f, card.width - 20f, 20f), option.Str("target"), 13, Color.white, FontStyle.Bold);
             GlassUI.Label(new Rect(card.x + 10f, card.y + 36f, card.width - 20f, 16f), option.Str("gloss"), 10, new Color(1f, 1f, 1f, 0.55f));
             y += 62f;
+        }
+    }
+
+    void Legend(float W)
+    {
+        if (!client.DateRunning)
+            return;
+        bool hasMenu = (scenario?.menu?.Length ?? 0) > 0;
+        string keys = (hasMenu ? "M  carta     " : "") + "W  wingman     T  translate     Enter  type     V  camera     Q  end";
+        GlassUI.Label(new Rect((W - 520f) / 2f, 72f, 520f, 16f), keys, 10, new Color(1f, 1f, 1f, 0.55f), FontStyle.Normal, TextAnchor.MiddleCenter);
+        if (served != null && Time.time - servedAt < 8f)
+        {
+            string order = "🧾 Ordered: " + string.Join(", ", served);
+            float w = GlassUI.TextWidth(order, 13) + 32f;
+            var r = new Rect((W - w) / 2f, 92f, w, 28f);
+            GlassUI.Panel(r, Mathf.Clamp01(8f - (Time.time - servedAt)));
+            GlassUI.Label(r, order, 13, Color.white, FontStyle.Normal, TextAnchor.MiddleCenter);
+        }
+    }
+
+    /// <summary>The translator: what the date just said, what it means, and three replies.</summary>
+    void Help(float W, float H)
+    {
+        bool show = (helpCard != null && Time.time - helpAt < 20f) || helpPending;
+        helpSlide = GlassUI.Ease(helpSlide, show ? 1f : 0f, 9f);
+        if (helpSlide < 0.01f)
+            return;
+        float w = 360f;
+        var options = helpCard?.List("suggestions");
+        float h = helpCard == null ? 70f : 120f + (options?.Count ?? 0) * 50f;
+        // Left of the vision panel, under the chemistry meter.
+        float x = Mathf.Lerp(W + 20f, W - w - 320f, Mathf.SmoothStep(0f, 1f, helpSlide));
+        var r = new Rect(x, 136f, w, h);
+        GlassUI.Panel(r, 0.95f, 16, new Color(0.07f, 0.1f, 0.16f));
+        GlassUI.Label(new Rect(r.x + 16f, r.y + 10f, w - 32f, 18f), "🌐 TRANSLATOR", 11, new Color(0.55f, 0.8f, 1f), FontStyle.Bold);
+        if (helpCard == null)
+        {
+            GlassUI.Label(new Rect(r.x + 16f, r.y + 32f, w - 32f, 24f), "Listening back…", 13, Color.white);
+            return;
+        }
+        float y = r.y + 30f;
+        string said = helpCard.Str("said");
+        if (!string.IsNullOrEmpty(said))
+        {
+            float sh = Mathf.Min(48f, GlassUI.TextHeight($"«{said}»", 12, w - 32f));
+            GlassUI.Label(new Rect(r.x + 16f, y, w - 32f, sh), $"«{said}»", 12, new Color(1f, 1f, 1f, 0.6f), FontStyle.Italic, TextAnchor.UpperLeft, true);
+            y += sh + 2f;
+        }
+        float mh = Mathf.Min(54f, GlassUI.TextHeight(helpCard.Str("meaning_en"), 13, w - 32f));
+        GlassUI.Label(new Rect(r.x + 16f, y, w - 32f, mh), helpCard.Str("meaning_en"), 13, Color.white, FontStyle.Normal, TextAnchor.UpperLeft, true);
+        y += mh + 8f;
+        foreach (var o in options ?? new List<object>())
+        {
+            if (!(o is Dictionary<string, object> s))
+                continue;
+            GlassUI.Label(new Rect(r.x + 16f, y, w - 32f, 20f), s.Str("target"), 13, Color.white, FontStyle.Bold);
+            GlassUI.Label(new Rect(r.x + 16f, y + 19f, w - 32f, 16f), s.Str("gloss"), 10, new Color(1f, 1f, 1f, 0.55f));
+            y += 46f;
+        }
+        GlassUI.Label(new Rect(r.x + 16f, r.yMax - 26f, w - 32f, 18f), "💡 " + helpCard.Str("tip"), 11, new Color(0.55f, 0.8f, 1f));
+    }
+
+    /// <summary>The café's carta: what can be ordered, in Spanish, with prices.</summary>
+    void Menu(float H)
+    {
+        var menu = scenario?.menu;
+        menuSlide = GlassUI.Ease(menuSlide, menuOpen ? 1f : 0f, 10f);
+        if (menuSlide < 0.01f || menu == null || menu.Length == 0)
+            return;
+        float w = 300f, h = 56f + menu.Length * 34f;
+        float x = Mathf.Lerp(-w - 20f, 20f, Mathf.SmoothStep(0f, 1f, menuSlide));
+        var r = new Rect(x, Mathf.Max(270f, (H - h) / 2f), w, h); // below the milestones
+        GlassUI.Panel(r, 0.96f, 16, new Color(0.13f, 0.1f, 0.08f));
+        GlassUI.Label(new Rect(r.x + 16f, r.y + 10f, w - 32f, 22f), $"☕ {scenario.venue?.label ?? "Carta"}", 16, Brand.AccentSoft, FontStyle.Bold);
+        GlassUI.Label(new Rect(r.x + 16f, r.y + 32f, w - 32f, 14f), "CARTA · ask for it in Spanish", 9, new Color(1f, 1f, 1f, 0.5f), FontStyle.Bold);
+        float y = r.y + 52f;
+        foreach (var item in menu)
+        {
+            GlassUI.Label(new Rect(r.x + 16f, y, w - 90f, 18f), item.name, 13, Color.white, FontStyle.Bold);
+            GlassUI.Label(new Rect(r.x + 16f, y, w - 32f, 18f), $"${item.price} {scenario.currency}", 12, Brand.AccentSoft, FontStyle.Normal, TextAnchor.MiddleRight);
+            GlassUI.Label(new Rect(r.x + 16f, y + 16f, w - 32f, 14f), item.description_en, 10, new Color(1f, 1f, 1f, 0.5f));
+            y += 34f;
         }
     }
 

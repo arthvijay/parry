@@ -32,12 +32,39 @@ Every key is optional. Without one, that part falls back, so the whole flow runs
 | Building the date (persona, opener, flags, venue) | Claude `claude-sonnet-5-5` | `ANTHROPIC_API_KEY` | authored dialect templates |
 | Live chemistry judge, wingman lines | Claude (effort `low`) | same | a rules judge, authored wingman lines |
 | Final receipt and follow-up text | Claude | same | a rules grader |
-| The date's live replies | Gemini `gemini-3.8-flash` | `GEMINI_API_KEY` or Vertex (`GOOGLE_CLOUD_PROJECT`) | Claude, then a scripted date |
-| Hearing the learner | Deepgram live (`nova-3`; `nova-2` for Mandarin) | `DEEPGRAM_API_KEY` | voice detection only; type with Enter |
-| The date's voice | Fish Audio live TTS (`s2.1-pro`) | `FISH_AUDIO_API_KEY` | a bundled sample voice |
+| The date's live replies | Claude (`DATE_CLAUDE_MODEL`, default Sonnet); Gemini Flash with `DATE_BRAIN=gemini` | `ANTHROPIC_API_KEY` | A scripted date |
+| Hearing the learner | NVIDIA Nemotron ASR Streaming (Riva gRPC; `es-US` for Argentine Spanish) | `NVIDIA_API_KEY` (+ `NEMOTRON_ASR_FUNCTION_ID` or a self-hosted NIM for Spanish) | voice detection only; type with Enter |
+| The date's voice | ElevenLabs streaming TTS (`eleven_flash_v2_5`) | `ELEVENLABS_API_KEY` | a bundled sample voice |
 | Face, smiles, nods, head pose | MediaPipe Face Landmarker (local) | none (`uv sync --group face`) | no face; the date carries on |
 
 `GET /health` reports which of these are live (`"date": {...}`).
+
+## The demo date: Café Rayuela, Cancún
+
+The matchmaker has two demo buttons, also the first row of the personality section. Both
+play at the same café, the same every time:
+
+- **▶ Argentine latina (Spanish):** Valeria, `scenarios/speed_dating/presets/cafe_cancun_ar.json`.
+- **▶ Southern belle (English):** Savannah from Savannah, Georgia, in Southern American
+  English (`en-US-south`), `scenarios/speed_dating/presets/cafe_cancun_south.json`.
+
+Pressing Play straight in `CancunCafe.unity` replays the last demo (fetched fresh). Custom
+dates still choose their venue from the prompt.
+
+**Controls.** WASD or arrows to walk, the mouse to look (or hold the right button when the
+cursor is free), F to sit, then: W wingman, T translate, M menu, Enter type, V camera, Q end.
+
+- **The place.** Café Rayuela, an Argentine-owned café two blocks from the beach in Cancún.
+- **The people.** Don Julio, the porteño owner, greets you at the door and walks you to
+  the window table. **Valeria** (or **Tomás** if you choose a man) is waiting there: an
+  editorial photographer from Palermo who moved to Cancún to shoot the reefs.
+- **How they talk.** Rioplatense voseo (*vos sos, tenés, decime*), *che*, *posta*, *re*.
+- **The opener.** She complains that her last date spent ten minutes on his stock
+  portfolio and recommends the medialunas.
+- **The menu.** M shows the carta: cortado, medialunas, submarino, alfajores, tostado…
+  Order in Spanish and Don Julio walks over and serves it.
+- **Five milestones:** introduce yourself, order something to share, find common ground,
+  talk like a porteño, and ask for her WhatsApp.
 
 ## The demo, end to end
 
@@ -66,11 +93,23 @@ Every key is optional. Without one, that part falls back, so the whole flow runs
    - **Wingman:** freeze for 4 s and the wingman whispers three options.
    - **V** toggles the cinematic two-shot, where your avatar, wearing your live face,
      sits across from them.
+   - **T** opens the **translator**: what the date just said, in English, plus three
+     replies. It's counted, gently, in the pacing grade.
 6. **The verdict.** At the bell the date says goodbye in character. The receipt shows:
    - **The stamp:** MATCH (65+), FRIENDZONED (45+) or GHOSTED.
    - **Four graded pillars**, each with a verbatim quote.
    - **The measured pacing.**
    - **A text from the date**, with one correction drawn from what you said.
+
+   **Tab** flips to the learning page. **L** opens *Your date, decoded* in the browser,
+   with:
+   - what landed, in your words;
+   - up to three things to say differently;
+   - phrases in the dialect for the moments you stalled;
+   - how people really talk there;
+   - words to practise;
+   - a coach's ear on your recorded voice;
+   - the whole conversation.
 
    **R** tries again with the same date; **N** goes to the next table.
 
@@ -84,10 +123,10 @@ AvatarOnboarding ── POST /v1/avatar/from-selfie ─▶ face_tracker.py (Medi
 VisionFeed ── WS /v1/vision (before the date) ───▶ face_tracker + nonverbal.py
 
 FullDuplexStreamClient ═══ WS /v1/stream ═══▶ stream_gateway.py
-  mic 16 kHz PCM16 ─────────────────────────▶   stt.py (Deepgram live)
+  mic 16 kHz PCM16 ─────────────────────────▶   stt.py (Nemotron ASR, Riva gRPC)
   telemetry 250 ms, webcam frames ──────────▶   nonverbal.py, face_tracker.py
   barge_in / start_date / end_date ─────────▶   chemistry_director.py ─▶ Claude
-  ◀───────── 24 kHz PCM16 voice frames ─────    date_brain.py (Gemini) ─▶ tts.py (Fish)
+  ◀───────── 24 kHz PCM16 voice frames ─────    date_brain.py (Claude) ─▶ tts.py (ElevenLabs)
   ◀── transcript, chemistry_update, wingman_hint, face_analysis, signal, clear_audio
 DateVerdictReceipt ── POST /v1/grade ───────▶ date_grader.py ─▶ Claude
 ```
@@ -101,7 +140,9 @@ in [docs/speed-date.md](docs/speed-date.md).
   - `config.py` holds the brand, dialects, venues, personas, models and voices.
   - The speed-date modules are `matchmaker.py`, `stream_gateway.py`, `chemistry_director.py`, `date_grader.py`, `stt.py`, `tts.py`, `date_brain.py`, `face_tracker.py`, `nonverbal.py`, `claude.py` and `date_routes.py`.
   - The original café modules (`/v1/speech`, `/v1/scenarios`, `director.py`, `grading.py`) are kept and still pass their tests.
-- `scenarios/speed_dating/dialects/*.json`: authored lines per dialect (host, openers per personality, look-away callouts, wingman fallbacks, closings, verdict stamps, follow-up texts).
+- `scenarios/speed_dating/dialects/*.json`: authored lines per dialect (host, openers per personality, look-away callouts, wingman fallbacks, closings, verdict stamps, follow-up texts, culture notes).
+- `scenarios/speed_dating/presets/cafe_cancun_ar.json`: the authored demo date.
+- `orchestrator/date_report.py`: *Your date, decoded* (Claude writes it; Gemini listens to the recorded voice clips).
 - `My project/`: the Unity 6 (URP) client. Scenes: `Wish.unity` (matchmaker), `CancunCafe.unity` (primary venue), `SampleScene.unity` (fallback venue).
 - `tools/test_e2e_pipeline.py`: headless end-to-end check against a running server.
 - `tools/spz_to_collider.py`: builds a walkable collider `.glb` from a Gaussian splat.
@@ -132,22 +173,26 @@ in [docs/speed-date.md](docs/speed-date.md).
 ## Tests
 
 ```sh
-uv run pytest                                  # 198 tests, no network
+uv run pytest                                  # 205 tests, no network
 uvx ruff check orchestrator tools eval
 uv run python tools/test_e2e_pipeline.py --offline   # starts a server, plays a whole date
 uv run python tools/test_e2e_pipeline.py             # same, with your keys
 ```
 
-Fish Audio and Deepgram are tested against local servers speaking their real protocols.
+ElevenLabs and Nemotron ASR are tested against local servers speaking their real protocols (a Riva gRPC server for Nemotron).
 The Claude request shape is tested against a mock transport.
 
 ## Limits worth knowing
 
-- **Avatars.** Two Rocketbox bodies, tinted. Ready Player Me shut down on 31 January 2026,
-  so a selfie colours an avatar rather than reshaping its face.
+- **Avatars.** Rocketbox bodies, tinted (the date is `Female_Party_02`, from the
+  [Microsoft Rocketbox](https://github.com/microsoft/Microsoft-Rocketbox) library, MIT
+  licence). Ready Player Me shut down on 31 January 2026, so a selfie colours an avatar
+  rather than reshaping its face.
 - **Worlds.** The scene prompt chooses between the scanned worlds and re-lights them; it
   doesn't generate new 3D geometry live.
-- **Voices.** Configure Fish Audio voice models per dialect and gender with
-  `FISH_VOICE_<DIALECT>_<GENDER>`; otherwise Fish's default voice speaks every dialect.
+- **Voices.** Set ElevenLabs voices per dialect and gender with
+  `ELEVENLABS_VOICE_<DIALECT>_<GENDER>` (for the demo, porteño voices from the Voice Library
+  added to My Voices); otherwise a premade voice speaks (Jessica and Will for the Southern
+  demo). Library voices only work through the API on a paid ElevenLabs plan.
 - **Echo.** Use headphones. The client gates echo while the date talks, but speakers next
   to the mic still make barge-in less reliable.

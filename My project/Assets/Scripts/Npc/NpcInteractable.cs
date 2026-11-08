@@ -119,7 +119,7 @@ public class NpcInteractable : MonoBehaviour
 
     void OnGUI()
     {
-        if (!PlayerInRange || Cursor.lockState != CursorLockMode.Locked)
+        if (!PlayerInRange || !ChemistryAndWingmanHUD.KeysFree)
             return;
         var client = FullDuplexStreamClient.Instance;
         if (client != null && client.DateRunning)

@@ -1,32 +1,38 @@
-"""Hearing the learner: live speech recognition for the date.
+"""Hearing the learner: live speech recognition for the date, with NVIDIA Nemotron ASR.
 
-Deepgram's streaming API hears the microphone as it arrives and says when the learner
-has finished a thought (endpointing plus utterance-end), so the date can answer about
-as soon as a person would. Interim words are passed on for live subtitles; a finished
-utterance arrives as one ``final`` event with its confidence and the words the
-recogniser doubted.
+The microphone streams into Nemotron ASR Streaming over NVIDIA Riva's gRPC API, either
+NVIDIA's hosted endpoint (build.nvidia.com, an API key and a function id) or a
+self-hosted Speech NIM. Interim words become live subtitles; each final result is one
+finished utterance, with its confidence and the words the model doubted.
 
-Without a Deepgram key the session still detects speech (for barge-in and the
-wingman's silence timer) but cannot transcribe it; the client can send typed lines.
+Riva reports words, not the moment speech starts, so speech start and end come from a
+small local voice detector on the same audio: that is what lets barge-in and the
+wingman's silence timer react before the words arrive.
+
+Without NVIDIA credentials (or a reachable server) the session still detects speech but
+cannot transcribe it; the client can send typed lines.
 """
 
 from __future__ import annotations
 
 import asyncio
-import contextlib
-import json
 import logging
+import queue
+import re
+import threading
+import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from urllib.parse import urlencode
 
 from . import config
 from .audio import MIC_RATE, EnergyVad
 
 log = logging.getLogger("orchestrator")
 
-DEEPGRAM_URL = "wss://api.deepgram.com/v1/listen"
 LOW_CONFIDENCE = 0.6
+# In auto-detect mode the model appends the language it heard, e.g. "<es-US>".
+LANG_TAG = re.compile(r"\s*<[a-z]{2,3}(-[A-Za-z]{2,4})?>\s*")
+MAX_RESTARTS = 20
 
 
 @dataclass
@@ -63,127 +69,173 @@ class SpeechRecognizer:
         return None
 
 
-class DeepgramRecognizer(SpeechRecognizer):
-    name = "deepgram"
+# Spanish opening marks the model sometimes puts after the first word ("Qué¿ quieres").
+MISPLACED_OPENER = re.compile(r"(\w+)([¿¡])\s*")
+
+
+SPACE_BEFORE_MARK = re.compile(r"\s+([,.;:!?…])")
+
+
+def clean(text: str) -> str:
+    text = LANG_TAG.sub(" ", text or "").strip()
+    text = MISPLACED_OPENER.sub(lambda m: f"{m.group(2)}{m.group(1)} ", text).strip()
+    return SPACE_BEFORE_MARK.sub(r"\1", text)
+
+
+def function_for(p: config.Providers, language: str) -> str:
+    """English locales use the Nemotron function; every other language the hosted
+    multilingual one (when there is one), since hosted Nemotron is English only."""
+    if language.lower().startswith("en") or not p.asr_multilingual_function_id:
+        return p.asr_function_id
+    return p.asr_multilingual_function_id
+
+
+class NemotronRecognizer(SpeechRecognizer):
+    """Nemotron ASR Streaming through Riva's StreamingRecognize, on a worker thread.
+
+    Riva's Python client is blocking, so audio goes through a thread-safe queue into a
+    generator the client consumes, and responses are handed back to the event loop. If
+    the server ends a stream (time limits, a cold worker) it is reopened; audio that
+    arrives meanwhile waits in the queue."""
+
+    name = "nemotron"
     transcribes = True
 
-    def __init__(self, key: str, dialect: config.Dialect):
+    def __init__(self, p: config.Providers, language: str):
         super().__init__()
-        self.key = key
-        self.dialect = dialect
-        self.ws = None
-        self.reader: asyncio.Task | None = None
-        self.keepalive: asyncio.Task | None = None
-        self.finals: list[str] = []
-        self.confidences: list[float] = []
-        self.unsure: list[str] = []
+        self.providers = p
+        self.language = language
+        self.audio: queue.Queue[bytes | None] = queue.Queue(maxsize=1500)  # ~30 s of 20 ms frames
+        self.loop: asyncio.AbstractEventLoop | None = None
+        self.thread: threading.Thread | None = None
+        self.closed = threading.Event()
+        self.ready = threading.Event()
         self.failed = False
+        self.service = None
+        self.streaming_config = None
 
-    def url(self) -> str:
-        params = {"model": self.dialect.stt_model, "language": self.dialect.stt_language,
-                  "encoding": "linear16", "sample_rate": MIC_RATE, "channels": 1,
-                  "interim_results": "true", "punctuate": "true", "smart_format": "true",
-                  "endpointing": 300, "utterance_end_ms": 1000, "vad_events": "true"}
-        return f"{DEEPGRAM_URL}?{urlencode(params)}"
+    def _connect(self):
+        import riva.client
+        metadata = []
+        function_id = function_for(self.providers, self.language)
+        if function_id:
+            metadata.append(["function-id", function_id])
+        if self.providers.nvidia_key:
+            metadata.append(["authorization", f"Bearer {self.providers.nvidia_key}"])
+        auth = riva.client.Auth(uri=self.providers.asr_server, use_ssl=self.providers.asr_ssl,
+                                metadata_args=metadata or None)
+        self.service = riva.client.ASRService(auth)
+        recognition = riva.client.RecognitionConfig(
+            encoding=riva.client.AudioEncoding.LINEAR_PCM, sample_rate_hertz=MIC_RATE,
+            audio_channel_count=1, language_code=self.language, max_alternatives=1,
+            enable_automatic_punctuation=True, enable_word_time_offsets=True)
+        self.streaming_config = riva.client.StreamingRecognitionConfig(
+            config=recognition, interim_results=True)
 
     async def start(self):
-        from websockets.asyncio.client import connect
-        self.ws = await connect(self.url(), additional_headers={"Authorization": f"Token {self.key}"},
-                                max_size=4 * 1024 * 1024, open_timeout=8)
-        self.reader = asyncio.create_task(self._read())
-        self.keepalive = asyncio.create_task(self._keepalive())
+        self.loop = asyncio.get_running_loop()
+        await asyncio.to_thread(self._connect)
+        self.thread = threading.Thread(target=self._run, name="nemotron-asr", daemon=True)
+        self.thread.start()
 
     async def feed(self, pcm: bytes):
-        if self.failed or self.ws is None:
-            # Recognition is gone: keep detecting speech so the date can still react.
-            await super().feed(pcm)
-            return
-        try:
-            await self.ws.send(pcm)
-        except Exception as error:  # noqa: BLE001
-            await self._fail(error)
-
-    async def _keepalive(self):
-        # Deepgram closes a socket that hears nothing for ~10 s; a muted mic must not end it.
-        while True:
-            await asyncio.sleep(5)
-            with contextlib.suppress(Exception):
-                await self.ws.send(json.dumps({"type": "KeepAlive"}))
-
-    async def _read(self):
-        try:
-            async for raw in self.ws:
-                if isinstance(raw, bytes):
-                    continue
-                await self._message(json.loads(raw))
-        except Exception as error:  # noqa: BLE001
-            await self._fail(error)
-
-    async def _message(self, msg: dict):
-        kind = msg.get("type")
-        if kind == "SpeechStarted":
-            await self.events.put(SttEvent("speech_started"))
-        elif kind == "Results":
-            alternatives = (msg.get("channel") or {}).get("alternatives") or [{}]
-            best = alternatives[0]
-            text = (best.get("transcript") or "").strip()
-            if not text:
-                if msg.get("speech_final"):
-                    await self._flush()
-                return
-            if msg.get("is_final"):
-                self.finals.append(text)
-                if isinstance(best.get("confidence"), (int, float)):
-                    self.confidences.append(float(best["confidence"]))
-                self.unsure += [w.get("punctuated_word") or w.get("word", "")
-                                for w in best.get("words") or []
-                                if isinstance(w.get("confidence"), (int, float))
-                                and w["confidence"] < LOW_CONFIDENCE]
-                if msg.get("speech_final"):
-                    await self._flush()
-                else:
-                    await self.events.put(SttEvent("partial", " ".join(self.finals)))
-            else:
-                await self.events.put(SttEvent("partial", " ".join([*self.finals, text])))
-        elif kind == "UtteranceEnd":
-            await self._flush()
-
-    async def _flush(self):
-        if not self.finals:
-            # Speech that produced no words still ends; the silence after it counts.
-            await self.events.put(SttEvent("speech_ended"))
-            return
-        text = " ".join(self.finals).strip()
-        confidence = sum(self.confidences) / len(self.confidences) if self.confidences else None
-        unsure = [w for w in self.unsure if w][:40]
-        self.finals, self.confidences, self.unsure = [], [], []
-        await self.events.put(SttEvent("final", text, confidence, unsure))
-
-    async def _fail(self, error: Exception):
+        # Speech start and end always come from the local detector.
+        await super().feed(pcm)
         if self.failed:
             return
-        self.failed = True
-        log.warning("Deepgram stream failed: %s", type(error).__name__)
-        await self.events.put(SttEvent("error", "Speech recognition dropped; type instead"))
+        try:
+            self.audio.put_nowait(pcm)
+        except queue.Full:
+            # The stream has stalled for ~30 s: drop the oldest audio, never block the socket.
+            try:
+                self.audio.get_nowait()
+                self.audio.put_nowait(pcm)
+            except (queue.Empty, queue.Full):
+                pass
+
+    def _chunks(self):
+        """What the Riva client sends: microphone audio until the session closes."""
+        while not self.closed.is_set():
+            try:
+                chunk = self.audio.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            if chunk is None:
+                return
+            yield chunk
+
+    def _emit(self, event: SttEvent):
+        if self.loop is not None and not self.loop.is_closed():
+            self.loop.call_soon_threadsafe(self.events.put_nowait, event)
+
+    def _run(self):
+        restarts = 0
+        while not self.closed.is_set() and restarts <= MAX_RESTARTS:
+            started = time.monotonic()
+            try:
+                responses = self.service.streaming_response_generator(
+                    audio_chunks=self._chunks(), streaming_config=self.streaming_config)
+                for response in responses:
+                    self.ready.set()
+                    for result in response.results:
+                        self._result(result)
+                if self.closed.is_set():
+                    return
+            except Exception as error:  # noqa: BLE001
+                if self.closed.is_set():
+                    return
+                # gRPC errors carry a status code and the server's reason; no credentials.
+                code = getattr(error, "code", None)
+                details = getattr(error, "details", None)
+                log.warning("Nemotron ASR stream ended: %s %s",
+                            code() if callable(code) else type(error).__name__,
+                            (details() if callable(details) else "") or "")
+            # A stream that lived a while just hit a server limit; one that died at once
+            # counts towards giving up.
+            restarts = 0 if time.monotonic() - started > 30 else restarts + 1
+            time.sleep(min(5.0, 0.5 * (restarts + 1)))
+        if not self.closed.is_set():
+            self.failed = True
+            log.warning("Nemotron ASR unavailable; speech detection only")
+            self._emit(SttEvent("error", "Speech recognition dropped; type instead"))
+
+    def _result(self, result):
+        if not result.alternatives:
+            return
+        best = result.alternatives[0]
+        text = clean(best.transcript)
+        if not text:
+            return
+        if not result.is_final:
+            self._emit(SttEvent("partial", text))
+            return
+        confidence = float(best.confidence) if best.confidence and best.confidence > 0 else None
+        unsure = [clean(w.word) for w in best.words
+                  if 0 < w.confidence < LOW_CONFIDENCE and clean(w.word)][:40]
+        self._emit(SttEvent("final", text, confidence, unsure))
 
     async def close(self):
-        for task in (self.keepalive, self.reader):
-            if task is not None:
-                task.cancel()
-        if self.ws is not None:
-            with contextlib.suppress(Exception):
-                await self.ws.send(json.dumps({"type": "CloseStream"}))
-                await self.ws.close()
+        self.closed.set()
+        try:
+            self.audio.put_nowait(None)
+        except queue.Full:
+            pass
+
+
+def asr_language(dialect: config.Dialect) -> str:
+    override = config.providers().asr_language
+    return override or dialect.asr_language
 
 
 async def create_recognizer(dialect: config.Dialect) -> SpeechRecognizer:
-    """Deepgram when configured and reachable; otherwise speech detection only."""
-    key = config.providers().deepgram_key
-    if key:
-        recognizer = DeepgramRecognizer(key, dialect)
+    """Nemotron ASR when configured; otherwise speech detection only."""
+    p = config.providers()
+    hosted = p.asr_server == config.NEMOTRON_HOSTED_SERVER
+    if p.nvidia_key or not hosted:
+        recognizer = NemotronRecognizer(p, asr_language(dialect))
         try:
             await recognizer.start()
             return recognizer
         except Exception as error:  # noqa: BLE001
-            log.warning("Deepgram unavailable (%s); speech detection only", type(error).__name__)
+            log.warning("Nemotron ASR unavailable (%s); speech detection only", type(error).__name__)
     return SpeechRecognizer()

@@ -3,14 +3,40 @@
     "name": "小林",
     "gender": "female",
     "greeting": "晚上好，欢迎！你的约会对象已经在最里面那张桌子等你了，叫{date_name}。你有三分钟哦，加油！",
-    "chat": ["就在那边，最里面那桌。快去吧，时间不等人！", "放轻松，做你自己就好。加油！"]
+    "chat": [
+      "就在那边，最里面那桌。快去吧，时间不等人！",
+      "放轻松，做你自己就好。加油！"
+    ]
   },
   "names": {
-    "female": ["林悦", "陈晓雨", "王思琪", "赵嘉怡", "刘欣然"],
-    "male": ["张浩然", "李子轩", "王宇航", "陈一鸣", "周子豪"],
-    "nonbinary": ["安然", "小白", "子木"]
+    "female": [
+      "林悦",
+      "陈晓雨",
+      "王思琪",
+      "赵嘉怡",
+      "刘欣然"
+    ],
+    "male": [
+      "张浩然",
+      "李子轩",
+      "王宇航",
+      "陈一鸣",
+      "周子豪"
+    ],
+    "nonbinary": [
+      "安然",
+      "小白",
+      "子木"
+    ]
   },
-  "occupations": ["UX designer", "tea sommelier", "documentary filmmaker", "AI researcher", "independent bookstore owner", "chef"],
+  "occupations": [
+    "UX designer",
+    "tea sommelier",
+    "documentary filmmaker",
+    "AI researcher",
+    "independent bookstore owner",
+    "chef"
+  ],
   "openings": {
     "playful_sarcastic": "嗨！终于换人了，上一个跟我聊了十分钟他的基金。拜托告诉我，你比他有意思吧？",
     "warm_romantic": "你好呀！很高兴认识你。今天过得怎么样？有没有什么开心的事？",
@@ -18,27 +44,75 @@
     "high_energy_creative": "嗨嗨！不好意思，我刚看完一个超棒的展，还很兴奋。你呢？你平时喜欢玩什么？"
   },
   "callouts": {
-    "female": ["喂，我有这么无聊吗？你一直在看别的地方。", "哈喽？我在这儿呢。你在看什么呀？"],
-    "male": ["喂，我有这么无聊吗？你一直在看别的地方。", "哈喽？我在这儿呢。你在看什么呀？"],
-    "nonbinary": ["喂，我有这么无聊吗？你一直在看别的地方。", "哈喽？我在这儿呢。你在看什么呀？"]
+    "female": [
+      "喂，我有这么无聊吗？你一直在看别的地方。",
+      "哈喽？我在这儿呢。你在看什么呀？"
+    ],
+    "male": [
+      "喂，我有这么无聊吗？你一直在看别的地方。",
+      "哈喽？我在这儿呢。你在看什么呀？"
+    ],
+    "nonbinary": [
+      "喂，我有这么无聊吗？你一直在看别的地方。",
+      "哈喽？我在这儿呢。你在看什么呀？"
+    ]
   },
   "offline": {
-    "reactions": ["真的假的？", "哈哈，好有意思。", "哇，挺厉害的嘛。", "嗯，我懂你的意思。", "哈哈，你好好笑。"],
-    "questions": ["那你平时做什么工作呀？", "你理想的周末是什么样的？", "你喜欢吃什么？", "你去过很多地方旅行吗？", "你最近在听什么歌？"],
-    "nudges": ["你呢？说说你吧。", "别害羞嘛，你怎么想？"],
+    "reactions": [
+      "真的假的？",
+      "哈哈，好有意思。",
+      "哇，挺厉害的嘛。",
+      "嗯，我懂你的意思。",
+      "哈哈，你好好笑。"
+    ],
+    "questions": [
+      "那你平时做什么工作呀？",
+      "你理想的周末是什么样的？",
+      "你喜欢吃什么？",
+      "你去过很多地方旅行吗？",
+      "你最近在听什么歌？"
+    ],
+    "nudges": [
+      "你呢？说说你吧。",
+      "别害羞嘛，你怎么想？"
+    ],
     "smile": "你笑起来挺好看的嘛。",
     "puzzled": "怎么了？你的表情好奇怪……要我说慢一点吗？"
   },
   "wingman": [
     [
-      {"tone": "Flirty 🔥", "target": "我唯一的投资，就是今晚来认识你。", "gloss": "My only investment is coming to meet you tonight."},
-      {"tone": "Curious 💬", "target": "那你呢？你平时最喜欢做什么？", "gloss": "And you? What do you like doing most?"},
-      {"tone": "Playful 😂", "target": "我的理财产品就是奶茶会员卡。", "gloss": "My only financial product is a bubble tea loyalty card."}
+      {
+        "tone": "Flirty 🔥",
+        "target": "我唯一的投资，就是今晚来认识你。",
+        "gloss": "My only investment is coming to meet you tonight."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "那你呢？你平时最喜欢做什么？",
+        "gloss": "And you? What do you like doing most?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "我的理财产品就是奶茶会员卡。",
+        "gloss": "My only financial product is a bubble tea loyalty card."
+      }
     ],
     [
-      {"tone": "Flirty 🔥", "target": "理想的周末？好天气、好吃的，还有一个有趣的人，比如你。", "gloss": "Ideal weekend? Good weather, good food, and an interesting person, like you."},
-      {"tone": "Curious 💬", "target": "这附近你有没有推荐的小店？", "gloss": "Do you have any little spots around here you'd recommend?"},
-      {"tone": "Playful 😂", "target": "不好意思，我紧张得脑子卡住了。", "gloss": "Sorry, I'm so nervous my brain froze."}
+      {
+        "tone": "Flirty 🔥",
+        "target": "理想的周末？好天气、好吃的，还有一个有趣的人，比如你。",
+        "gloss": "Ideal weekend? Good weather, good food, and an interesting person, like you."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "这附近你有没有推荐的小店？",
+        "gloss": "Do you have any little spots around here you'd recommend?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "不好意思，我紧张得脑子卡住了。",
+        "gloss": "Sorry, I'm so nervous my brain froze."
+      }
     ]
   ],
   "closings": {
@@ -46,10 +120,24 @@
     "friendzone": "好啦，铃响了。你人挺好的，有机会再见吧。",
     "ghosted": "嗯，时间到了。那……祝你后面的约会顺利。"
   },
-  "stamps": {"match": "配对成功！", "friendzone": "做朋友吧", "ghosted": "已读不回"},
+  "stamps": {
+    "match": "配对成功！",
+    "friendzone": "做朋友吧",
+    "ghosted": "已读不回"
+  },
   "followups": {
     "match": "今天跟你聊天好开心 😊 周末一起去喝咖啡吗？",
     "friendzone": "很高兴认识你！下次朋友聚会可以一起来玩 🤝",
     "ghosted": "谢谢你今天的聊天，感觉我们不太合适，祝你好运 🙏"
-  }
+  },
+  "culture": [
+    {
+      "title": "Particles soften",
+      "note": "Ending with 呀, 嘛 or 吧 makes a sentence friendlier and less blunt."
+    },
+    {
+      "title": "加个微信",
+      "note": "Asking to add someone on WeChat is how you ask for their number."
+    }
+  ]
 }

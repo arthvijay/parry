@@ -559,24 +559,9 @@ MonoBehaviour:
   mouseSensitivity: 0.1
   pitchMin: -85
   pitchMax: 85
+  eyeLevelBone: Bip01 LEye
+  eyeLevelSettleSeconds: 1.5
   logInput: 0
---- !u!114 &1554596540
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1554596532}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9dba91f2698d3e0018ba9b81cb7c5704, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sitKey: 20
-  sitRange: 1.6
-  eyeAboveSeat: 0.8
-  transitionTime: 0.35
-  fontSize: 20
 --- !u!143 &1554596539
 CharacterController:
   m_ObjectHideFlags: 0
@@ -602,6 +587,23 @@ CharacterController:
   m_SkinWidth: 0.1
   m_MinMoveDistance: 0
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1554596540
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1554596532}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9dba91f2698d3e0018ba9b81cb7c5704, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sitKey: 20
+  sitRange: 1.6
+  eyeAboveSeat: 0.8
+  transitionTime: 0.35
+  fontSize: 20
 --- !u!1 &1749360683
 GameObject:
   m_ObjectHideFlags: 0
@@ -677,6 +679,73 @@ MonoBehaviour:
   colliderFile: Worlds/modern_house_with_lush_landscaping_collider.glb
   mirrorX: 1
   showColliderMesh: 0
+--- !u!1 &1900000000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1900000001}
+  - component: {fileID: 1900000002}
+  - component: {fileID: 1900000003}
+  m_Layer: 0
+  m_Name: Quests
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1900000001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1900000000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1900000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1900000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c3e5a7b1d4f6c8e0a2b3d5f7a9c1e3b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fileName: quests.json
+  watchFile: 1
+--- !u!114 &1900000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1900000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d4f6b8c2e5a7d9f1b3c4e6a8b0d2f4c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fontSize: 14
+  margin: 16
+  padding: 10
+  lineSpacing: 6
+  boxSize: 12
+  backgroundAlpha: 0.45
+  doneColor: {r: 0.55, g: 0.85, b: 0.55, a: 1}
+  todoColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &2000000000
 GameObject:
   m_ObjectHideFlags: 0
@@ -773,6 +842,14 @@ MonoBehaviour:
   serverUrl: http://127.0.0.1:8765
   scenarioId: 
   timeoutSeconds: 75
+  learnerName: 
+  micEnabled: 1
+  micDevice: 
+  vadThreshold: 0.02
+  bargeInMs: 120
+  echoGuard: 2
+  echoGate: 1
+  telemetryInterval: 0.25
 --- !u!114 &2100000003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -785,83 +862,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e5f60718293a4b5c6d7e8f90a1b2c3d4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  scenarioId: 
-  reuseLastGenerated: 1
-  loadOnStart: 1
-  prompt: Order at the counter of a small cafe in Cancun, then sit and talk with your date
-  language: Mexican Spanish
-  level: A2
+  dateId: 
+  joinOnStart: 1
   timeoutSeconds: 90
-  applyGoals: 1
-  applyCharacters: 1
---- !u!1 &1900000000
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1900000001}
-  - component: {fileID: 1900000002}
-  - component: {fileID: 1900000003}
-  m_Layer: 0
-  m_Name: Quests
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1900000001
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1900000000}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1900000002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1900000000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9c3e5a7b1d4f6c8e0a2b3d5f7a9c1e3b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  fileName: quests.json
-  watchFile: 1
-  saveOnChange: 1
---- !u!114 &1900000003
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1900000000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0d4f6b8c2e5a7d9f1b3c4e6a8b0d2f4c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  fontSize: 14
-  margin: 16
-  padding: 10
-  lineSpacing: 6
-  boxSize: 12
-  backgroundAlpha: 0.45
-  doneColor: {r: 0.55, g: 0.85, b: 0.55, a: 1}
-  todoColor: {r: 1, g: 1, b: 1, a: 1}
+  defaultPreset: cafe_cancun_ar
+  defaultLevel: B1
 --- !u!1 &2200000000
 GameObject:
   m_ObjectHideFlags: 0
@@ -908,6 +913,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fileName: seats.json
   watchFile: 1
+  autoTwoTop: 1
+  twoTopGap: 1.3
+  dateCamera: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

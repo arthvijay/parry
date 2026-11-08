@@ -129,5 +129,15 @@
     "match": "今日はすごく楽しかったです😊 今度ごはん行きませんか？",
     "friendzone": "お会いできてよかったです！またみんなで飲みに行きましょう🤝",
     "ghosted": "今日はありがとうございました。ご縁がなかったみたいですが、頑張ってください🙏"
-  }
+  },
+  "culture": [
+    {
+      "title": "Aizuchi",
+      "note": "Small reactions like へえ, そうなんだ and なるほど show you're listening; silence can feel cold."
+    },
+    {
+      "title": "Polite to casual",
+      "note": "Start with です/ます and let the other person lead the switch to casual speech."
+    }
+  ]
 }

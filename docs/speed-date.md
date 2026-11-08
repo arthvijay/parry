@@ -6,15 +6,17 @@ How the date stays fast, feels like a person, and stays honest about grading.
 
 From the learner's last word to the date's first sound:
 
-1. **End of speech.** Deepgram endpoints at 300 ms of silence, with an utterance-end
-   backstop at 1 s.
-2. **First token.** Gemini Flash with thinking at `MINIMAL`. The persona prompt is
-   identical across turns, so it stays warm.
+1. **End of speech.** Nemotron ASR Streaming (NVIDIA Riva gRPC) closes each utterance
+   with its own endpointing; a local voice detector marks speech start and end at once.
+2. **First token.** Claude (`DATE_CLAUDE_MODEL`, default Sonnet) at low effort, streamed.
+   `DATE_BRAIN=gemini` puts Gemini Flash (thinking `LOW`; it rejects `MINIMAL`) in front
+   instead. The persona prompt is identical across turns, so it stays warm.
 3. **First sentence.** The token stream is cut at the first sentence or, if the opening
    runs long, at the first clause after ~60 characters (`SentenceChunker`). Each piece is
-   flushed to Fish Audio at once.
-4. **First audio.** Fish Audio streams PCM back. Its socket was opened while the learner
-   was still talking (`FishVoice.prewarm`), so the turn pays no TLS handshake.
+   flushed to ElevenLabs at once.
+4. **First audio.** ElevenLabs streams 24 kHz PCM back. A socket for the date's voice was
+   opened while the learner was still talking (`ElevenLabsVoice.prewarm`), so the turn pays
+   no TLS handshake.
 5. **Playback.** Frames go straight from the socket thread into the NPC's ring buffer.
 
 The chemistry judge, the wingman line and the transcript store all run after the reply
@@ -81,10 +83,30 @@ instead of ending it.
 | Missing | Stand-in |
 | --- | --- |
 | Anthropic | Templates build the date, a rules judge moves chemistry, a rules grader writes the receipt |
-| Gemini | Claude speaks; without Claude, a scripted date in the dialect |
-| Deepgram | Voice detection still drives barge-in and the wingman's silence timer; the learner types with Enter |
-| Fish Audio | The bundled sample voice, paced like speech so the lip-sync and barge-in still work |
+| Claude (the date's voice) | A turn Claude cannot answer gets a scripted line in the dialect |
+| Gemini | Only used with `DATE_BRAIN=gemini` (Claude then takes over) and for the report's pronunciation notes |
+| Nemotron ASR | Voice detection still drives barge-in and the wingman's silence timer; the learner types with Enter |
+| ElevenLabs | The bundled sample voice, paced like speech so the lip-sync and barge-in still work |
 | MediaPipe | No face signals; gaze still comes from where the camera looks |
 
 A turn whose provider fails before its first audio frame is replayed through the
 fallback. A failure after audio has started ends that line where it is.
+
+## Teaching, after the date
+
+During the date nobody corrects the learner. There are two places help lives instead:
+
+- **The translator (T), during the date.** What the date just said, in English, and three
+  replies. It's the learner's to read or ignore; the date never knows. It's counted,
+  because needing help is part of the picture.
+- **Your date, decoded, after the verdict.** The café's old "What we heard" page, rebuilt
+  for dating: what landed, at most three fixes, phrases in the dialect for the moments
+  they stalled, culture notes, words to practise, a coach's ear on their recorded voice,
+  and the whole conversation with the chemistry curve.
+
+## The demo café
+
+Café Rayuela (`presets/cafe_cancun_ar.json`) is authored, not generated, so a demo is
+the same every time. It's an Argentine café in Cancún, so the scanned Cancún world, the
+ocean and café ambience, and a porteño date all fit together. Ordering is a milestone,
+and it moves the scene: Don Julio walks over and serves what was ordered, by name.

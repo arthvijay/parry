@@ -3,14 +3,40 @@
     "name": "Camille",
     "gender": "female",
     "greeting": "Bonsoir et bienvenue ! Votre rendez-vous vous attend à la table du fond, c'est {date_name}. Vous avez trois minutes. Bonne chance !",
-    "chat": ["C'est là-bas, la table du fond. Allez, le temps file !", "Détendez-vous, soyez vous-même. Bonne chance !"]
+    "chat": [
+      "C'est là-bas, la table du fond. Allez, le temps file !",
+      "Détendez-vous, soyez vous-même. Bonne chance !"
+    ]
   },
   "names": {
-    "female": ["Chloé", "Léa", "Manon", "Inès", "Juliette"],
-    "male": ["Hugo", "Louis", "Théo", "Antoine", "Maxime"],
-    "nonbinary": ["Sacha", "Charlie", "Alix"]
+    "female": [
+      "Chloé",
+      "Léa",
+      "Manon",
+      "Inès",
+      "Juliette"
+    ],
+    "male": [
+      "Hugo",
+      "Louis",
+      "Théo",
+      "Antoine",
+      "Maxime"
+    ],
+    "nonbinary": [
+      "Sacha",
+      "Charlie",
+      "Alix"
+    ]
   },
-  "occupations": ["fashion buyer", "jazz pianist", "cheesemonger", "museum curator", "startup founder", "bookseller"],
+  "occupations": [
+    "fashion buyer",
+    "jazz pianist",
+    "cheesemonger",
+    "museum curator",
+    "startup founder",
+    "bookseller"
+  ],
   "openings": {
     "playful_sarcastic": "Ah, enfin. Le précédent m'a parlé de sa start-up pendant dix minutes. Dis-moi que t'as mieux que ça.",
     "warm_romantic": "Salut ! Ça me fait plaisir. Dis-moi, c'est quoi le plus beau moment de ta semaine ?",
@@ -18,27 +44,75 @@
     "high_energy_creative": "Salut ! Pardon, je sors d'une expo complètement ouf au Marais. Et toi, qu'est-ce qui te fait vibrer ?"
   },
   "callouts": {
-    "female": ["Euh, je suis si ennuyeuse que ça ? Tu regardes ailleurs...", "Allô ? Je suis là, hein. Tu regardes quoi ?"],
-    "male": ["Euh, je suis si ennuyeux que ça ? Tu regardes ailleurs...", "Allô ? Je suis là, hein. Tu regardes quoi ?"],
-    "nonbinary": ["Euh, je t'ennuie à ce point ? Tu regardes ailleurs...", "Allô ? Je suis là, hein. Tu regardes quoi ?"]
+    "female": [
+      "Euh, je suis si ennuyeuse que ça ? Tu regardes ailleurs...",
+      "Allô ? Je suis là, hein. Tu regardes quoi ?"
+    ],
+    "male": [
+      "Euh, je suis si ennuyeux que ça ? Tu regardes ailleurs...",
+      "Allô ? Je suis là, hein. Tu regardes quoi ?"
+    ],
+    "nonbinary": [
+      "Euh, je t'ennuie à ce point ? Tu regardes ailleurs...",
+      "Allô ? Je suis là, hein. Tu regardes quoi ?"
+    ]
   },
   "offline": {
-    "reactions": ["Sérieux ? Ouf.", "Haha, trop bien.", "Ah ouais, carrément ?", "Pas mal, j'avoue.", "Ah bon ? Raconte."],
-    "questions": ["Et toi, tu fais quoi dans la vie ?", "C'est quoi ton dimanche idéal ?", "T'es plutôt ciné ou concert ?", "T'as beaucoup voyagé ?", "Tu écoutes quoi en ce moment ?"],
-    "nudges": ["Et toi alors ? Raconte.", "Allez, sois pas timide. Qu'est-ce que t'en dis ?"],
+    "reactions": [
+      "Sérieux ? Ouf.",
+      "Haha, trop bien.",
+      "Ah ouais, carrément ?",
+      "Pas mal, j'avoue.",
+      "Ah bon ? Raconte."
+    ],
+    "questions": [
+      "Et toi, tu fais quoi dans la vie ?",
+      "C'est quoi ton dimanche idéal ?",
+      "T'es plutôt ciné ou concert ?",
+      "T'as beaucoup voyagé ?",
+      "Tu écoutes quoi en ce moment ?"
+    ],
+    "nudges": [
+      "Et toi alors ? Raconte.",
+      "Allez, sois pas timide. Qu'est-ce que t'en dis ?"
+    ],
     "smile": "Ce sourire, hein. Tu me plais bien.",
     "puzzled": "Quoi ? T'as fait une drôle de tête... Je répète plus lentement ?"
   },
   "wingman": [
     [
-      {"tone": "Flirty 🔥", "target": "Ma seule start-up, c'est de te faire sourire.", "gloss": "My only start-up is making you smile."},
-      {"tone": "Curious 💬", "target": "Et toi, qu'est-ce qui te passionne vraiment ?", "gloss": "And you, what are you really passionate about?"},
-      {"tone": "Playful 😂", "target": "Moi, mon business plan, c'est croissant le matin et sieste l'après-midi.", "gloss": "My business plan is a croissant in the morning and a nap in the afternoon."}
+      {
+        "tone": "Flirty 🔥",
+        "target": "Ma seule start-up, c'est de te faire sourire.",
+        "gloss": "My only start-up is making you smile."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "Et toi, qu'est-ce qui te passionne vraiment ?",
+        "gloss": "And you, what are you really passionate about?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "Moi, mon business plan, c'est croissant le matin et sieste l'après-midi.",
+        "gloss": "My business plan is a croissant in the morning and a nap in the afternoon."
+      }
     ],
     [
-      {"tone": "Flirty 🔥", "target": "Un dimanche parfait ? Un marché, un verre en terrasse... et la bonne personne.", "gloss": "A perfect Sunday? A market, a drink on a terrace... and the right person."},
-      {"tone": "Curious 💬", "target": "T'as un coin secret dans Paris à me conseiller ?", "gloss": "Do you have a secret spot in Paris to recommend?"},
-      {"tone": "Playful 😂", "target": "Pardon, j'ai bugué. C'est le stress, ou c'est toi.", "gloss": "Sorry, I glitched. It's the stress, or it's you."}
+      {
+        "tone": "Flirty 🔥",
+        "target": "Un dimanche parfait ? Un marché, un verre en terrasse... et la bonne personne.",
+        "gloss": "A perfect Sunday? A market, a drink on a terrace... and the right person."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "T'as un coin secret dans Paris à me conseiller ?",
+        "gloss": "Do you have a secret spot in Paris to recommend?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "Pardon, j'ai bugué. C'est le stress, ou c'est toi.",
+        "gloss": "Sorry, I glitched. It's the stress, or it's you."
+      }
     ]
   ],
   "closings": {
@@ -46,10 +120,24 @@
     "friendzone": "Bon, c'est la cloche. T'es sympa, hein. On se recroisera peut-être.",
     "ghosted": "Ah, c'est fini. Bon... bonne chance pour la suite."
   },
-  "stamps": {"match": "C'EST UN MATCH !", "friendzone": "AMIS, SANS PLUS", "ghosted": "GHOSTÉ"},
+  "stamps": {
+    "match": "C'EST UN MATCH !",
+    "friendzone": "AMIS, SANS PLUS",
+    "ghosted": "GHOSTÉ"
+  },
   "followups": {
     "match": "J'ai adoré discuter avec toi 😊 Un verre au bord du canal jeudi ?",
     "friendzone": "Sympa de te rencontrer ! Si tu passes au vernissage samedi, on se voit là-bas 🤝",
     "ghosted": "Merci pour la discussion. J'ai pas trop senti le feeling, mais bonne chance 🙏"
-  }
+  },
+  "culture": [
+    {
+      "title": "Tu vs vous",
+      "note": "On a date in Paris, tu comes quickly once things are friendly; staying on vous keeps distance."
+    },
+    {
+      "title": "Bref",
+      "note": "Parisians use bref to wrap up a story with a shrug."
+    }
+  ]
 }

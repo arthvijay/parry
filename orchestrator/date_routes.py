@@ -2,12 +2,15 @@
 
     GET  /v1/matchmaker/catalog        what the onboarding UI can offer
     POST /v1/matchmaker/generate       build one date from the learner's choices
+    POST /v1/matchmaker/preset         an authored demo date (Café Rayuela, Cancún)
     GET  /v1/matchmaker/{scenario_id}  a date built earlier (replays, "try again")
     WS   /v1/stream                    the live date (stream_gateway.py)
     WS   /v1/vision                    face tracking alone, for onboarding's vision panel
     POST /v1/avatar/from-selfie        avatar skin and hair colours from a selfie
     POST /v1/date/grade                the verdict receipt (also reachable as /v1/grade)
     GET  /v1/date/runs/{run_id}        what was said and how the chemistry moved
+    POST /v1/date/report               "Your date, decoded": the learning report
+    GET  /v1/date/report/{run_id}.html the same report as a page
     GET  /v1/face/status               whether webcam face tracking is ready
 
 Kept as a router so ``app.py`` wires it in one line and the café's routes are untouched.
@@ -16,16 +19,22 @@ Kept as a router so ``app.py`` wires it in one line and the café's routes are u
 from __future__ import annotations
 
 import asyncio
+import re
 from dataclasses import asdict
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import ValidationError
 
 from . import config
-from .date_models import DateGradeRequest, DateScenario, DateVerdict, MatchmakerRequest
+from fastapi.responses import FileResponse
+
+from .date_models import (DateGradeRequest, DateReport, DateReportRequest, DateScenario,
+                          DateVerdict, MatchmakerRequest, PresetRequest)
+from .matchmaker import build_preset
 from .stream_gateway import stream_endpoint, vision_endpoint
 
 MAX_JSON_BYTES = 32 * 1024
+RUN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 async def _json_body(request: Request, model):
@@ -79,6 +88,22 @@ def build_router() -> APIRouter:
             raise HTTPException(500, "Could not save the date") from None
         return scenario
 
+    @router.post("/v1/matchmaker/preset", response_model=DateScenario, openapi_extra={
+        "requestBody": {"required": True, "content": {"application/json": {
+            "schema": PresetRequest.model_json_schema()}}}})
+    async def preset(request: Request):
+        """An authored date, the same every time: the demo scenario."""
+        payload = await _json_body(request, PresetRequest)
+        try:
+            scenario = build_preset(payload)
+        except (ValueError, KeyError) as error:
+            raise HTTPException(404, f"Unknown preset: {error}") from None
+        try:
+            await asyncio.to_thread(request.app.state.date_store.save, scenario)
+        except OSError:
+            raise HTTPException(500, "Could not save the date") from None
+        return scenario
+
     @router.get("/v1/matchmaker/{scenario_id}", response_model=DateScenario)
     async def get_date(request: Request, scenario_id: str):
         try:
@@ -105,6 +130,34 @@ def build_router() -> APIRouter:
             transcript = []
         return {"run_id": run_id, "chemistry": asdict(chemistry),
                 "transcript": [t.model_dump() for t in transcript]}
+
+    @router.post("/v1/date/report", response_model=DateReport, openapi_extra={
+        "requestBody": {"required": True, "content": {"application/json": {
+            "schema": DateReportRequest.model_json_schema()}}}})
+    async def report(request: Request):
+        """What to say differently next time, in the learner's own words, checked."""
+        state = request.app.state
+        payload = await _json_body(request, DateReportRequest)
+        try:
+            scenario = await asyncio.to_thread(state.date_store.get, payload.scenario_id)
+            chemistry = await asyncio.to_thread(state.chemistry_store.get, payload.run_id)
+        except (FileNotFoundError, ValueError):
+            raise HTTPException(404, "No date was recorded under this run_id") from None
+        try:
+            transcript = await asyncio.to_thread(state.transcripts.get, payload.run_id)
+        except (FileNotFoundError, ValueError):
+            transcript = []
+        return await state.date_reporter.report(scenario, chemistry, transcript, payload.run_id,
+                                                getattr(state, "audio_dir", None))
+
+    @router.get("/v1/date/report/{run_id}.html")
+    async def report_page(request: Request, run_id: str):
+        if not RUN.match(run_id):
+            raise HTTPException(422, "Invalid run_id")
+        path = request.app.state.date_reporter.page_path(run_id)
+        if not path.is_file():
+            raise HTTPException(404, "No report yet: POST /v1/date/report first")
+        return FileResponse(path, media_type="text/html")
 
     @router.get("/v1/face/status")
     async def face_status(request: Request):

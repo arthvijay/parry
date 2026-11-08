@@ -17,7 +17,8 @@ Short = Annotated[str, Field(min_length=1, max_length=200)]
 Line = Annotated[str, Field(min_length=1, max_length=1200)]
 DateId = Annotated[str, Field(pattern=r"^date_[a-z0-9_]{1,80}$")]
 RunId = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")]
-MilestoneId = Literal["break_ice", "find_common_ground", "cultural_vibe", "close_the_date"]
+MilestoneId = Literal["break_ice", "order_together", "find_common_ground", "cultural_vibe",
+                      "close_the_date"]
 VerdictKind = Literal["match", "friendzone", "ghosted"]
 Posture = Literal["lean_forward_smile", "neutral", "lean_back_glance_away"]
 
@@ -79,12 +80,12 @@ class AvatarConfig(Model):
 
 
 class VoiceConfig(Model):
-    provider: Literal["fish", "sample"]
-    # Fish Audio voice model (reference_id); empty means Fish's default voice.
+    provider: Literal["elevenlabs", "sample"]
     voice_id: str
-    speaking_rate: Annotated[float, Field(ge=0.5, le=2.0)]
-    temperature: Annotated[float, Field(ge=0, le=1)]
-    latency: Literal["low", "normal", "balanced"]
+    stability: Annotated[float, Field(ge=0, le=1)]
+    similarity_boost: Annotated[float, Field(ge=0, le=1)]
+    # ElevenLabs accepts 0.7 to 1.2.
+    speaking_rate: Annotated[float, Field(ge=0.7, le=1.2)]
 
 
 class Milestone(Model):
@@ -121,6 +122,24 @@ class HostCharacter(Model):
     voice_config: VoiceConfig
 
 
+class MenuItem(Model):
+    id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,40}$")]
+    name: Short
+    price: Annotated[int, Field(ge=0)]
+    description_en: Short
+    # How a learner might say it; matched to tell the host what was ordered.
+    aliases: list[Short] = []
+
+
+class PresetRequest(Model):
+    """An authored date, ready to play: only who the learner is can change."""
+
+    preset: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,40}$")] = "cafe_cancun_ar"
+    learner_name: Annotated[str, Field(max_length=60)] = ""
+    proficiency: Literal["A1", "A2", "B1", "B2", "C1", "C2"] | None = None
+    date_gender: Literal["female", "male"] = "female"
+
+
 class VenueInfo(Model):
     id: str
     label: Short
@@ -148,7 +167,16 @@ class DateScenario(Model):
     date_seconds: int
     wingman_seconds: float
     chemistry_start: int
-    generated_by: Literal["model", "template"]
+    generated_by: Literal["model", "template", "authored"]
+    # Authored dates (presets) carry their café: a menu the date and host know, the
+    # currency, and the line the host says when bringing the order.
+    preset_id: str | None = None
+    menu: list[MenuItem] = []
+    currency: str = ""
+    serve_line: str = ""
+    # Lines the authored date says or sends instead of the dialect's general ones.
+    closings: dict[str, str] = {}
+    followups: dict[str, str] = {}
 
 
 # --------------------------------------------------------------------------- live events
@@ -226,6 +254,7 @@ class DateMetrics(Model):
     smiles: int
     look_away_callouts: int
     barge_ins: int
+    help_requests: int = 0
 
 
 class DateVerdict(Model):
@@ -248,3 +277,86 @@ class DateVerdict(Model):
     summary: Line
     chemistry_timeline: list[int]
     graded_by: Literal["model", "rules"]
+
+
+# --------------------------------------------------------------------------- learning
+
+class HelpSuggestion(Model):
+    target: Line
+    gloss: Line
+
+
+class HelpCard(Model):
+    """What the learner gets when they ask for help mid-date: what was just said, and
+    things they could say back. The date never knows it was asked for."""
+
+    type: Literal["help_card"] = "help_card"
+    said: str
+    meaning_en: Line
+    suggestions: Annotated[list[HelpSuggestion], Field(min_length=1, max_length=3)]
+    tip: Line
+
+
+class ReportFix(Model):
+    heard: Line
+    better: Line
+    why_en: Line
+
+
+class ReportPhrase(Model):
+    target: Line
+    gloss: Line
+    when: Line
+
+
+class CultureNote(Model):
+    title: Short
+    note: Line
+
+
+class WentWellNote(Model):
+    quote: Line
+    note: Line
+
+
+class PronunciationNote(Model):
+    heard: Line
+    problem_words: list[str]
+    impression: Line
+
+
+class ReportTurn(Model):
+    speaker: Literal["learner", "date", "host", "event"]
+    text: str
+    chemistry: int | None = None
+
+
+class DateReportRequest(Model):
+    run_id: RunId
+    scenario_id: DateId
+
+
+class DateReport(Model):
+    """"Your date, decoded": the page a learner reads after the verdict. Every quote of
+    theirs in it was checked against the transcript."""
+
+    run_id: str
+    scenario_id: str
+    date_name: str
+    dialect: str
+    verdict: VerdictKind
+    final_chemistry: int
+    summary: Line
+    went_well: WentWellNote | None
+    fixes: list[ReportFix]
+    useful_phrases: list[ReportPhrase]
+    culture_notes: list[CultureNote]
+    practice_words: list[str]
+    pronunciation: list[PronunciationNote]
+    pronunciation_disclaimer: str
+    chemistry_timeline: list[int]
+    transcript: list[ReportTurn]
+    counters: dict[str, int]
+    next_date: Line
+    written_by: Literal["model", "rules"]
+    html_path: str | None = None

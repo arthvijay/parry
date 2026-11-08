@@ -21,6 +21,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 BRAND_FILE = REPO / "My project" / "Assets" / "Resources" / "BrandConfig.json"
 DIALECT_DIR = REPO / "scenarios" / "speed_dating" / "dialects"
+PRESET_DIR = REPO / "scenarios" / "speed_dating" / "presets"
 
 DATE_SECONDS = 180
 START_CHEMISTRY = 50
@@ -81,10 +82,14 @@ class Dialect:
     cities: tuple[City, ...]
     register: str           # how the date speaks, for the persona prompt
     slang: tuple[str, ...]  # markers of local speech the director listens for
-    stt_language: str       # Deepgram `language`
-    stt_model: str = "nova-3"
+    # Nemotron ASR locale (Riva language_code): es-US for Latin American Spanish,
+    # es-ES for Spain, "auto" where the model has no tuned locale.
+    asr_language: str
     # Light, rough check that a learner line is in the target language at all.
     script: str = "latin"   # latin | han | devanagari | kana
+    # What stiff, textbook register sounds like on a date in this dialect (a regex), or
+    # empty where formal address is normal and warm.
+    formal_marker: str = ""
 
     @property
     def city(self) -> City:
@@ -105,7 +110,7 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "qué onda, neta, padrísimo, ¿mande?, ahorita, órale, no manches.",
             ("güey", "wey", "qué onda", "neta", "padre", "padrísimo", "chido", "órale",
              "ahorita", "no manches", "mande", "chamba", "qué padre"),
-            stt_language="es"),
+            asr_language="es-US", formal_marker=r"\busted(es)?\b"),
     Dialect("es-AR", "Argentine Spanish (Buenos Aires)", "es", "es-AR",
             (City("Buenos Aires", -34.60, -58.38, "Palermo"),),
             "Rioplatense Spanish with voseo (vos sos, tenés, decime, mirá), sh-sounding ll/y, "
@@ -113,14 +118,14 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "dale, qué sé yo, bárbaro, buenísimo.",
             ("che", "vos", "sos", "tenés", "decime", "re", "copado", "posta", "dale", "bárbaro",
              "boludo", "laburo", "mirá", "qué sé yo", "buenísimo"),
-            stt_language="es"),
+            asr_language="es-US", formal_marker=r"\busted(es)?\b"),
     Dialect("es-ES", "Castilian Spanish (Madrid)", "es", "es-ES",
             (City("Madrid", 40.42, -3.70, "Malasaña"),),
             "Peninsular Spanish from Madrid with vosotros, a quick cadence and castizo colour: "
             "tío/tía, guay, vale, mola, flipar, qué fuerte, en plan, currar, a tope.",
             ("tío", "tía", "guay", "vale", "mola", "flipo", "flipar", "qué fuerte", "en plan",
              "currar", "curro", "a tope", "vosotros", "majo", "maja"),
-            stt_language="es"),
+            asr_language="es-ES", formal_marker=r"\busted(es)?\b"),
     Dialect("zh-CN", "Mandarin Chinese (Shanghai / Beijing)", "zh", "zh-CN",
             (City("Shanghai", 31.23, 121.47, "法租界 (the Former French Concession)"),
              City("Beijing", 39.90, 116.40, "三里屯 (Sanlitun)")),
@@ -129,7 +134,7 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "polite curiosity before personal questions.",
             ("呀", "嘛", "吧", "哈哈", "挺", "超", "靠谱", "有意思", "微信", "真的假的",
              "厉害", "好玩", "随便"),
-            stt_language="zh-CN", stt_model="nova-2", script="han"),
+            asr_language="auto", script="han", formal_marker="您"),
     Dialect("hi-IN", "Hinglish / Hindi (Mumbai / Delhi)", "hi", "hi-IN",
             (City("Mumbai", 19.08, 72.88, "Bandra"),
              City("Delhi", 28.61, 77.21, "Hauz Khas Village")),
@@ -138,14 +143,14 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "matlab, sahi hai, ekdum, chal.",
             ("yaar", "arre", "achha", "acha", "scene", "bas", "matlab", "sahi", "ekdum",
              "chal", "kya", "hai", "nahi", "bhai", "mast", "bilkul"),
-            stt_language="multi", script="devanagari"),
+            asr_language="hi-IN", script="devanagari"),
     Dialect("ja-JP", "Japanese (Tokyo standard)", "ja", "ja-JP",
             (City("Tokyo", 35.68, 139.69, "下北沢 (Shimokitazawa)"),),
             "Tokyo standard Japanese: polite です/ます at first, sliding into casual speech as "
             "the date warms up; soft aizuchi (へえ, そうなんだ, なるほど), never blunt.",
             ("へえ", "そうなんだ", "なるほど", "すごい", "めっちゃ", "やばい", "マジ",
              "ね", "よね", "かな"),
-            stt_language="ja", script="kana"),
+            asr_language="ja-JP", script="kana"),
     Dialect("ja-JP-kansai", "Japanese (Osaka Kansai-ben)", "ja", "ja-JP",
             (City("Osaka", 34.69, 135.50, "道頓堀 (Dōtonbori)"),),
             "Osaka Kansai-ben: quick banter and teasing, なんでやねん, めっちゃ, ほんま, "
@@ -153,7 +158,7 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "is appreciated.",
             ("なんでやねん", "ほんま", "めっちゃ", "あかん", "せや", "ちゃう", "おおきに",
              "へん", "やん", "ええやん"),
-            stt_language="ja", script="kana"),
+            asr_language="ja-JP", script="kana"),
     Dialect("fr-FR", "French (Parisian)", "fr", "fr-FR",
             (City("Paris", 48.86, 2.35, "le Marais"),),
             "Parisian French: rapid, with liaison and dropped ne (j'sais pas), dry wit and "
@@ -161,7 +166,18 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "bien, ouf, kiffer, genre, bref, carrément, du coup.",
             ("grave", "trop", "ouf", "kiffe", "kiffer", "genre", "bref", "carrément", "du coup",
              "chelou", "sympa", "mec", "meuf", "bah", "ouais"),
-            stt_language="fr"),
+            asr_language="fr-FR", formal_marker=r"\bvous\b"),
+    Dialect("en-US-south", "Southern American English (Georgia / Texas)", "en", "en-US",
+            (City("Cancún", 21.16, -86.85, "the hotel zone, right on the beach"),
+             City("Savannah", 32.08, -81.09, "the Historic District"),
+             City("Austin", 30.27, -97.74, "South Congress")),
+            "Warm Southern American English with a slow, playful drawl, written the way it is "
+            "spoken: y'all, fixin' to, reckon, might could, ain't (casually), darlin', sugar, "
+            "hon, bless your heart (warmly), well I'll be, over yonder, dropped g's (talkin', "
+            "goin').",
+            ("y'all", "yall", "fixin", "reckon", "darlin", "sugar", "hon", "bless your heart",
+             "ain't", "yonder", "might could", "howdy", "i'll be", "sweet tea"),
+            asr_language="en-US"),
 )}
 
 
@@ -238,7 +254,7 @@ class Archetype:
     traits: str              # how they behave, for the persona prompt
     resting_smile: float     # resting mouthSmile blendshape weight, 0-1
     speaking_rate: float
-    voice_temperature: float # Fish Audio sampling temperature: higher is more expressive
+    voice_stability: float   # ElevenLabs stability: lower is more expressive
     # How much each turn can move chemistry; a reserved date is harder to win.
     volatility: float
 
@@ -247,10 +263,10 @@ ARCHETYPES: dict[str, Archetype] = {a.id: a for a in (
     Archetype("playful_sarcastic", "Playful & Sarcastic",
               "Teases textbook answers, loves banter and quick comebacks, tests you with a "
               "cheeky challenge early, rewards wit and a bit of attitude, gets bored by "
-              "politeness alone.", 0.15, 1.05, 0.80, 1.15),
+              "politeness alone.", 0.15, 1.05, 0.40, 1.15),
     Archetype("warm_romantic", "Warm & Romantic",
               "Attentive and expressive, smiles easily, asks about feelings, family and what "
-              "makes you happy, remembers details and brings them back.", 0.30, 0.98, 0.70, 0.9),
+              "makes you happy, remembers details and brings them back.", 0.30, 0.98, 0.50, 0.9),
     Archetype("reserved_intellectual", "Reserved Intellectual",
               "Speaks deliberately, dislikes small talk, lights up for ideas, books, science "
               "and real opinions, values active listening and follow-up questions.",
@@ -258,7 +274,7 @@ ARCHETYPES: dict[str, Archetype] = {a.id: a for a in (
     Archetype("high_energy_creative", "High-Energy Creative",
               "Fast talker, expressive and passionate about art, music and food, jumps "
               "between topics, loves enthusiasm and stories, hates flat answers.",
-              0.25, 1.12, 0.85, 1.1),
+              0.25, 1.12, 0.35, 1.1),
 )}
 
 
@@ -291,7 +307,7 @@ APPEARANCES: dict[str, Appearance] = {a.id: a for a in (
 )}
 
 GENDERS = ("female", "male", "nonbinary")
-BASE_MODELS = {"female": "Female_Adult_08", "male": "Male_Adult_08", "nonbinary": "Female_Adult_08"}
+BASE_MODELS = {"female": "Female_Party_02", "male": "Male_Adult_08", "nonbinary": "Female_Adult_08"}
 
 
 @dataclass(frozen=True)
@@ -326,9 +342,9 @@ def level(cefr: str) -> Level:
 
 @dataclass(frozen=True)
 class Models:
-    """Who does which job. Claude does the thinking between rounds (building the date,
-    judging chemistry, writing the receipt); Gemini Flash speaks during the date, where
-    time to first token is what the learner feels."""
+    """Who does which job. Claude does it all by default: building the date, speaking as
+    the date, judging chemistry, writing the receipt. Gemini Flash can speak as the date
+    instead (DATE_BRAIN=gemini), with Claude behind it."""
 
     anthropic_ready: bool
     matchmaker: str
@@ -345,6 +361,8 @@ class Models:
     gemini_location: str
     date_brain: str
     date_brain_thinking: str
+    date_brain_provider: str     # claude | gemini: who speaks as the date
+    date_claude_model: str
 
 
 def models() -> Models:
@@ -367,28 +385,53 @@ def models() -> Models:
         gemini_key=key, gemini_project=project,
         gemini_location=env("GOOGLE_CLOUD_LOCATION") or "global",
         date_brain=env("DATE_MODEL") or "gemini-3.8-flash",
-        date_brain_thinking=env("DATE_THINKING_LEVEL") or "MINIMAL",
+        date_brain_thinking=env("DATE_THINKING_LEVEL") or "LOW",
+        date_brain_provider=(env("DATE_BRAIN") or "claude").strip().lower(),
+        date_claude_model=env("DATE_CLAUDE_MODEL") or sonnet,
     )
 
 
 # --------------------------------------------------------------------------- voices
 
+# NVIDIA's hosted Nemotron ASR streaming function on build.nvidia.com. It is the English
+# model; for Spanish point NEMOTRON_ASR_FUNCTION_ID at the multilingual (Nemotron 3.5)
+# deployment, or NEMOTRON_ASR_SERVER at a self-hosted NIM ("type=multi", port 50051).
+NEMOTRON_HOSTED_SERVER = "grpc.nvcf.nvidia.com:443"
+NEMOTRON_HOSTED_FUNCTION = "bb0837de-8c7b-481f-9ec8-ef5663e9c1fa"
+# NVIDIA's multilingual Nemotron has no hosted endpoint (self-hosted NIM only, which needs
+# an NVIDIA GPU). Its hosted multilingual sibling on the same platform, key and protocol is
+# Parakeet 1.1B RNNT Multilingual; non-English dates use it unless told otherwise.
+NVIDIA_MULTILINGUAL_FUNCTION = "71203149-d3b7-4460-8231-1be2543a1fca"
+
+
 @dataclass(frozen=True)
 class Providers:
-    deepgram_key: str | None
-    fish_key: str | None
-    fish_model: str
-    fish_latency: str
+    nvidia_key: str | None
+    asr_server: str
+    asr_function_id: str
+    asr_ssl: bool
+    asr_language: str | None   # overrides every dialect's locale when set
+    asr_multilingual_function_id: str
+    elevenlabs_key: str | None
+    elevenlabs_model: str
 
 
 def providers() -> Providers:
     env = os.getenv
+    server = env("NEMOTRON_ASR_SERVER") or NEMOTRON_HOSTED_SERVER
     return Providers(
-        deepgram_key=env("DEEPGRAM_API_KEY") or None,
-        fish_key=env("FISH_AUDIO_API_KEY") or None,
-        fish_model=env("FISH_AUDIO_MODEL") or "s2.1-pro",
-        # "balanced" keeps first audio low without the quality cost of "low".
-        fish_latency=env("FISH_AUDIO_LATENCY") or "balanced",
+        nvidia_key=env("NVIDIA_API_KEY") or None,
+        asr_server=server,
+        asr_function_id=env("NEMOTRON_ASR_FUNCTION_ID") or (
+            NEMOTRON_HOSTED_FUNCTION if server == NEMOTRON_HOSTED_SERVER else ""),
+        asr_ssl=(env("NEMOTRON_ASR_SSL") or ("1" if server.endswith(":443") else "0")) != "0",
+        asr_language=env("NEMOTRON_ASR_LANGUAGE") or None,
+        asr_multilingual_function_id=env("NVIDIA_ASR_MULTILINGUAL_FUNCTION_ID") or (
+            NVIDIA_MULTILINGUAL_FUNCTION if server == NEMOTRON_HOSTED_SERVER else ""),
+        elevenlabs_key=env("ELEVENLABS_API_KEY") or None,
+        # Flash v2.5: ElevenLabs' lowest-latency multilingual model, and it streams over
+        # the text-to-speech WebSocket.
+        elevenlabs_model=env("ELEVENLABS_TTS_MODEL") or "eleven_flash_v2_5",
     )
 
 
@@ -402,20 +445,61 @@ def _env_key(*parts: str) -> str:
     return "_".join(p.upper().replace("-", "_") for p in parts)
 
 
+# ElevenLabs' premade voices, in every account; multilingual, but with a neutral accent.
+# Set dialect voices (e.g. an Argentine voice from the Voice Library, added to My Voices)
+# for a date that sounds local.
+ELEVENLABS_DEFAULT_VOICES = {"female": "EXAVITQu4vr4xnSDxMaL", "male": "JBFqnCBsd6RMkjVDRZzb",
+                             "nonbinary": "EXAVITQu4vr4xnSDxMaL"}
+
+
+# Premade voices (usable on every ElevenLabs plan) that suit a dialect better than the
+# general default. Library voices with a real accent need a paid plan; set them with
+# ELEVENLABS_VOICE_<DIALECT>_<GENDER>.
+DIALECT_DEFAULT_VOICES = {
+    ("en-US-south", "female"): "cgSgspJ2msm6clMCkdW9",   # Jessica: playful, bright, warm
+    ("en-US-south", "male"): "bIHbv24MWmeRgasZH58o",     # Will: relaxed, young
+}
+
+
 def voice_for(code: str, gender: str) -> VoiceChoice:
-    """A Fish Audio voice model for this dialect and gender, configured as
-    FISH_VOICE_<DIALECT>_<GENDER> (e.g. FISH_VOICE_ES_AR_FEMALE), else FISH_VOICE_<GENDER>,
-    else Fish's default voice. Without a Fish key, the bundled sample voice."""
-    if not providers().fish_key:
+    """An ElevenLabs voice for this dialect and gender, configured as
+    ELEVENLABS_VOICE_<DIALECT>_<GENDER> (e.g. ELEVENLABS_VOICE_ES_AR_FEMALE), else
+    ELEVENLABS_VOICE_<GENDER>, else a premade voice. Without a key, the bundled sample."""
+    if not providers().elevenlabs_key:
         return VoiceChoice("sample", "sample")
-    voice = (os.getenv(_env_key("FISH_VOICE", code, gender))
-             or os.getenv(_env_key("FISH_VOICE", gender)) or "")
-    return VoiceChoice("fish", voice)
+    voice = (os.getenv(_env_key("ELEVENLABS_VOICE", code, gender))
+             or DIALECT_DEFAULT_VOICES.get((code, gender))
+             or os.getenv(_env_key("ELEVENLABS_VOICE", gender))
+             or ELEVENLABS_DEFAULT_VOICES.get(gender, ELEVENLABS_DEFAULT_VOICES["female"]))
+    return VoiceChoice("elevenlabs", voice)
+
+
+def preset(preset_id: str) -> dict:
+    """An authored date (a demo scenario) by id."""
+    path = PRESET_DIR / f"{preset_id}.json"
+    if not preset_id.replace("_", "").isalnum() or not path.is_file():
+        raise ValueError(f"Unknown preset {preset_id!r}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def presets() -> list[dict]:
+    found = []
+    for path in sorted(PRESET_DIR.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        found.append({"id": data["id"], "label": data["label"], "summary": data.get("summary", ""),
+                      "dialect": data["dialect"], "city": data["city"]["name"],
+                      "lat": data["city"]["lat"], "lon": data["city"]["lon"],
+                      "default_proficiency": data.get("default_proficiency", "B1")})
+    return found
 
 
 def catalog() -> dict:
     """What the matchmaker UI offers, so the client never hardcodes an option list."""
     return {
+        "presets": presets(),
         "brand": {"name": brand().name, "tagline": brand().tagline},
         "date_seconds": DATE_SECONDS,
         "dialects": [{"code": d.code, "label": d.label, "language": d.language,

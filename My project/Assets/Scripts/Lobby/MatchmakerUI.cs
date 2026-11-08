@@ -153,6 +153,49 @@ public class MatchmakerUI : MonoBehaviour
             ChooseDialect(dialect);
     }
 
+    /// <summary>Starts an authored demo date (by preset id; empty = the first), as its button does.</summary>
+    public void StartDemo(string presetId = "")
+    {
+        var demo = catalog?.presets == null ? null
+            : string.IsNullOrEmpty(presetId) ? (catalog.presets.Length > 0 ? catalog.presets[0] : null)
+            : Array.Find(catalog.presets, p => p.id == presetId);
+        if (demo != null && step <= Step.Date)
+            StartCoroutine(GeneratePreset(demo));
+    }
+
+    /// <summary>"Café Rayuela · Argentine latina (Spanish)" → "Argentine latina (Spanish)".</summary>
+    static string DemoLabel(PresetInfo p)
+    {
+        int dot = p.label.IndexOf('·');
+        return dot >= 0 ? p.label[(dot + 1)..].Trim() : p.label;
+    }
+
+    /// <summary>The authored demo date: same café, same person, every time.</summary>
+    IEnumerator GeneratePreset(PresetInfo preset)
+    {
+        step = Step.Matching;
+        stepStart = Time.time;
+        matchError = "";
+        city = preset.city;
+        Pin(preset.lat, preset.lon, preset.city);
+        DateSession.LearnerName = learnerName;
+        string body = Json.Write(new Dictionary<string, object>
+        {
+            ["preset"] = preset.id, ["learner_name"] = learnerName, ["proficiency"] = level,
+            ["date_gender"] = dateGender == "male" ? "male" : "female",
+        });
+        using var req = new UnityWebRequest($"{DateSession.Base}/v1/matchmaker/preset", "POST")
+        {
+            uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body)) { contentType = "application/json" },
+            downloadHandler = new DownloadHandlerBuffer(),
+            timeout = 30,
+        };
+        yield return req.SendWebRequest();
+        while (Since < 2.2f)
+            yield return null;
+        yield return Matched(req);
+    }
+
     IEnumerator Generate()
     {
         step = Step.Matching;
@@ -176,6 +219,11 @@ public class MatchmakerUI : MonoBehaviour
         // Let the matchmaking moment breathe even when the templates answer instantly.
         while (Since < 2.2f)
             yield return null;
+        yield return Matched(req);
+    }
+
+    IEnumerator Matched(UnityWebRequest req)
+    {
         if (req.result != UnityWebRequest.Result.Success || !DateSession.SetScenario(req.downloadHandler.text))
         {
             matchError = FullDuplexStreamClient.Describe(req);
@@ -422,6 +470,11 @@ public class MatchmakerUI : MonoBehaviour
             GlassUI.Label(new Rect(60f, 22f, 400f, 56f), Brand.Name, 46, Brand.Ink, FontStyle.Bold);
             GlassUI.Label(new Rect(62f, 72f, 600f, 22f), Brand.Tagline, 15, new Color(Brand.Ink.r, Brand.Ink.g, Brand.Ink.b, 0.65f));
         }
+        // The demos: one click to an authored date at Café Rayuela, one per personality.
+        if (step <= Step.Date && catalog?.presets != null)
+            for (int i = 0; i < catalog.presets.Length && i < 2; i++)
+                if (GlassUI.Button(new Rect(400f + i * 270f, 34f, 260f, 40f), "▶  " + DemoLabel(catalog.presets[i]), true))
+                    StartCoroutine(GeneratePreset(catalog.presets[i]));
         PinLabel();
         switch (step)
         {
@@ -541,8 +594,17 @@ public class MatchmakerUI : MonoBehaviour
         var looks = catalog?.appearances ?? Array.Empty<Option>();
         Row(r, ref y, "APPEARANCE (their 3D look only)", Array.ConvertAll(looks, o => o.id), id => Array.Find(looks, o => o.id == id)?.label ?? id,
             id => appearance == id, id => appearance = id, 4, 11);
+        // The two demo personalities, authored and ready: one click and the date starts.
+        var presets = catalog?.presets ?? Array.Empty<PresetInfo>();
+        if (presets.Length > 0)
+        {
+            var demoIds = Array.ConvertAll(presets, p => p.id);
+            Row(r, ref y, "DEMO PERSONALITIES · Café Rayuela, Cancún", demoIds,
+                id => "▶ " + DemoLabel(Array.Find(presets, p => p.id == id)),
+                id => false, id => StartDemo(id), 2);
+        }
         var types = catalog?.archetypes ?? Array.Empty<Option>();
-        Row(r, ref y, "PERSONALITY", Array.ConvertAll(types, o => o.id), id => Array.Find(types, o => o.id == id)?.label ?? id,
+        Row(r, ref y, "OR BUILD ONE · PERSONALITY", Array.ConvertAll(types, o => o.id), id => Array.Find(types, o => o.id == id)?.label ?? id,
             id => personality == id, id => personality = id, 2);
         var venues = catalog?.venues ?? Array.Empty<Option>();
         var venueIds = new List<string> { "auto" };

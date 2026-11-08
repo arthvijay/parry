@@ -9,7 +9,7 @@ using UnityEngine.Networking;
 /// Brings the matchmaker's date into the venue. On scene start it takes the date chosen
 /// in the matchmaker (<see cref="DateSession"/>), or refetches it with
 /// <c>GET /v1/matchmaker/{id}</c>, or, when Play was pressed directly in a venue scene,
-/// asks <c>POST /v1/matchmaker/generate</c> for a default one. Then it applies it: the
+/// plays the authored demo date (<c>POST /v1/matchmaker/preset</c>, Café Rayuela in Cancún). Then it applies it: the
 /// milestones become the quest list, the venue's lighting and sound are set, the cast is
 /// bound (<see cref="CastClient"/>), and the stream joins the date.
 /// </summary>
@@ -24,10 +24,10 @@ public class ScenarioClient : MonoBehaviour
     public int timeoutSeconds = 90;
 
     [Header("Default date (Play pressed in the venue)")]
-    public string defaultLanguage = "es-MX";
-    [Tooltip("CEFR level: A1, A2, B1, B2, C1 or C2.")]
+    [Tooltip("Authored date to play when no date was chosen in the matchmaker.")]
+    public string defaultPreset = "cafe_cancun_ar";
+    [Tooltip("CEFR level for the default date: A1, A2, B1, B2, C1 or C2.")]
     public string defaultLevel = "B1";
-    public string defaultPersonality = "playful_sarcastic";
 
     /// <summary>The date in play, or null until loaded.</summary>
     public DateScenario Current { get; private set; }
@@ -74,17 +74,26 @@ public class ScenarioClient : MonoBehaviour
             known = DateSession.Scenario;
         }
 
+        // An authored date restored from an earlier session is fetched again, so what plays
+        // is always the current version of the demo (outfit, menu, lines).
+        string preset = defaultPreset, gender = "female";
+        if (known != null && !DateSession.ChosenThisSession && !string.IsNullOrEmpty(known.preset_id))
+        {
+            preset = known.preset_id;
+            gender = known.date_character?.gender == "male" ? "male" : "female";
+            known = null;
+        }
+
         if (known == null)
         {
-            Status = "Matchmaking…";
+            // Play pressed straight in the venue: the authored demo date.
+            Status = "Setting the table…";
             string body = Json.Write(new Dictionary<string, object>
             {
-                ["learner_name"] = DateSession.LearnerName, ["language"] = defaultLanguage,
-                ["proficiency"] = defaultLevel, ["venue_style"] = "auto", ["date_gender"] = "female",
-                ["date_ethnicity"] = "mixed", ["personality_archetype"] = defaultPersonality,
-                ["custom_notes"] = "", ["scene_prompt"] = "a café by the sea at sunset",
+                ["preset"] = preset, ["learner_name"] = DateSession.LearnerName,
+                ["proficiency"] = defaultLevel, ["date_gender"] = gender,
             });
-            using var post = new UnityWebRequest($"{Base}/v1/matchmaker/generate", "POST")
+            using var post = new UnityWebRequest($"{Base}/v1/matchmaker/preset", "POST")
             {
                 uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body)) { contentType = "application/json" },
                 downloadHandler = new DownloadHandlerBuffer(),
@@ -94,7 +103,7 @@ public class ScenarioClient : MonoBehaviour
             if (post.result != UnityWebRequest.Result.Success || !DateSession.SetScenario(post.downloadHandler.text))
             {
                 Status = "No date: is the orchestrator running? (uv run python -m orchestrator)";
-                Debug.LogWarning($"ScenarioClient: matchmaking failed: {FullDuplexStreamClient.Describe(post)}");
+                Debug.LogWarning($"ScenarioClient: demo date failed: {FullDuplexStreamClient.Describe(post)}");
                 yield break;
             }
             known = DateSession.Scenario;

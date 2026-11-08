@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from orchestrator import config, stream_gateway
 from orchestrator.app import create_app
-from orchestrator.chemistry_director import (ChemistryDirector, ChemistryStore,
+from orchestrator.chemistry_director import (ChemistryDirector, ChemistryStore, RulesChemistryJudge,
                                              TurnJudgement, _WireTick,
                                              mood_label, posture)
 from orchestrator.claude import Claude
@@ -24,10 +24,10 @@ from orchestrator.face_tracker import FaceReading
 from orchestrator.matchmaker import Matchmaker, build_scenario, template_draft
 from orchestrator.models import TranscriptTurn
 from orchestrator.nonverbal import NonverbalTracker
-from orchestrator.tts import FishVoice, SentenceChunker
+from orchestrator.tts import SentenceChunker
 
 KEYS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "GEMINI_API_KEY", "GOOGLE_API_KEY",
-        "GOOGLE_CLOUD_PROJECT", "DEEPGRAM_API_KEY", "FISH_AUDIO_API_KEY", "OPENAI_API_KEY",
+        "GOOGLE_CLOUD_PROJECT", "NVIDIA_API_KEY", "NEMOTRON_ASR_SERVER", "NEMOTRON_ASR_LANGUAGE", "OPENAI_API_KEY",
         "ELEVENLABS_API_KEY", "SPEECH_ADAPTER")
 
 
@@ -66,8 +66,8 @@ def test_every_dialect_builds_a_complete_date(code):
     assert s.host_character.greeting and c.display_name in s.host_character.greeting
     assert [m.id for m in s.milestones] == ["break_ice", "find_common_ground", "cultural_vibe",
                                            "close_the_date"]
-    assert c.voice_config.provider == "sample"  # no Fish key in tests
-    assert c.avatar_config.base_model == "Female_Adult_08"
+    assert c.voice_config.provider == "sample"  # no ElevenLabs key in tests
+    assert c.avatar_config.base_model == "Female_Party_02"
 
 
 def test_scene_prompt_picks_the_venue_and_notes_shape_the_persona():
@@ -80,11 +80,14 @@ def test_scene_prompt_picks_the_venue_and_notes_shape_the_persona():
     assert "latina" not in s.date_character.system_prompt.casefold()
 
 
-def test_fish_voice_is_chosen_when_configured(monkeypatch):
-    monkeypatch.setenv("FISH_AUDIO_API_KEY", "k")
-    monkeypatch.setenv("FISH_VOICE_ES_AR_FEMALE", "voice-ar")
+def test_elevenlabs_voice_is_chosen_when_configured(monkeypatch):
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
+    monkeypatch.setenv("ELEVENLABS_VOICE_ES_AR_FEMALE", "voice-ar")
     v = scenario().date_character.voice_config
-    assert (v.provider, v.voice_id) == ("fish", "voice-ar")
+    assert (v.provider, v.voice_id) == ("elevenlabs", "voice-ar")
+    assert 0.7 <= v.speaking_rate <= 1.2
+    monkeypatch.delenv("ELEVENLABS_VOICE_ES_AR_FEMALE")
+    assert scenario().date_character.voice_config.voice_id == config.ELEVENLABS_DEFAULT_VOICES["female"]
 
 
 def test_matchmaker_falls_back_to_templates_when_the_model_fails():
@@ -285,87 +288,144 @@ def test_notes_join_the_newest_learner_line():
     assert turns[0].role == "learner" and turns[-1].text.endswith("[CHEMISTRY 60/100]")
 
 
-def test_fish_voice_speaks_the_live_protocol(monkeypatch):
-    import ormsgpack
+def test_elevenlabs_voice_speaks_the_streaming_protocol(monkeypatch):
     from websockets.asyncio.server import serve
 
-    received = []
+    from orchestrator.tts import ElevenLabsVoice
+    received, seen = [], {}
 
-    async def fish(ws):
-        assert ws.request.headers["Authorization"] == "Bearer k"
+    async def elevenlabs(ws):
+        seen["key"] = ws.request.headers["xi-api-key"]
+        seen["path"] = ws.request.path
         async for raw in ws:
-            msg = ormsgpack.unpackb(raw)
+            msg = json.loads(raw)
             received.append(msg)
-            if msg["event"] == "flush":
-                await ws.send(ormsgpack.packb({"event": "audio", "audio": b"\x01\x00" * 1500}))
-            if msg["event"] == "stop":
-                await ws.send(ormsgpack.packb({"event": "finish", "reason": "stop"}))
+            if msg.get("flush"):
+                await ws.send(json.dumps({"audio": base64.b64encode(b"\x01\x00" * 1500).decode(),
+                                          "isFinal": None}))
+            if msg.get("text") == "":
+                await ws.send(json.dumps({"audio": None, "isFinal": True}))
                 return
 
     async def go():
-        async with serve(fish, "127.0.0.1", 0) as server:
+        async with serve(elevenlabs, "127.0.0.1", 0) as server:
             port = server.sockets[0].getsockname()[1]
-            monkeypatch.setattr("orchestrator.tts.FISH_URL", f"ws://127.0.0.1:{port}")
-            voice = FishVoice("k", "s2.1-pro")
+            monkeypatch.setattr("orchestrator.tts.ELEVENLABS_URL", f"ws://127.0.0.1:{port}/v1/text-to-speech")
+            voice = ElevenLabsVoice("k", "eleven_flash_v2_5")
 
             async def sentences():
                 yield "Hola."
                 yield "¿Qué tal?"
 
-            cfg = VoiceConfig(provider="fish", voice_id="v1", speaking_rate=1.0,
-                              temperature=0.7, latency="balanced")
-            pcm = b"".join([f async for f in voice.speak(sentences(), cfg, "es-AR")])
+            cfg = VoiceConfig(provider="elevenlabs", voice_id="v1", stability=0.4,
+                              similarity_boost=0.8, speaking_rate=1.05)
+            pcm = b"".join([f async for f in voice.speak(sentences(), cfg, "es-US")])
             await voice.aclose()
             return pcm
 
     pcm = asyncio.run(go())
     assert len(pcm) == 2 * 3000
+    assert seen["key"] == "k" and seen["path"].startswith("/v1/text-to-speech/v1/stream-input")
+    assert "output_format=pcm_24000" in seen["path"] and "model_id=eleven_flash_v2_5" in seen["path"]
     start = received[0]
-    assert start["event"] == "start" and start["request"]["format"] == "pcm"
-    assert start["request"]["reference_id"] == "v1" and start["request"]["sample_rate"] == 24000
-    assert [m["event"] for m in received[1:]] == ["text", "flush", "text", "flush", "stop"]
+    assert start["text"] == " " and start["voice_settings"] == {"stability": 0.4, "similarity_boost": 0.8, "speed": 1.05}
+    assert [m["text"] for m in received[1:]] == ["Hola. ", "¿Qué tal? ", ""]
+    assert all(m.get("flush") for m in received[1:3])
 
 
-def test_deepgram_recognizer_assembles_a_final_utterance(monkeypatch):
+def test_an_elevenlabs_refusal_falls_back_to_the_sample(monkeypatch):
     from websockets.asyncio.server import serve
 
-    from orchestrator.stt import DeepgramRecognizer
+    from orchestrator.tts import Voice
 
-    async def deepgram(ws):
-        assert ws.request.headers["Authorization"] == "Token k"
-        assert "language=es" in ws.request.path and "encoding=linear16" in ws.request.path
+    async def refuses(ws):
         await ws.recv()
-        await ws.send(json.dumps({"type": "SpeechStarted"}))
-        await ws.send(json.dumps({"type": "Results", "is_final": True, "speech_final": False,
-                                  "channel": {"alternatives": [{"transcript": "Hola che",
-                                                                "confidence": 0.9, "words": []}]}}))
-        await ws.send(json.dumps({"type": "Results", "is_final": True, "speech_final": True,
-                                  "channel": {"alternatives": [{"transcript": "¿cómo andás?",
-                                                                "confidence": 0.7,
-                                                                "words": [{"word": "andás",
-                                                                           "confidence": 0.4}]}]}}))
-        await asyncio.sleep(0.5)
+        await ws.send(json.dumps({"message": "voice_id not found", "error": "voice_not_found"}))
 
     async def go():
-        async with serve(deepgram, "127.0.0.1", 0) as server:
+        async with serve(refuses, "127.0.0.1", 0) as server:
             port = server.sockets[0].getsockname()[1]
-            monkeypatch.setattr("orchestrator.stt.DEEPGRAM_URL", f"ws://127.0.0.1:{port}/v1/listen")
-            rec = DeepgramRecognizer("k", config.dialect("es-AR"))
-            await rec.start()
+            monkeypatch.setattr("orchestrator.tts.ELEVENLABS_URL", f"ws://127.0.0.1:{port}/v1/text-to-speech")
+            monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
+            voice = Voice()
+
+            async def sentences():
+                yield "Hola, ¿qué tal?"
+
+            cfg = VoiceConfig(provider="elevenlabs", voice_id="missing", stability=0.5,
+                              similarity_boost=0.8, speaking_rate=1.0)
+            pcm = b"".join([f async for f in voice.speak(sentences(), cfg, "es-US")])
+            await voice.aclose()
+            return pcm
+
+    assert len(asyncio.run(go())) > 24000  # the sample voice spoke instead
+
+
+def test_nemotron_recognizer_speaks_riva_streaming(monkeypatch):
+    grpc = pytest.importorskip("grpc")
+    from concurrent import futures
+
+    from riva.client.proto import riva_asr_pb2 as rasr
+    from riva.client.proto import riva_asr_pb2_grpc as rasr_grpc
+
+    from orchestrator.stt import create_recognizer
+    seen = {}
+
+    class Riva(rasr_grpc.RivaSpeechRecognitionServicer):
+        def StreamingRecognize(self, request_iterator, context):
+            seen["meta"] = dict(context.invocation_metadata())
+            seen["config"] = next(request_iterator).streaming_config
+            audio = 0
+            for request in request_iterator:
+                audio += len(request.audio_content)
+                if audio >= 3200:
+                    break
+            seen["audio"] = audio
+            alt = rasr.SpeechRecognitionAlternative
+            yield rasr.StreamingRecognizeResponse(results=[rasr.StreamingRecognitionResult(
+                alternatives=[alt(transcript="Hola che")], is_final=False)])
+            yield rasr.StreamingRecognizeResponse(results=[rasr.StreamingRecognitionResult(
+                alternatives=[alt(transcript="Hola che, ¿cómo andás? <es-US>", confidence=0.8,
+                                  words=[rasr.WordInfo(word="Hola", confidence=0.95),
+                                         rasr.WordInfo(word="andás", confidence=0.4)])],
+                is_final=True)])
+            for _ in request_iterator:
+                pass
+
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
+    rasr_grpc.add_RivaSpeechRecognitionServicer_to_server(Riva(), server)
+    port = server.add_insecure_port("127.0.0.1:0")
+    server.start()
+    monkeypatch.setenv("NEMOTRON_ASR_SERVER", f"127.0.0.1:{port}")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
+    monkeypatch.setenv("NEMOTRON_ASR_FUNCTION_ID", "fn-123")
+
+    async def go():
+        rec = await create_recognizer(config.dialect("es-AR"))
+        assert rec.name == "nemotron"
+        for _ in range(10):
             await rec.feed(b"\x00\x00" * 320)
-            events = []
+        events = []
+        async with asyncio.timeout(10):
             async for event in rec.stream():
                 events.append(event)
                 if event.kind == "final":
                     break
-            await rec.close()
-            return events
+        await rec.close()
+        return events
 
-    events = asyncio.run(go())
+    try:
+        events = asyncio.run(go())
+    finally:
+        server.stop(0)
     final = events[-1]
-    assert events[0].kind == "speech_started"
-    assert final.text == "Hola che ¿cómo andás?" and final.unsure == ["andás"]
+    assert [e.kind for e in events if e.kind in ("partial", "final")] == ["partial", "final"]
+    assert final.text == "Hola che, ¿cómo andás?" and final.unsure == ["andás"]
     assert abs(final.confidence - 0.8) < 1e-6
+    cfg = seen["config"].config
+    assert (cfg.language_code, cfg.sample_rate_hertz, seen["config"].interim_results) == ("es-US", 16000, True)
+    assert seen["meta"]["authorization"] == "Bearer nvapi-test" and seen["meta"]["function-id"] == "fn-123"
+    assert seen["audio"] >= 3200
 
 
 # --------------------------------------------------------------------------- the stream
@@ -398,7 +458,7 @@ def until(ws, kind, frames=None, limit=4000):
 def test_matchmaker_routes(tmp_path):
     with TestClient(app(tmp_path)) as client:
         catalog = client.get("/v1/matchmaker/catalog").json()
-        assert catalog["brand"]["name"] == "Parry" and len(catalog["dialects"]) == 8
+        assert catalog["brand"]["name"] == "Parry" and len(catalog["dialects"]) == len(config.DIALECTS)
         date = generate(client, language="ja-JP-kansai")
         assert client.get(f"/v1/matchmaker/{date['scenario_id']}").json() == date
         assert client.post("/v1/matchmaker/generate", json={"language": "xx"}).status_code == 422
@@ -555,3 +615,297 @@ def test_a_dropped_connection_resumes_the_date(tmp_path):
             assert "break_ice" in update["completed_milestones"]  # remembered across the drop
             ws.send_text(json.dumps({"type": "end_date", "reason": "timer"}))
             assert until(ws, "date_ended")["run_id"] == "run_r"
+
+
+# --------------------------------------------------------------------------- the demo café
+
+def preset(client, **overrides):
+    body = {"preset": "cafe_cancun_ar", "learner_name": "Arth", **overrides}
+    response = client.post("/v1/matchmaker/preset", json=body)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_the_cafe_preset_is_a_complete_porteno_date(tmp_path):
+    with TestClient(app(tmp_path)) as client:
+        date = preset(client)
+        c = date["date_character"]
+        assert (c["display_name"], date["host_character"]["display_name"]) == ("Valeria", "Don Julio")
+        assert date["dialect"] == "es-AR" and date["city"] == "Cancún" and date["venue_scene"] == "CancunCafe"
+        assert date["generated_by"] == "authored" and len(date["menu"]) == 10
+        assert "order_together" in [m["id"] for m in date["milestones"]]
+        assert "Medialunas (35 MXN)" in c["system_prompt"] and "voseo" in c["system_prompt"]
+        assert preset(client, date_gender="male")["date_character"]["display_name"] == "Tomás"
+        assert client.post("/v1/matchmaker/preset", json={"preset": "nope"}).status_code == 404
+        assert client.get("/v1/matchmaker/catalog").json()["presets"][0]["id"] == "cafe_cancun_ar"
+
+
+def test_ordering_sends_the_host_who_serves_at_the_table(tmp_path):
+    with TestClient(app(tmp_path)) as client:
+        sid = preset(client)["scenario_id"]
+        with client.websocket_connect("/v1/stream") as ws:
+            ws.send_text(json.dumps({"type": "init", "run_id": "run_o", "scenario_id": sid}))
+            until(ws, "session_ready")
+            ws.send_text(json.dumps({"type": "start_date"}))
+            until(ws, "audio_end")
+            ws.send_text(json.dumps({"type": "user_text",
+                                     "text": "Dale, pedimos unas medialunas y yo quiero un cortado, che."}))
+            action = until(ws, "scene_action")
+            assert action["action"] == "order_placed" and action["npc_id"] == "host"
+            assert set(action["items"]) == {"Medialunas", "Cortado"}
+            ws.send_text(json.dumps({"type": "scene_event", "event": "host_at_table"}))
+            serve = until(ws, "audio_start")
+            while serve["kind"] != "serve":
+                serve = until(ws, "audio_start")
+            assert serve["npc_id"] == "host"
+            line = until(ws, "transcript")
+            while not (line.get("npc_id") == "host" and line["is_final"]):
+                line = until(ws, "transcript")
+            assert "Medialunas" in line["text"] and "Cortado" in line["text"]
+
+            ws.send_text(json.dumps({"type": "help"}))
+            card = until(ws, "help_card")
+            assert len(card["suggestions"]) == 3 and card["said"]
+
+
+def test_spoken_lines_are_kept_for_the_pronunciation_pass(tmp_path, monkeypatch):
+    from orchestrator import stt
+
+    class Ears(stt.SpeechRecognizer):
+        name, transcribes = "fake", True
+
+        async def feed(self, pcm):
+            self.fed = getattr(self, "fed", 0) + len(pcm)
+            if self.fed >= 32000 and not getattr(self, "done", False):
+                self.done = True
+                await self.events.put(stt.SttEvent("speech_started"))
+                await self.events.put(stt.SttEvent("final", "Hola, soy Arth", 0.62, ["Arth"]))
+
+    async def recognizer(dialect):
+        return Ears()
+
+    monkeypatch.setattr(stream_gateway, "create_recognizer", recognizer)
+    with TestClient(app(tmp_path)) as client:
+        sid = preset(client)["scenario_id"]
+        with client.websocket_connect("/v1/stream") as ws:
+            ws.send_text(json.dumps({"type": "init", "run_id": "run_c", "scenario_id": sid}))
+            until(ws, "session_ready")
+            for _ in range(60):
+                ws.send_bytes(b"\x10\x00" * 640)
+            assert until(ws, "transcript")["text"] == "Hola, soy Arth"
+        clip = tmp_path / "audio" / "run_c" / "turn_001.json"
+        assert json.loads(clip.read_text())["confidence"] == 0.62
+        assert (tmp_path / "audio" / "run_c" / "turn_001.wav").stat().st_size > 16000
+
+
+def test_the_report_decodes_the_date(tmp_path):
+    with TestClient(app(tmp_path)) as client:
+        sid = preset(client)["scenario_id"]
+        with client.websocket_connect("/v1/stream") as ws:
+            ws.send_text(json.dumps({"type": "init", "run_id": "run_d", "scenario_id": sid}))
+            until(ws, "session_ready")
+            ws.send_text(json.dumps({"type": "start_date"}))
+            until(ws, "audio_end")
+            ws.send_text(json.dumps({"type": "user_text", "text": "Hola, soy Arth, che. ¿Vos sacás fotos del arrecife?"}))
+            until(ws, "chemistry_update")
+            ws.send_text(json.dumps({"type": "end_date", "reason": "timer"}))
+            until(ws, "date_ended")
+        response = client.post("/v1/date/report", json={"run_id": "run_d", "scenario_id": sid})
+        assert response.status_code == 200, response.text
+        report = response.json()
+        assert report["written_by"] == "rules" and report["date_name"] == "Valeria"
+        assert report["went_well"]["quote"].startswith("Hola, soy Arth")
+        assert len(report["useful_phrases"]) == 3 and report["culture_notes"][0]["title"] == "Voseo is the default"
+        assert [t["speaker"] for t in report["transcript"]][:2] == ["date", "learner"]
+        page = client.get("/v1/date/report/run_d.html")
+        assert page.status_code == 200 and "Your date with Valeria, decoded" in page.text
+        assert "<polyline" in page.text  # the chemistry chart
+        assert client.get("/v1/date/report/nobody.html").status_code == 404
+
+
+def test_usted_is_stiff_in_buenos_aires_but_not_everywhere():
+    from orchestrator.chemistry_director import JudgeContext
+
+    async def judge(code):
+        s = scenario(language=code)
+        line = "Hola, ¿usted qué hace los domingos?"
+        return await RulesChemistryJudge().judge(JudgeContext(s, [learner(line)], line, [], [], False))
+
+    assert "too formal" in asyncio.run(judge("es-AR")).reason
+    assert "too formal" not in asyncio.run(judge("ja-JP")).reason
+
+
+def test_pronunciation_impressions_only_name_words_that_were_said(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from orchestrator.date_report import DateReporter, _WireListen
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    folder = tmp_path / "run_p"
+    folder.mkdir()
+    (folder / "turn_001.wav").write_bytes(b"RIFF" + b"\x00" * 40000)
+    (folder / "turn_001.json").write_text(json.dumps({"text": "quiero un cortado", "confidence": 0.5}))
+
+    class Models:
+        async def generate_content(self, **kwargs):
+            return SimpleNamespace(parsed=_WireListen(problem_words=["cortado", "invented"],
+                                                      impression="Tap the r in cortado."))
+
+    reporter = DateReporter()
+    reporter.gemini = SimpleNamespace(aio=SimpleNamespace(models=Models()))
+    notes = asyncio.run(reporter._pronunciation(scenario(), folder))
+    assert notes[0].problem_words == ["cortado"] and "Tap the r" in notes[0].impression
+
+
+def test_spanish_goes_to_the_hosted_multilingual_asr(monkeypatch):
+    from orchestrator.stt import clean, function_for
+    p = config.providers()
+    assert function_for(p, "es-US") == config.NVIDIA_MULTILINGUAL_FUNCTION
+    assert function_for(p, "en-US") == config.NEMOTRON_HOSTED_FUNCTION
+    monkeypatch.setenv("NVIDIA_ASR_MULTILINGUAL_FUNCTION_ID", "custom")
+    assert function_for(config.providers(), "ja-JP") == "custom"
+    assert clean("Qué¿ quieres tomar? <es-US>") == "¿Qué quieres tomar?"
+    assert clean("Hola , buenas tardes .") == "Hola, buenas tardes."
+
+
+def test_the_date_cannot_hear_you_before_the_date_starts(tmp_path):
+    with TestClient(app(tmp_path)) as client:
+        sid = generate(client)["scenario_id"]
+        with client.websocket_connect("/v1/stream") as ws:
+            ws.send_text(json.dumps({"type": "init", "run_id": "run_far", "scenario_id": sid,
+                                     "npc_id": "date_npc"}))
+            until(ws, "session_ready")
+            ws.send_text(json.dumps({"type": "user_text", "text": "how do I move"}))
+            line = until(ws, "transcript")
+            assert line["speaker"] == "user" and line["unheard"]
+            # The host still answers when faced.
+            ws.send_text(json.dumps({"type": "focus", "npc_id": "host"}))
+            assert until(ws, "audio_start")["kind"] == "greeting"
+            until(ws, "audio_end")
+            ws.send_text(json.dumps({"type": "user_text", "text": "Muchas gracias."}))
+            assert until(ws, "audio_start")["npc_id"] == "host"
+        run = client.get("/v1/date/runs/run_far").json()
+        assert all(t["npc_id"] != "date_npc" for t in run["transcript"] if t["role"] == "learner")
+
+
+class _FailingBrain:
+    def __init__(self, name, error):
+        self.name, self.error, self.calls = name, error, 0
+
+    async def reply(self, system, history, notes, ctx):
+        self.calls += 1
+        raise self.error
+        yield ""  # pragma: no cover
+
+    async def aclose(self):
+        return None
+
+
+class _EchoBrain:
+    name = "claude"
+
+    async def reply(self, system, history, notes, ctx):
+        yield "Hola, "
+        yield "¿qué tal?"
+
+    async def aclose(self):
+        return None
+
+
+def test_an_out_of_quota_brain_hands_over_and_rests(monkeypatch):
+    from orchestrator import date_brain
+    monkeypatch.setattr(date_brain, "_resting", {})
+    gemini = _FailingBrain("gemini", RuntimeError("429 RESOURCE_EXHAUSTED quota exceeded"))
+    chain = date_brain.ChainBrain([gemini, _EchoBrain(), date_brain.ScriptedBrain()])
+    ctx = date_brain.BrainContext(dialect="es-AR", chemistry=50, nonverbal=[], interests=[])
+
+    async def say():
+        return "".join([d async for d in chain.reply("sys", [Turn("learner", "Hola")], [], ctx)])
+
+    assert asyncio.run(say()) == "Hola, ¿qué tal?"
+    # Resting: the next turn goes straight to Claude, without asking Gemini again.
+    assert chain.name == "claude"
+    assert asyncio.run(say()) == "Hola, ¿qué tal?" and gemini.calls == 1
+
+
+def test_a_failing_brain_without_quota_trouble_is_tried_again(monkeypatch):
+    from orchestrator import date_brain
+    monkeypatch.setattr(date_brain, "_resting", {})
+    gemini = _FailingBrain("gemini", ConnectionError("reset"))
+    chain = date_brain.ChainBrain([gemini, date_brain.ScriptedBrain()])
+    ctx = date_brain.BrainContext(dialect="es-AR", chemistry=50, nonverbal=[], interests=[])
+
+    async def say():
+        return "".join([d async for d in chain.reply("sys", [Turn("learner", "Hola")], [], ctx)])
+
+    assert asyncio.run(say()).strip()
+    assert asyncio.run(say()).strip() and gemini.calls == 2 and chain.name == "gemini"
+
+
+class _HangingBrain:
+    name = "gemini"
+
+    async def reply(self, system, history, notes, ctx):
+        await asyncio.sleep(60)
+        yield "too late"
+
+    async def aclose(self):
+        return None
+
+
+def test_a_hanging_brain_hands_over_after_the_first_word_deadline(monkeypatch):
+    from orchestrator import date_brain
+    monkeypatch.setattr(date_brain, "_resting", {})
+    monkeypatch.setattr(date_brain, "FIRST_WORD_SECONDS", 0.05)
+    chain = date_brain.ChainBrain([_HangingBrain(), _EchoBrain()])
+    ctx = date_brain.BrainContext(dialect="es-AR", chemistry=50, nonverbal=[], interests=[])
+
+    async def say():
+        return "".join([d async for d in chain.reply("sys", [Turn("learner", "Hola")], [], ctx)])
+
+    assert asyncio.run(say()) == "Hola, ¿qué tal?" and chain.name == "claude"
+
+
+def test_the_microphone_hearing_the_date_is_not_the_learner():
+    session = stream_gateway.StreamSession.__new__(stream_gateway.StreamSession)
+    session.transcript = [TranscriptTurn(role="npc", npc_id="date_npc",
+                                         text="Che, ¿tan aburrida soy que mirás para otro lado?")]
+    session.spoken, session.speaking, session.playback_end = [], None, 100.0
+    assert session._echo("otro lado", 101.0)                 # just after her line: echo
+    assert not session._echo("otro lado", 110.0)             # long after: the learner
+    assert not session._echo("Perdón, me distraje", 101.0)   # new words: the learner
+
+
+def test_asking_the_wingman_brings_three_options_without_a_penalty(tmp_path):
+    with TestClient(app(tmp_path)) as client:
+        sid = generate(client)["scenario_id"]
+        path = tmp_path / "dates" / f"{sid}.json"
+        data = json.loads(path.read_text())
+        data["wingman_seconds"] = 60  # the silence timer must not be what answers
+        path.write_text(json.dumps(data))
+        with client.websocket_connect("/v1/stream") as ws:
+            ws.send_text(json.dumps({"type": "init", "run_id": "run_w", "scenario_id": sid,
+                                     "npc_id": "date_npc"}))
+            until(ws, "session_ready")
+            ws.send_text(json.dumps({"type": "start_date"}))
+            until(ws, "date_started")
+            until(ws, "audio_end")
+            ws.send_text(json.dumps({"type": "wingman"}))
+            hint = until(ws, "wingman_hint")
+            assert len(hint["options"]) == 3
+            ws.send_text(json.dumps({"type": "end_date", "reason": "quit"}))
+            ended = until(ws, "date_ended")
+            # Asking is not an awkward silence: chemistry is where the opening left it.
+            assert ended["chemistry_score"] >= 50
+
+
+def test_claude_speaks_as_the_date_by_default(monkeypatch):
+    from orchestrator import date_brain
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.delenv("DATE_BRAIN", raising=False)
+    brain = date_brain.create_brain()
+    assert isinstance(brain, date_brain.ChainBrain)
+    assert [b.name for b in brain.brains] == ["claude", "scripted"]
+    assert brain.rest_when_slow is False  # a slow Claude is waited for, not benched
+    monkeypatch.setenv("DATE_BRAIN", "gemini")
+    assert [b.name for b in date_brain.create_brain().brains][0] == "gemini"

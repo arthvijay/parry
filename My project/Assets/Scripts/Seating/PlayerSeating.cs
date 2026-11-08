@@ -42,7 +42,7 @@ public class PlayerSeating : MonoBehaviour
     void Update()
     {
         var keyboard = Keyboard.current;
-        if (keyboard == null || Cursor.lockState != CursorLockMode.Locked)
+        if (keyboard == null || !ChemistryAndWingmanHUD.KeysFree)
             return;
 
         if (moveStart >= 0f)
@@ -53,9 +53,11 @@ public class PlayerSeating : MonoBehaviour
 
         if (Seat != null)
         {
-            bool moveKey = keyboard.wKey.wasPressedThisFrame || keyboard.aKey.wasPressedThisFrame
+            // Mid-date, only the sit key stands the learner up (WASD would end it by accident).
+            bool dateOn = FullDuplexStreamClient.Instance != null && FullDuplexStreamClient.Instance.DateRunning;
+            bool moveKey = !dateOn && (keyboard.wKey.wasPressedThisFrame || keyboard.aKey.wasPressedThisFrame
                         || keyboard.sKey.wasPressedThisFrame || keyboard.dKey.wasPressedThisFrame
-                        || keyboard.spaceKey.wasPressedThisFrame;
+                        || keyboard.spaceKey.wasPressedThisFrame);
             if (keyboard[sitKey].wasPressedThisFrame || moveKey)
                 Stand();
             return;
@@ -64,6 +66,15 @@ public class PlayerSeating : MonoBehaviour
         nearby = SeatManager.Nearest(transform.position, sitRange, s => s.playerCanSit && s.IsFree);
         if (nearby != null && keyboard[sitKey].wasPressedThisFrame)
             Sit(nearby);
+    }
+
+    /// <summary>Sits in the seat with this id, wherever the player is (tools and tests).</summary>
+    public bool SitAt(string seatId)
+    {
+        foreach (var seat in FindObjectsByType<Seat>(FindObjectsSortMode.None))
+            if (seat.id == seatId)
+                return Sit(seat);
+        return false;
     }
 
     public bool Sit(Seat seat)
@@ -123,7 +134,7 @@ public class PlayerSeating : MonoBehaviour
 
     void OnGUI()
     {
-        if (Cursor.lockState != CursorLockMode.Locked || moveStart >= 0f)
+        if (!ChemistryAndWingmanHUD.KeysFree || moveStart >= 0f)
             return;
         bool dateOn = FullDuplexStreamClient.Instance != null && FullDuplexStreamClient.Instance.DateRunning;
         string text = Seat != null ? (dateOn ? "V  switch camera" : $"{sitKey}  stand up")

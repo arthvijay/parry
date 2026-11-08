@@ -162,13 +162,18 @@ public class NpcManager : MonoBehaviour
         var tint = go.AddComponent<AvatarTinter>();
         tint.skin = def.skinTint;
         tint.hair = def.hairTint;
+        tint.outfit = def.outfit;
 
-        var interact = go.AddComponent<NpcInteractable>();
-        interact.displayName = def.displayName;
+        // Patrons fill the room: they sit and live, but are not someone to talk to.
+        if (def.role != "patron")
+        {
+            var interact = go.AddComponent<NpcInteractable>();
+            interact.displayName = def.displayName;
 
-        var talk = go.AddComponent<NpcConversation>();
-        talk.npcId = id; // must match the server's agent id (AGENT_ID_<ID>)
-        talk.greeting = def.greeting ?? "";
+            var talk = go.AddComponent<NpcConversation>();
+            talk.npcId = id; // must match the server's agent id (AGENT_ID_<ID>)
+            talk.greeting = def.greeting ?? "";
+        }
 
         var walker = go.AddComponent<NpcWalker>();
         walker.walkSpeed = def.walkSpeed > 0f ? def.walkSpeed : 0.8f;

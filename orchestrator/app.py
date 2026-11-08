@@ -131,6 +131,7 @@ def create_app(*, speech: SpeechProvider | None = None,
             hinting.add_done_callback(lambda task: task.cancelled() or task.exception())
         # The speed date: matchmaker, live chemistry, verdict, and the face tracker.
         app.state.matchmaker = app.state.chemistry_judge = app.state.date_grader = None
+        app.state.date_reporter = None
         app.state.face_tracker = None
         if dates is not None:
             from .chemistry_director import ChemistryStore, create_judge
@@ -142,6 +143,10 @@ def create_app(*, speech: SpeechProvider | None = None,
             app.state.chemistry_store = ChemistryStore(chemistry_dir)
             app.state.chemistry_judge = create_judge()
             app.state.date_grader = create_date_grader()
+            from .date_report import create_reporter
+            app.state.date_reporter = create_reporter()
+            app.state.date_reporter.directory = Path(os.getenv(
+                "REPORT_DIR", str(transcripts.directory.parent / "reports")))
             tracking = face_tracking if face_tracking is not None \
                 else os.getenv("FACE_TRACKING", "1") != "0"
             if tracking:
@@ -174,7 +179,8 @@ def create_app(*, speech: SpeechProvider | None = None,
                         await extra.aclose()
             if app.state.speech is not None and hasattr(app.state.speech, "aclose"):
                 await app.state.speech.aclose()
-            for service in (app.state.matchmaker, app.state.chemistry_judge, app.state.date_grader):
+            for service in (app.state.matchmaker, app.state.chemistry_judge, app.state.date_grader,
+                            app.state.date_reporter):
                 if service is not None and hasattr(service, "aclose"):
                     with suppress(Exception):
                         await service.aclose()
@@ -211,10 +217,10 @@ def create_app(*, speech: SpeechProvider | None = None,
         return {"matchmaker": "claude" if m.anthropic_ready else "templates",
                 "chemistry": "claude" if m.anthropic_ready else "rules",
                 "grader": "claude" if m.anthropic_ready else "rules",
-                "brain": "gemini" if m.gemini_ready else "claude" if m.anthropic_ready
-                else "scripted",
-                "stt": "deepgram" if p.deepgram_key else "none",
-                "tts": "fish" if p.fish_key else "sample",
+                "brain": ("gemini" if m.date_brain_provider == "gemini" and m.gemini_ready
+                          else "claude" if m.anthropic_ready else "scripted"),
+                "stt": "nemotron" if p.nvidia_key or not p.asr_server.endswith(":443") else "none",
+                "tts": "elevenlabs" if p.elevenlabs_key else "sample",
                 "face": "off" if face is None else "ready" if face.landmarker is not None
                 else "loading" if face.available else "unavailable"}
 

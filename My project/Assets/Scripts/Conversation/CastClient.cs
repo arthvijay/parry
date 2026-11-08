@@ -90,6 +90,7 @@ public class CastClient : MonoBehaviour
         def.skinTint = look.skin_tint;
         def.hairTint = look.hair_tint;
         def.restingSmile = look.resting_smile_weight;
+        def.outfit = look.outfit_style;
     }
 
     /// <summary>Wire the spawned slots: the host's greeting, the date's body language.</summary>

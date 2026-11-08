@@ -129,5 +129,15 @@
     "match": "Aaj तुमसे बात करके बहुत अच्छा लगा 😊 Weekend पे chai?",
     "friendzone": "मिलकर अच्छा लगा! Saturday वाले gig पे आओ तो मिलते हैं 🤝",
     "ghosted": "Thanks for the chat. मुझे लगा हमारी vibe match नहीं हुई, but all the best 🙏"
-  }
+  },
+  "culture": [
+    {
+      "title": "Code-switching is normal",
+      "note": "Mixing Hindi and English mid-sentence is how urban India actually talks; full textbook Hindi sounds formal."
+    },
+    {
+      "title": "Yaar",
+      "note": "'Mate' or 'dude', and it softens almost anything."
+    }
+  ]
 }

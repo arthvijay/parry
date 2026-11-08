@@ -16,8 +16,8 @@ public class DateCameraRig : MonoBehaviour
     public Key toggleKey = Key.V;
     public Mode mode = Mode.FirstPerson;
     [Tooltip("Shoulder offset of the cinematic camera from the learner's seat (right, up, back), metres.")]
-    public Vector3 shoulder = new(0.55f, 1.25f, 0.95f);
-    public float fieldOfView = 42f;
+    public Vector3 shoulder = new(0.75f, 1.5f, 1.7f);
+    public float fieldOfView = 46f;
     public float blendSeconds = 0.6f;
 
     FirstPersonController fpc;
@@ -50,13 +50,15 @@ public class DateCameraRig : MonoBehaviour
             Destroy(cinematic.gameObject);
     }
 
+    public void Toggle() => mode = mode == Mode.FirstPerson ? Mode.Cinematic : Mode.FirstPerson;
+
     void Update()
     {
         if (cinematic == null)
             return;
         var kb = Keyboard.current;
         bool seated = seating != null && seating.IsSeated;
-        if (kb != null && kb[toggleKey].wasPressedThisFrame && seated && Cursor.lockState == CursorLockMode.Locked)
+        if (kb != null && kb[toggleKey].wasPressedThisFrame && seated && ChemistryAndWingmanHUD.KeysFree)
             mode = mode == Mode.FirstPerson ? Mode.Cinematic : Mode.FirstPerson;
         if (!seated)
             mode = Mode.FirstPerson;

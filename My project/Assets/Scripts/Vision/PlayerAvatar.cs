@@ -49,6 +49,11 @@ public class PlayerAvatar : MonoBehaviour
     {
         var fpc = FindFirstObjectByType<FirstPersonController>();
         seating = fpc != null ? fpc.GetComponent<PlayerSeating>() : null;
+        // The player object's own capsule mesh is a placeholder: invisible from the first-person
+        // camera inside it, a grey blob from any other. The avatar is the learner's body.
+        if (fpc != null)
+            foreach (var r in fpc.GetComponents<MeshRenderer>())
+                r.enabled = false;
         var look = DateSession.Look;
 
         body = new GameObject("Player Avatar");
