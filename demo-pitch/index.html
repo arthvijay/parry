@@ -580,7 +580,7 @@ body.edit .slot{cursor:copy}
 /* =====================================================================
    SLIDE 15: TEAM
    ===================================================================== */
-.team{display:grid;grid-template-columns:repeat(4,1fr);gap:30px;margin-top:70px}
+.team{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:70px}
 .member{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
 .photo{position:relative;width:230px;height:230px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 35% 30%,var(--wine-2),var(--wine));box-shadow:0 0 0 3px var(--ink),0 0 0 5px var(--c),0 0 40px color-mix(in srgb,var(--c) 45%,transparent);margin-bottom:16px}
 .photo .initials{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-display);font-size:80px;font-weight:600;color:var(--c)}
@@ -1127,7 +1127,7 @@ body.edit .slot{cursor:copy}
      SLIDE 15: TEAM
      ================================================================= -->
 <section class="slide s-team" data-id="team" data-title="Team"
-  data-notes="Introduce each teammate in one line: what they built this weekend.">
+  data-notes="Arth, CEO: product vision and the pitch. Richard, COO: operations and partnerships. Avi, CTO: the architecture behind the live date. One line each.">
   <p class="eyebrow a" style="--d:.1">The team</p>
   <h2 class="title sm a" style="--d:.2">The people <em>behind the table.</em></h2>
   <div class="team" id="team"></div>
@@ -1186,10 +1186,9 @@ body.edit .slot{cursor:copy}
    You can also drag a photo straight onto a circle while presenting.
    ===================================================================== */
 const TEAM = [
-  { name: "Teammate One",   role: "Unity & 3D worlds",       line: "Gaussian-splat venues, avatars and the cinematic camera.", photo: "assets/team/1.jpg" },
-  { name: "Teammate Two",   role: "Realtime voice",          line: "Full-duplex streaming, VAD barge-in and the audio ring buffer.", photo: "assets/team/2.jpg" },
-  { name: "Teammate Three", role: "AI personas & grading",   line: "Matchmaker personas, chemistry director and the verdict receipt.", photo: "assets/team/3.jpg" },
-  { name: "Teammate Four",  role: "Product & design",        line: "Dialect schemas, UX flow and the story you just heard.", photo: "assets/team/4.jpg" },
+  { name: "Arth",    role: "CEO", line: "Product vision, the pitch and where Parry goes next.", photo: "assets/team/1.jpg" },
+  { name: "Richard", role: "COO", line: "Operations, partnerships and getting Parry in front of learners.", photo: "assets/team/2.jpg" },
+  { name: "Avi",     role: "CTO", line: "Architecture: real-time voice, face tracking and the AI date.", photo: "assets/team/3.jpg" },
 ];
 
 /* =====================================================================

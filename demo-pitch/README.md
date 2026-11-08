@@ -39,7 +39,7 @@ Save files with these exact names, or drag them onto the slot while in media mod
 | `assets/venues/tokyo.jpg` | Slide 4 postcard | portrait 4:5 |
 | `assets/venues/mumbai.jpg` | Slide 4 postcard | portrait 4:5 |
 | `assets/date-scene.jpg` | Slide 7, behind the live HUD | landscape 4:3 |
-| `assets/team/1.jpg` … `4.jpg` | Slide 15 headshots | square |
+| `assets/team/1.jpg` … `3.jpg` | Slide 15 headshots | square |
 
 ### ChatGPT image prompts (if you don't have screenshots)
 
@@ -51,4 +51,4 @@ Save files with these exact names, or drag them onto the slot while in media mod
 
 ## Edit the team slide
 
-Open `index.html`, search for `EDIT ME`, and change the four names, roles and one-liners.
+Open `index.html`, search for `EDIT ME`, and change the three names, roles and one-liners.
