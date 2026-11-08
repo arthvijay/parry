@@ -19,9 +19,10 @@ import os
 import re
 from collections.abc import AsyncIterator
 
-from . import config
+from . import config, costs
 from .audio import VOICE_RATE, sample_speech
 from .date_models import VoiceConfig
+from .voice_cache import VoiceCache
 
 log = logging.getLogger("orchestrator")
 
@@ -136,9 +137,12 @@ class FishVoice:
 
         async def send():
             await ws.send(ormsgpack.packb(start))
+            costs.record("fish", self.model)
             async for sentence in sentences:
                 await ws.send(ormsgpack.packb({"event": "text", "text": sentence + " "}))
                 await ws.send(ormsgpack.packb({"event": "flush"}))
+                # Fish bills the characters it is sent, heard or not.
+                costs.record("fish", self.model, calls=0, characters=len(sentence))
             await ws.send(ormsgpack.packb({"event": "stop"}))
 
         sender = asyncio.create_task(send())
@@ -177,12 +181,14 @@ class FishVoice:
 
 class Voice:
     """The session's voice: Fish when configured, the sample otherwise, and the sample
-    for any turn Fish fails before a single frame has been sent."""
+    for any turn Fish fails before a single frame has been sent. Scripted lines play from
+    the voice cache once Fish has spoken them."""
 
-    def __init__(self):
+    def __init__(self, cache: VoiceCache | None = None):
         p = config.providers()
         self.primary = FishVoice(p.fish_key, p.fish_model) if p.fish_key else None
         self.fallback = SampleVoice()
+        self.cache = cache
 
     @property
     def name(self) -> str:
@@ -193,11 +199,27 @@ class Voice:
             await self.primary.prewarm()
 
     async def speak(self, sentences: AsyncIterator[str], voice: VoiceConfig,
-                    language: str) -> AsyncIterator[bytes]:
+                    language: str, cache_text: str | None = None) -> AsyncIterator[bytes]:
+        """``cache_text`` marks a scripted line (the whole of it): played from the cache
+        when Fish has spoken it before, and kept when Fish speaks it to the end."""
         if self.primary is None or voice.provider != "fish":
             async for frame in self.fallback.speak(sentences, voice, language):
                 yield frame
             return
+        key = None
+        if cache_text and self.cache is not None:
+            key = self.cache.key(cache_text, voice, language, self.primary.model,
+                                 self.primary.sample_rate)
+            pcm = self.cache.get(key)
+            if pcm is not None:
+                async for _ in sentences:   # the captions still go out, line by line
+                    pass
+                costs.record("fish", self.primary.model, calls=0,
+                             characters_cached=len(cache_text))
+                for frame in frames(pcm):
+                    yield frame
+                return
+        heard: list[bytes] | None = [] if key else None
         # Keep every sentence so the sample can voice them if Fish fails early.
         spoken: list[str] = []
         queue: asyncio.Queue[str | None] = asyncio.Queue()
@@ -217,7 +239,12 @@ class Voice:
         try:
             async for frame in self.primary.speak(from_queue(), voice, language):
                 sent_any = True
+                if heard is not None:
+                    heard.append(frame)
                 yield frame
+            # Reached only when Fish spoke the whole line: never after a barge-in or failure.
+            if key and heard:
+                self.cache.put(key, b"".join(heard))
         except asyncio.CancelledError:
             raise
         except Exception as error:  # noqa: BLE001

@@ -18,7 +18,7 @@ import random
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 
-from . import config
+from . import config, costs
 
 log = logging.getLogger("orchestrator")
 
@@ -86,9 +86,19 @@ class GeminiBrain:
             thinking_config=types.ThinkingConfig(thinking_level=self.thinking))
         stream = await self.client.aio.models.generate_content_stream(
             model=self.model, contents=contents, config=generation)
-        async for chunk in stream:
-            if chunk.text:
-                yield chunk.text
+        usage = None
+        try:
+            async for chunk in stream:
+                usage = getattr(chunk, "usage_metadata", None) or usage
+                if chunk.text:
+                    yield chunk.text
+        finally:
+            # The last usage seen is the reply's total, even when a barge-in cut it short.
+            if usage is not None:
+                costs.record("gemini", self.model,
+                             input_tokens=getattr(usage, "prompt_token_count", 0) or 0,
+                             output_tokens=(getattr(usage, "candidates_token_count", 0) or 0)
+                             + (getattr(usage, "thoughts_token_count", 0) or 0))
 
     async def aclose(self):
         return None
@@ -111,6 +121,8 @@ class ClaudeBrain:
                 output_config={"effort": "low"}) as stream:
             async for text in stream.text_stream:
                 yield text
+            final = await stream.get_final_message()
+            costs.claude_usage(self.model, getattr(final, "usage", None))
 
     async def aclose(self):
         await self.client.close()

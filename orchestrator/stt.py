@@ -20,7 +20,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from urllib.parse import urlencode
 
-from . import config
+from . import config, costs
 from .audio import MIC_RATE, EnergyVad
 
 log = logging.getLogger("orchestrator")
@@ -78,6 +78,7 @@ class DeepgramRecognizer(SpeechRecognizer):
         self.confidences: list[float] = []
         self.unsure: list[str] = []
         self.failed = False
+        self.sent_bytes = 0       # Deepgram bills the audio it is sent
 
     def url(self) -> str:
         params = {"model": self.dialect.stt_model, "language": self.dialect.stt_language,
@@ -100,6 +101,7 @@ class DeepgramRecognizer(SpeechRecognizer):
             return
         try:
             await self.ws.send(pcm)
+            self.sent_bytes += len(pcm)
         except Exception as error:  # noqa: BLE001
             await self._fail(error)
 
@@ -170,6 +172,10 @@ class DeepgramRecognizer(SpeechRecognizer):
         for task in (self.keepalive, self.reader):
             if task is not None:
                 task.cancel()
+        if self.sent_bytes:
+            costs.record("deepgram", self.dialect.stt_model,
+                         audio_seconds=self.sent_bytes / (MIC_RATE * 2))
+            self.sent_bytes = 0
         if self.ws is not None:
             with contextlib.suppress(Exception):
                 await self.ws.send(json.dumps({"type": "CloseStream"}))

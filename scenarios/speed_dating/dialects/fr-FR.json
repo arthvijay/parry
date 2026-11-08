@@ -51,5 +51,73 @@
     "match": "J'ai adoré discuter avec toi 😊 Un verre au bord du canal jeudi ?",
     "friendzone": "Sympa de te rencontrer ! Si tu passes au vernissage samedi, on se voit là-bas 🤝",
     "ghosted": "Merci pour la discussion. J'ai pas trop senti le feeling, mais bonne chance 🙏"
-  }
+  },
+  "nonverbal": {
+    "look_away_seconds": 4.0,
+    "look_away_penalty": 6,
+    "eye_contact": "steady",
+    "head_wobble": false,
+    "norms": "In Paris, holding someone's gaze is part of flirting and of a good debate; looking away while someone talks reads as disinterest."
+  },
+  "fillers": {
+    "local": [
+      "euh",
+      "ben",
+      "bah",
+      "bref",
+      "genre",
+      "du coup",
+      "en fait",
+      "tu vois"
+    ],
+    "foreign": [
+      "um",
+      "umm",
+      "uh",
+      "uhm",
+      "er",
+      "erm",
+      "hmm"
+    ],
+    "tip": "When you need a second to think, say «euh…» or «ben…» instead of «um»."
+  },
+  "register": {
+    "expected": "either",
+    "casual": [
+      "tu",
+      "toi",
+      "te"
+    ],
+    "formal": [
+      "vous"
+    ],
+    "mixing_ok": false,
+    "tips": {
+      "mixed": "You switched between «tu» and «vous»; pick one (on a date, «tu» once you're friendly)."
+    }
+  },
+  "other_region_slang": {
+    "pantoute": "Québec",
+    "tabarnak": "Québec",
+    "icitte": "Québec",
+    "c'est plate": "Québec",
+    "septante": "Belgium or Switzerland",
+    "nonante": "Belgium or Switzerland"
+  },
+  "cultural_moments": [
+    {
+      "id": "debat",
+      "milestone": "Hold your own in a Parisian debate: defend an opinion, or match their banter",
+      "evidence": "The learner, in French, gives an opinion of their own and defends it after the date's provocation (for example «à mon avis», «je ne suis pas d'accord», «je trouve que»).",
+      "cue": "Throw out a deliberately provocative opinion about food or Paris (for example that the most famous croissant in Paris is overrated) and dare them to disagree. One short line.",
+      "keywords": [
+        "à mon avis",
+        "pas d'accord",
+        "je trouve que",
+        "je pense que",
+        "franchement",
+        "n'importe quoi"
+      ]
+    }
+  ]
 }

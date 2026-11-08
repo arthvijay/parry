@@ -129,5 +129,75 @@
     "match": "今日はすごく楽しかったです😊 今度ごはん行きませんか？",
     "friendzone": "お会いできてよかったです！またみんなで飲みに行きましょう🤝",
     "ghosted": "今日はありがとうございました。ご縁がなかったみたいですが、頑張ってください🙏"
-  }
+  },
+  "nonverbal": {
+    "look_away_seconds": 8.0,
+    "look_away_penalty": 3,
+    "eye_contact": "soft",
+    "head_wobble": false,
+    "norms": "In Tokyo, constant direct eye contact can feel intense; looking down or to the side now and then is polite. Nodding and aizuchi (へえ, そうなんだ) are how people show they are listening."
+  },
+  "fillers": {
+    "local": [
+      "えーと",
+      "えっと",
+      "あの",
+      "あのー",
+      "まあ",
+      "なんか",
+      "うーん"
+    ],
+    "foreign": [
+      "um",
+      "umm",
+      "uh",
+      "uhm",
+      "er",
+      "erm",
+      "hmm"
+    ],
+    "tip": "When you need a second to think, say «えーと…» or «あのー…» instead of «um»."
+  },
+  "register": {
+    "expected": "either",
+    "casual": [
+      "だよ",
+      "じゃん",
+      "だね",
+      "だった",
+      "てる"
+    ],
+    "formal": [
+      "です",
+      "ます",
+      "でした",
+      "ました"
+    ],
+    "mixing_ok": true,
+    "tips": {}
+  },
+  "other_region_slang": {
+    "なんでやねん": "Osaka",
+    "ほんま": "Osaka",
+    "あかん": "Osaka",
+    "おおきに": "Osaka",
+    "せやな": "Osaka",
+    "ええやん": "Osaka"
+  },
+  "cultural_moments": [
+    {
+      "id": "aizuchi",
+      "milestone": "Listen the Tokyo way: react with aizuchi (へえ, そうなんだ), or match their banter",
+      "evidence": "The learner, in Japanese, reacts to the date's story with aizuchi or an engaged follow-up (for example へえ, そうなんだ, なるほど, それで？, すごい).",
+      "cue": "Start telling a short, slightly funny story about something that happened to you this week, and pause halfway for their reaction. One or two short lines.",
+      "keywords": [
+        "へえ",
+        "そうなんだ",
+        "なるほど",
+        "それで",
+        "まじで",
+        "ほんとに"
+      ]
+    }
+  ]
 }

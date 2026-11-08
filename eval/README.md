@@ -87,3 +87,36 @@ One caveat, stated plainly: the instructions now mention "mi llamo…", "yo es d
 "el concha" as examples of errors that still count, and two of those appear in the
 cases. They are the commonest beginner errors, but it does mean those cases are no
 longer fully held out.
+
+# Self-play: simulated learners on whole dates
+
+```sh
+uv run python eval/date_selfplay.py --offline                       # local server, no keys
+uv run python eval/date_selfplay.py --dialects es-AR ja-JP --dates 2
+uv run python eval/date_selfplay.py --url http://127.0.0.1:8765 --learner model
+```
+
+Each simulated learner plays a whole speed date over `/v1/stream`, typing its lines, and
+is graded through `POST /v1/grade`, the path that ships. There are five behaviours:
+
+- `engaged`: answers in the dialect, asks back, closes the date.
+- `wrong_region`: engaged, but uses another region's slang.
+- `one_word`: answers with a single word.
+- `english`: answers in English.
+- `echo`: repeats the date's own last line.
+
+It reports:
+
+- **False awards (the gate):** a milestone quoting words the learner never said, or any
+  milestone at all for `one_word`, `english` or `echo`. Any false award exits 1.
+- **False corrections:** a receipt correction quoting words the learner never said.
+- **Chemistry separation:** engaged learners against adversarial ones.
+- **Regional ear:** how often the wrong-region slang was recorded.
+- **Latency:** from a typed line to the first audio of the reply.
+- **Cost per date:** for the priced lines.
+
+Learners are scripted from each dialect's authored lines by default, so the run needs no
+keys. With `--learner model`, Claude plays the engaged learners at a CEFR level, with
+realistic mistakes. The adversarial learners always stay scripted, so the gate is
+deterministic. Started without `--url`, the script runs its own server and writes
+everything to a temporary folder. `--out results.json` keeps each date and its score.

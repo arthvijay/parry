@@ -129,5 +129,73 @@
     "match": "今日めっちゃ楽しかったわ😊 今度お好み焼き行かへん？",
     "friendzone": "会えてよかったわ！また飲み行こな🤝",
     "ghosted": "今日はおおきに。ご縁なかったみたいやけど、頑張ってな🙏"
-  }
+  },
+  "nonverbal": {
+    "look_away_seconds": 6.5,
+    "look_away_penalty": 4,
+    "eye_contact": "moderate",
+    "head_wobble": false,
+    "norms": "In Osaka, people are more direct and expressive than in Tokyo but still glance away naturally; laughing and reacting out loud (a tsukkomi) matters more than holding a gaze."
+  },
+  "fillers": {
+    "local": [
+      "えーと",
+      "あのー",
+      "なんか",
+      "まあ",
+      "あのな"
+    ],
+    "foreign": [
+      "um",
+      "umm",
+      "uh",
+      "uhm",
+      "er",
+      "erm",
+      "hmm"
+    ],
+    "tip": "When you need a second to think, say «えーと…» or «あのな…» instead of «um»."
+  },
+  "register": {
+    "expected": "casual",
+    "casual": [
+      "やん",
+      "へん",
+      "ねん",
+      "やで",
+      "やろ",
+      "ほんま"
+    ],
+    "formal": [
+      "です",
+      "ます"
+    ],
+    "other": [
+      "じゃん",
+      "だよ"
+    ],
+    "mixing_ok": true,
+    "tips": {
+      "formal": "In Osaka, staying in です/ます on a date feels distant; drop into casual Kansai speech.",
+      "other": "«じゃん» and «だよ» sound like Tokyo; in Osaka it's «やん» and «やで»."
+    }
+  },
+  "other_region_slang": {
+    "じゃん": "Tokyo"
+  },
+  "cultural_moments": [
+    {
+      "id": "tsukkomi",
+      "milestone": "Be the tsukkomi: answer their boke with なんでやねん, or match their banter",
+      "evidence": "The learner, in Japanese, answers the date's deliberately silly remark with a tsukkomi-style retort (for example なんでやねん, ちゃうやろ, アホか) or plays along with the joke.",
+      "cue": "Say something deliberately absurd about yourself, as a boke, and wait for them to deliver the tsukkomi. One short line.",
+      "keywords": [
+        "なんでやねん",
+        "ちゃうやろ",
+        "ちゃうちゃう",
+        "アホか",
+        "なんでや"
+      ]
+    }
+  ]
 }

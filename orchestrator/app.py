@@ -193,8 +193,9 @@ def create_app(*, speech: SpeechProvider | None = None,
         `first_sound` is the one a learner feels: from the end of their upload to the
         first audio frame of the reply. Warm turns only, when there are any.
         """
+        from .costs import TOTAL
         return {"targets_ms": {"first_sound_p50": 1200, "first_sound_p90": 1800},
-                "characters": metrics.summary()}
+                "characters": metrics.summary(), "costs": TOTAL.report().model_dump()}
 
     @app.get("/health")
     async def health():
@@ -208,8 +209,10 @@ def create_app(*, speech: SpeechProvider | None = None,
     def date_health() -> dict:
         m, p = date_config.models(), date_config.providers()
         face = getattr(app.state, "face_tracker", None)
-        return {"matchmaker": "claude" if m.anthropic_ready else "templates",
-                "chemistry": "claude" if m.anthropic_ready else "rules",
+        plan = date_config.plan()
+        return {"plan": plan,
+                "matchmaker": "claude" if m.anthropic_ready else "templates",
+                "chemistry": "claude" if m.anthropic_ready and plan != "free" else "rules",
                 "grader": "claude" if m.anthropic_ready else "rules",
                 "brain": "gemini" if m.gemini_ready else "claude" if m.anthropic_ready
                 else "scripted",

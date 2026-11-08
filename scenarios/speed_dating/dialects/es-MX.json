@@ -51,5 +51,74 @@
     "match": "Oye, me encantó platicar contigo 😊 ¿Unos tacos el viernes?",
     "friendzone": "Fue chido conocerte. Si vas al concierto del sábado, ahí nos vemos 🤝",
     "ghosted": "Hola, gracias por la plática. Creo que no hicimos mucho clic, pero suerte 🙏"
-  }
+  },
+  "nonverbal": {
+    "look_away_seconds": 4.5,
+    "look_away_penalty": 6,
+    "eye_contact": "steady",
+    "head_wobble": false,
+    "norms": "In Mexico City, warm, steady eye contact and easy smiles read as interest; looking away for long while someone talks reads as boredom."
+  },
+  "fillers": {
+    "local": [
+      "este",
+      "o sea",
+      "pues",
+      "bueno",
+      "a ver"
+    ],
+    "foreign": [
+      "um",
+      "umm",
+      "uh",
+      "uhm",
+      "er",
+      "erm",
+      "hmm"
+    ],
+    "tip": "When you need a second to think, say «este…» or «o sea…» instead of «um»."
+  },
+  "register": {
+    "expected": "casual",
+    "casual": [
+      "tú",
+      "eres",
+      "tienes",
+      "quieres"
+    ],
+    "formal": [
+      "usted"
+    ],
+    "mixing_ok": false,
+    "tips": {
+      "formal": "With someone your age, «tú» feels warmer than «usted».",
+      "mixed": "You switched between «tú» and «usted»; on a date, stay with «tú»."
+    }
+  },
+  "other_region_slang": {
+    "che": "Argentina",
+    "boludo": "Argentina",
+    "copado": "Argentina",
+    "laburo": "Argentina",
+    "guay": "Spain",
+    "mola": "Spain",
+    "vosotros": "Spain",
+    "chaval": "Spain"
+  },
+  "cultural_moments": [
+    {
+      "id": "picante",
+      "milestone": "Spice test: take up their «¿le entras al picante?» dare, or match their banter",
+      "evidence": "The learner, in Spanish, takes up the date's spice challenge: says how spicy they like it, accepts or refuses the dare, or teases back about chile.",
+      "cue": "Point at the salsa on the table and dare them to try the hot one (¿le entras al picante o no?). One short line.",
+      "keywords": [
+        "pica",
+        "picante",
+        "chile",
+        "salsa",
+        "habanero",
+        "enchil"
+      ]
+    }
+  ]
 }

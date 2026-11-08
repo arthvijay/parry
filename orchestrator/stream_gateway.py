@@ -34,14 +34,15 @@ from collections.abc import AsyncIterator
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from . import config
+from . import config, costs
 from .audio import VOICE_RATE
-from .chemistry_director import ChemistryDirector, mood_label, posture
+from .chemistry_director import ChemistryDirector, mood_label, other_region_words, posture
 from .date_brain import BrainContext, ScriptedBrain, Turn, create_brain
 from .date_grader import verdict_for
 from .date_models import DateScenario
 from .models import TranscriptTurn
 from .nonverbal import NonverbalTracker, Signal
+from .run_records import records
 from .stt import create_recognizer
 from .tts import SentenceChunker, Voice
 
@@ -53,6 +54,8 @@ MAX_JPEG = 400 * 1024
 AHEAD_SECONDS = 0.8
 BYTES_PER_SECOND = VOICE_RATE * 2
 DATE, HOST = "date_npc", "host"
+# When the date brings up the local moment: after the ice is broken, before the rush.
+MOMENT_AFTER_SECONDS = 55.0
 FEELINGS = {
     "match": "you really like them and want to see them again; ask for their number warmly",
     "friendzone": "they were nice but there was no spark; be friendly, no second date",
@@ -102,6 +105,12 @@ class StreamSession:
         self.face_task: asyncio.Task | None = None
         self.end_task: asyncio.Task | None = None
         self.notified_no_stt = False
+        # What this place considers normal, and what the date should notice next turn.
+        self.norms = config.norms("")
+        self.scene_notes: list[str] = []
+        self.moment_cued = False
+        # Everything this session pays a provider for.
+        self.ledger = costs.Ledger()
 
     # ---- sending ----------------------------------------------------------------
 
@@ -121,18 +130,20 @@ class StreamSession:
 
     async def run(self):
         await self.ws.accept()
-        try:
-            if not await self._init():
-                return
-            self.tasks = [asyncio.create_task(self._hear()), asyncio.create_task(self._tick())]
-            await self._receive()
-        except WebSocketDisconnect:
-            pass
-        except Exception as error:  # noqa: BLE001
-            log.warning("Stream session failed: %s", type(error).__name__, exc_info=error)
-            await self.error("Session failed")
-        finally:
-            await self._close()
+        # Every provider call made by this session, or by a task it starts, is charged here.
+        with costs.charging(self.ledger):
+            try:
+                if not await self._init():
+                    return
+                self.tasks = [asyncio.create_task(self._hear()), asyncio.create_task(self._tick())]
+                await self._receive()
+            except WebSocketDisconnect:
+                pass
+            except Exception as error:  # noqa: BLE001
+                log.warning("Stream session failed: %s", type(error).__name__, exc_info=error)
+                await self.error("Session failed")
+            finally:
+                await self._close()
 
     async def _init(self) -> bool:
         try:
@@ -157,8 +168,10 @@ class StreamSession:
         self.run_id = run_id
         self.focus = HOST if message.get("npc_id") == HOST else DATE
         dialect = config.dialect(self.scenario.dialect)
+        self.norms = config.norms(dialect.code)
+        self.tracker = NonverbalTracker(head_wobble=self.norms.head_wobble)
         self.recognizer = await create_recognizer(dialect)
-        self.voice = Voice()
+        self.voice = Voice(cache=records(self.app).voice_cache)
         self.brain = create_brain()
         self.director = ChemistryDirector(self.scenario, run_id, self.app.chemistry_judge,
                                           self.app.chemistry_store, emit=self.send)
@@ -169,6 +182,7 @@ class StreamSession:
                                    float(self.scenario.date_seconds)))
             self.running, self.focus = True, DATE
             self.started_at = time.monotonic() - elapsed
+            self.moment_cued = elapsed >= MOMENT_AFTER_SECONDS
             history = self._restore_history()
             self.history[DATE] = history
         face = self.app.face_tracker
@@ -211,6 +225,9 @@ class StreamSession:
             if closer:
                 with contextlib.suppress(Exception):
                     await closer()
+        if self.run_id and self.ledger.lines:
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(records(self.app).costs.add, self.run_id, self.ledger)
 
     # ---- the client -------------------------------------------------------------
 
@@ -320,8 +337,21 @@ class StreamSession:
         self.transcript.append(turn)
         await self._record([turn])
         if npc == DATE and self.running:
-            self.director.learner_turn(self.transcript, text, list(self.tracker.pending))
+            region = self._other_region(text)
+            self.director.learner_turn(self.transcript, text, list(self.tracker.pending), region)
         await self._start_turn(npc, kind="reply")
+
+    def _other_region(self, text: str) -> list[str]:
+        """Slang from somewhere else: the date reacts like a local, once per word."""
+        found = [w for w in other_region_words(self.scenario.dialect, text)
+                 if w not in self.director.state.other_region]
+        if found:
+            regions = config.other_region_slang(self.scenario.dialect)
+            heard = ", ".join(f"«{w}» (how people talk in {regions[w]})" for w in found[:2])
+            self.scene_notes.append(
+                f"[SCENE] They just used {heard}, not how people talk here. If it fits, react "
+                f"the way a local would: amused, maybe tease them about it, once. Never lecture.")
+        return found
 
     # ---- speaking ---------------------------------------------------------------
 
@@ -334,7 +364,16 @@ class StreamSession:
         if seen and npc == DATE:
             notes.append("[NONVERBAL] " + "; ".join(seen) + ".")
         if npc == DATE and self.running:
-            left = self.scenario.date_seconds - (time.monotonic() - self.started_at)
+            notes += self.scene_notes
+            self.scene_notes = []
+            elapsed = time.monotonic() - self.started_at
+            left = self.scenario.date_seconds - elapsed
+            moment = self.scenario.cultural_moment
+            if moment is not None and not self.moment_cued and elapsed >= MOMENT_AFTER_SECONDS \
+                    and left > 45:
+                self.moment_cued = True
+                notes.append(f"[SCENE] Now is a natural moment for this: {moment.cue} Do it in "
+                             f"your own words, in character, without explaining the custom.")
             if left < 45:
                 notes.append(f"[SCENE] About {max(0, int(left))} seconds are left before the bell.")
         return notes
@@ -371,7 +410,7 @@ class StreamSession:
             await self._interrupt()
         self.turn_task = asyncio.create_task(self._speak(npc, text=text, kind=kind))
 
-    async def _speak(self, npc: str, *, text: str | None, kind: str):
+    async def _speak(self, npc: str, *, text: str | None, kind: str, cache: bool = True):
         self.turn_id += 1
         turn_id = self.turn_id
         character = self.scenario.date_character if npc == DATE else self.scenario.host_character
@@ -405,7 +444,10 @@ class StreamSession:
         self.speaking = npc
         started = False
         try:
-            async for frame in self.voice.speak(sentences(), character.voice_config, language):
+            # A scripted line (greeting, opener, callout, authored goodbye) can come from
+            # the voice cache; a generated reply never does.
+            async for frame in self.voice.speak(sentences(), character.voice_config, language,
+                                                cache_text=text if cache else None):
                 now = time.monotonic()
                 if not started:
                     started = True
@@ -540,7 +582,10 @@ class StreamSession:
         await self.director.drain(timeout=6.0)
         verdict = verdict_for(self.director.state.score)
         closing = await self._closing_line(verdict)
-        self.turn_task = asyncio.create_task(self._speak(DATE, text=closing, kind="closing"))
+        # Only the authored goodbye repeats; a generated one is never worth keeping.
+        authored = closing == config.dialect_content(self.scenario.dialect)["closings"][verdict]
+        self.turn_task = asyncio.create_task(self._speak(DATE, text=closing, kind="closing",
+                                                         cache=authored))
         with contextlib.suppress(Exception):
             await self.turn_task
         self.director.state.ended = True
@@ -615,14 +660,16 @@ class StreamSession:
             self.director.record_gaze(looking)
         for signal in self.tracker.gaze(looking, away, now, date_talking):
             await self._signal(signal)
+        # How long is too long, and how much it costs, is this place's norm, not one rule.
         if self.running and self.tracker.look_away_episode(
-                now, config.LOOK_AWAY_CALLOUT_SECONDS, date_talking):
+                now, self.norms.look_away_seconds, date_talking):
             self.pending_callout = True
             self.director.state.look_away_callouts += 1
             name = self.scenario.date_character.display_name
             await self.send({"type": "signal", "kind": "look_away", "label": "Looking away 👀",
                              "effect": f"{name} noticed you looking away"})
-            await self.director.nudge(-6, f"looked away while {name} was talking")
+            await self.director.nudge(-self.norms.look_away_penalty,
+                                      f"looked away while {name} was talking")
         if msg.get("player_smiling") and date_talking:
             self.director.smiled_during_npc = True
 
@@ -659,6 +706,7 @@ class StreamSession:
             "laugh": f"{name} hears you laugh",
             "nod": f"{name} feels listened to",
             "shake": f"{name} notices you disagree",
+            "wobble": f"{name} reads it as 'go on'",
             "puzzled": f"{name} may slow down for you",
             "surprised": f"{name} sees you react",
             "frown": f"{name} wonders what's wrong",
