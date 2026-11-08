@@ -26,8 +26,7 @@ from orchestrator.models import TranscriptTurn
 from orchestrator.nonverbal import NonverbalTracker
 from orchestrator.tts import SentenceChunker
 
-KEYS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "GEMINI_API_KEY", "GOOGLE_API_KEY",
-        "GOOGLE_CLOUD_PROJECT", "NVIDIA_API_KEY", "NEMOTRON_ASR_SERVER", "NEMOTRON_ASR_LANGUAGE", "OPENAI_API_KEY",
+KEYS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "NVIDIA_API_KEY", "NEMOTRON_ASR_SERVER", "NEMOTRON_ASR_LANGUAGE", "OPENAI_API_KEY",
         "ELEVENLABS_API_KEY", "SPEECH_ADAPTER")
 
 
@@ -735,25 +734,29 @@ def test_usted_is_stiff_in_buenos_aires_but_not_everywhere():
     assert "too formal" not in asyncio.run(judge("ja-JP")).reason
 
 
-def test_pronunciation_impressions_only_name_words_that_were_said(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-
-    from orchestrator.date_report import DateReporter, _WireListen
-    monkeypatch.setenv("GEMINI_API_KEY", "k")
+def test_pronunciation_tips_only_name_words_the_recogniser_doubted(tmp_path):
+    from orchestrator.date_report import DateReporter, _WireCoach, _WireLine
     folder = tmp_path / "run_p"
     folder.mkdir()
-    (folder / "turn_001.wav").write_bytes(b"RIFF" + b"\x00" * 40000)
-    (folder / "turn_001.json").write_text(json.dumps({"text": "quiero un cortado", "confidence": 0.5}))
+    (folder / "turn_001.json").write_text(json.dumps(
+        {"text": "quiero un cortado", "confidence": 0.5, "low_confidence_words": ["cortado"]}))
+    (folder / "turn_002.json").write_text(json.dumps(
+        {"text": "hola", "confidence": 0.9, "low_confidence_words": []}))  # nothing doubted
+    seen = {}
 
-    class Models:
-        async def generate_content(self, **kwargs):
-            return SimpleNamespace(parsed=_WireListen(problem_words=["cortado", "invented"],
-                                                      impression="Tap the r in cortado."))
+    class FakeClaude:
+        async def parse(self, **kwargs):
+            seen.update(kwargs["payload"])
+            return _WireCoach(lines=[_WireLine(line=0, problem_words=["cortado", "quiero", "invented"],
+                                               impression="Tap the r in cortado."),
+                                     _WireLine(line=7, problem_words=["x"], impression="?")])
 
-    reporter = DateReporter()
-    reporter.gemini = SimpleNamespace(aio=SimpleNamespace(models=Models()))
-    notes = asyncio.run(reporter._pronunciation(scenario(), folder))
-    assert notes[0].problem_words == ["cortado"] and "Tap the r" in notes[0].impression
+    notes = asyncio.run(DateReporter(claude=FakeClaude())._pronunciation(scenario(), folder))
+    assert [line["said"] for line in seen["lines"]] == ["quiero un cortado"]
+    # "quiero" was said but not doubted, "invented" was never said: only "cortado" stays.
+    assert len(notes) == 1 and notes[0].problem_words == ["cortado"]
+    assert "Tap the r" in notes[0].impression
+    assert asyncio.run(DateReporter()._pronunciation(scenario(), folder)) == []  # no Claude
 
 
 def test_spanish_goes_to_the_hosted_multilingual_asr(monkeypatch):
@@ -814,35 +817,35 @@ class _EchoBrain:
 def test_an_out_of_quota_brain_hands_over_and_rests(monkeypatch):
     from orchestrator import date_brain
     monkeypatch.setattr(date_brain, "_resting", {})
-    gemini = _FailingBrain("gemini", RuntimeError("429 RESOURCE_EXHAUSTED quota exceeded"))
-    chain = date_brain.ChainBrain([gemini, _EchoBrain(), date_brain.ScriptedBrain()])
+    primary = _FailingBrain("primary", RuntimeError("429 RESOURCE_EXHAUSTED quota exceeded"))
+    chain = date_brain.ChainBrain([primary, _EchoBrain(), date_brain.ScriptedBrain()])
     ctx = date_brain.BrainContext(dialect="es-AR", chemistry=50, nonverbal=[], interests=[])
 
     async def say():
         return "".join([d async for d in chain.reply("sys", [Turn("learner", "Hola")], [], ctx)])
 
     assert asyncio.run(say()) == "Hola, ¿qué tal?"
-    # Resting: the next turn goes straight to Claude, without asking Gemini again.
+    # Resting: the next turn goes straight to the next brain, without asking again.
     assert chain.name == "claude"
-    assert asyncio.run(say()) == "Hola, ¿qué tal?" and gemini.calls == 1
+    assert asyncio.run(say()) == "Hola, ¿qué tal?" and primary.calls == 1
 
 
 def test_a_failing_brain_without_quota_trouble_is_tried_again(monkeypatch):
     from orchestrator import date_brain
     monkeypatch.setattr(date_brain, "_resting", {})
-    gemini = _FailingBrain("gemini", ConnectionError("reset"))
-    chain = date_brain.ChainBrain([gemini, date_brain.ScriptedBrain()])
+    primary = _FailingBrain("primary", ConnectionError("reset"))
+    chain = date_brain.ChainBrain([primary, date_brain.ScriptedBrain()])
     ctx = date_brain.BrainContext(dialect="es-AR", chemistry=50, nonverbal=[], interests=[])
 
     async def say():
         return "".join([d async for d in chain.reply("sys", [Turn("learner", "Hola")], [], ctx)])
 
     assert asyncio.run(say()).strip()
-    assert asyncio.run(say()).strip() and gemini.calls == 2 and chain.name == "gemini"
+    assert asyncio.run(say()).strip() and primary.calls == 2 and chain.name == "primary"
 
 
 class _HangingBrain:
-    name = "gemini"
+    name = "primary"
 
     async def reply(self, system, history, notes, ctx):
         await asyncio.sleep(60)
@@ -898,17 +901,15 @@ def test_asking_the_wingman_brings_three_options_without_a_penalty(tmp_path):
             assert ended["chemistry_score"] >= 50
 
 
-def test_claude_speaks_as_the_date_by_default(monkeypatch):
+def test_claude_speaks_as_the_date(monkeypatch):
     from orchestrator import date_brain
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.delenv("DATE_BRAIN", raising=False)
     brain = date_brain.create_brain()
     assert isinstance(brain, date_brain.ChainBrain)
     assert [b.name for b in brain.brains] == ["claude", "scripted"]
     assert brain.rest_when_slow is False  # a slow Claude is waited for, not benched
-    monkeypatch.setenv("DATE_BRAIN", "gemini")
-    assert [b.name for b in date_brain.create_brain().brains][0] == "gemini"
+    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    assert date_brain.create_brain().name == "scripted"
 # --------------------------------------------------------------------------- the shareable receipt
 
 def test_a_roast_that_misquotes_the_learner_is_dropped():

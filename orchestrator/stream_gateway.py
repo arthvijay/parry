@@ -8,7 +8,7 @@ One learner turn, end to end:
 
     mic frames ─▶ Nemotron ASR (live) ─▶ final utterance
                                           ├─▶ chemistry director (background)
-                                          └─▶ Gemini Flash (stream) ─▶ sentence chunks
+                                          └─▶ Claude (stream) ─▶ sentence chunks
                                                  ─▶ ElevenLabs (stream) ─▶ PCM frames ─▶ client
 
 Alongside it: telemetry every 250 ms (gaze, seated, smiling), webcam frames for the face

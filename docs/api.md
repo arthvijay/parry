@@ -489,7 +489,7 @@ The speed date's routes sit beside the café's; the café contracts above are un
 
 `GET /health` has a `date` object saying what each part runs on: `matchmaker`
 (`claude` / `templates`), `chemistry` and `grader` (`claude` / `rules`), `brain`
-(`gemini` / `claude` / `scripted`), `stt` (`nemotron` / `none`), `tts` (`elevenlabs` /
+(`claude` / `scripted`), `stt` (`nemotron` / `none`), `tts` (`elevenlabs` /
 `sample`) and `face` (`ready` / `loading` / `unavailable` / `off`). `stt` is `nemotron`
 when `NVIDIA_API_KEY` is set or `NEMOTRON_ASR_SERVER` points at a self-hosted NIM.
 
@@ -576,7 +576,7 @@ character's voice as binary frames and sends JSON events.
 | Message | Meaning |
 | --- | --- |
 | binary | The voice: 24 kHz PCM16 LE mono, for the NPC named by the last `audio_start` |
-| `session_ready` | Joined; `providers` says which are live: `stt` (`nemotron` / `none`), `tts` (`elevenlabs` / `sample`), `brain` (`gemini` / `claude` / `scripted`), `judge` (`claude` / `rules`), `face` (`mediapipe` / `off`) |
+| `session_ready` | Joined; `providers` says which are live: `stt` (`nemotron` / `none`), `tts` (`elevenlabs` / `sample`), `brain` (`claude` / `scripted`), `judge` (`claude` / `rules`), `face` (`mediapipe` / `off`) |
 | `audio_start` `{npc_id, turn_id, kind, first_audio_ms}` | Voice frames for this NPC follow (`kind`: greeting, opening, reply, callout, closing, serve) |
 | `audio_end` `{npc_id, turn_id, duration_ms}` | Last frame of the line sent |
 | `transcript` `{speaker, text, is_final, confidence, unheard?}` | Subtitles: the learner's line filling in, the date's line sentence by sentence. `unheard: true` = said before sitting down, so the date did not hear it (a one-time `notice` says so) |
@@ -730,8 +730,9 @@ the learner reads the verdict. The `DateReport` contains:
 - three `useful_phrases` in the dialect;
 - `culture_notes`;
 - `practice_words` (words the recogniser doubted);
-- `pronunciation` (Gemini's impressions of up to three recorded clips, only naming words
-  that were said) and its `pronunciation_disclaimer`;
+- `pronunciation` (Claude's tips on up to three of the learner's least-confident lines,
+  only naming words the recogniser doubted in that line) and its
+  `pronunciation_disclaimer`;
 - the `chemistry_timeline`, the full `transcript` (`learner`, `date`, `host`, `event`
   turns) and `counters` (lines, wingman hints and lines used, help requests, English and
   local-slang turns, smiles, look-away callouts);
@@ -743,5 +744,5 @@ written.
 
 Every learner quote is checked against the transcript, and nothing built on a doubted word
 is shown as a mistake. Without Claude the dialect's authored lines write a plainer
-report. The pronunciation pass needs Gemini (`PRONUNCIATION_MODEL`, default the date's
-model) and is skipped with `PRONUNCIATION=0`; if it fails, the page goes out without it.
+report. The pronunciation pass needs Claude and is skipped with `PRONUNCIATION=0`; if it
+fails, the page goes out without it.

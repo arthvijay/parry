@@ -36,10 +36,10 @@ from pathlib import Path
 import httpx
 
 ROOT = Path(__file__).resolve().parent.parent
-PROVIDER_KEYS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "GEMINI_API_KEY", "GOOGLE_API_KEY",
-                 "GOOGLE_CLOUD_PROJECT", "NVIDIA_API_KEY", "NEMOTRON_ASR_SERVER",
+PROVIDER_KEYS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "NVIDIA_API_KEY", "NEMOTRON_ASR_SERVER",
                  "OPENAI_API_KEY", "ELEVENLABS_API_KEY")
-DIALECTS = ("es-MX", "es-AR", "es-ES", "zh-CN", "hi-IN", "ja-JP", "ja-JP-kansai", "fr-FR")
+DIALECTS = ("es-MX", "es-AR", "es-ES", "zh-CN", "hi-IN", "ja-JP", "ja-JP-kansai", "fr-FR",
+            "en-US-south")
 ANSWERS = {
     "es-AR": "Hola, me llamo Arth, che. Soy fotógrafo y me encanta el rock indie. ¿Y vos qué hacés?",
 }

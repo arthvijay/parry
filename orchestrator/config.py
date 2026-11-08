@@ -350,9 +350,8 @@ def level(cefr: str) -> Level:
 
 @dataclass(frozen=True)
 class Models:
-    """Who does which job. Claude does it all by default: building the date, speaking as
-    the date, judging chemistry, writing the receipt. Gemini Flash can speak as the date
-    instead (DATE_BRAIN=gemini), with Claude behind it."""
+    """Who does which job. Claude does it all: building the date, speaking as the date,
+    judging chemistry, the wingman and translator, writing the receipt and the report."""
 
     anthropic_ready: bool
     matchmaker: str
@@ -362,22 +361,12 @@ class Models:
     chemistry_effort: str
     grader_effort: str
     claude_fallbacks: bool
-    gemini_ready: bool
-    gemini_vertex: bool
-    gemini_key: str | None
-    gemini_project: str | None
-    gemini_location: str
-    date_brain: str
-    date_brain_thinking: str
-    date_brain_provider: str     # claude | gemini: who speaks as the date
-    date_claude_model: str
+    date_claude_model: str       # who speaks as the date
 
 
 def models() -> Models:
     env = os.getenv
     sonnet = env("CLAUDE_MODEL") or "claude-sonnet-5-5"
-    key = env("GEMINI_API_KEY") or env("GOOGLE_API_KEY") or None
-    project = env("GOOGLE_CLOUD_PROJECT") or None
     return Models(
         anthropic_ready=bool(env("ANTHROPIC_API_KEY") or env("ANTHROPIC_AUTH_TOKEN")),
         matchmaker=env("MATCHMAKER_MODEL") or sonnet,
@@ -388,13 +377,6 @@ def models() -> Models:
         chemistry_effort=env("CHEMISTRY_EFFORT") or "low",
         grader_effort=env("DATE_GRADER_EFFORT") or "medium",
         claude_fallbacks=(env("CLAUDE_FALLBACKS") or "1") != "0",
-        gemini_ready=bool(key or project),
-        gemini_vertex=key is None and project is not None,
-        gemini_key=key, gemini_project=project,
-        gemini_location=env("GOOGLE_CLOUD_LOCATION") or "global",
-        date_brain=env("DATE_MODEL") or "gemini-3.8-flash",
-        date_brain_thinking=env("DATE_THINKING_LEVEL") or "LOW",
-        date_brain_provider=(env("DATE_BRAIN") or "claude").strip().lower(),
         date_claude_model=env("DATE_CLAUDE_MODEL") or sonnet,
     )
 
