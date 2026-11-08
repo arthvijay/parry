@@ -568,10 +568,10 @@ character's voice as binary frames and sends JSON events.
 | `chemistry_update` `{chemistry_score, delta, mood_label, reason, npc_posture, completed_milestones, evidence_quotes, green_flags_hit, red_flags_hit, source}` | After every learner turn, and on non-verbal events |
 | `wingman_hint` `{whisper_context, options:[{tone, target, gloss}×3]}` | 4 s of silence after the date finished |
 | `clear_audio` `{npc_id}` | Acknowledges a barge-in: drop everything buffered |
-| `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame |
+| `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame. `expressions` holds baseline-relative `levels`, `smiling`, `looking`, `calibrated`, `attentive`, `away_reason` (`head_turned`, `head_tilted`, `eyes_aside`, `out_of_frame` or null) and `relative_head:{pitch,yaw}` |
 | `signal` `{kind, label, effect, during_npc}` | A smile, laugh, nod, head shake, puzzled or surprised look, look-away, look-back |
 | `user_speech` `{speaking}` | The recogniser heard speech start or end |
-| `date_started` `{seconds}` / `date_ended` `{verdict, chemistry_score, run_id, scenario_id}` | The clock |
+| `date_started` `{seconds}` / `date_ended` `{verdict, chemistry_score, run_id, scenario_id, face}` | The clock |
 | `notice`, `error` `{detail, fatal}` | Human-readable problems |
 
 **Barge-in.** Voice is sent at most ~0.8 s ahead of playback, so on `barge_in` the server
