@@ -187,6 +187,32 @@ def said_by_learner(quote: str, transcript: Sequence[TranscriptTurn]) -> bool:
                                 for turn in transcript if turn.role == "learner")
 
 
+ECHO_SIMILARITY = 0.85
+
+
+def echoes_the_date(quote: str, transcript: Sequence[TranscriptTurn]) -> bool:
+    """True when every learner line holding ``quote`` is just a character's line handed
+    back (contained in it, or a near copy). Repeating the date's sentence is not evidence
+    that the learner shared, asked or sounded local: it earns no tick. A line that adds
+    something of the learner's own ("che, ¿y vos?") is judged on its own."""
+    from difflib import SequenceMatcher
+    needle = normalise(quote)
+    if not needle:
+        return False
+    theirs = [normalise(t.text) for t in transcript if t.role == "npc"]
+    theirs = [line for line in theirs if line]
+    holding = [normalise(t.text) for t in transcript
+               if t.role == "learner" and needle in normalise(t.text)]
+    if not holding or not theirs:
+        return False
+
+    def echo(line: str) -> bool:
+        return any(line in npc or SequenceMatcher(None, line, npc).ratio() >= ECHO_SIMILARITY
+                   for npc in theirs)
+
+    return all(echo(line) for line in holding)
+
+
 def rescue_note(states: Sequence[str]) -> str | None:
     """The two notes a struggling learner must not miss. The model usually writes them;
     this makes sure, because it reports the state more reliably than it acts on it."""

@@ -139,5 +139,79 @@
       "title": "Vale",
       "note": "Spain's all-purpose 'OK', and a good way to show you're following."
     }
+  ],
+  "nonverbal": {
+    "look_away_seconds": 4.5,
+    "look_away_penalty": 6,
+    "eye_contact": "steady",
+    "head_wobble": false,
+    "norms": "In Madrid, direct eye contact and lively reactions are normal; looking away for long while someone talks reads as distraction."
+  },
+  "fillers": {
+    "local": [
+      "pues",
+      "bueno",
+      "o sea",
+      "en plan",
+      "es que",
+      "a ver"
+    ],
+    "foreign": [
+      "um",
+      "umm",
+      "uh",
+      "uhm",
+      "er",
+      "erm",
+      "hmm"
+    ],
+    "tip": "When you need a second to think, say «pues…» or «a ver…» instead of «um»."
+  },
+  "register": {
+    "expected": "casual",
+    "casual": [
+      "tú",
+      "eres",
+      "tienes",
+      "vosotros",
+      "os"
+    ],
+    "formal": [
+      "usted"
+    ],
+    "mixing_ok": false,
+    "tips": {
+      "formal": "In Madrid, «usted» on a date sounds like a job interview; «tú» is normal.",
+      "mixed": "You switched between «tú» and «usted»; on a date, stay with «tú»."
+    }
+  },
+  "other_region_slang": {
+    "güey": "Mexico",
+    "wey": "Mexico",
+    "órale": "Mexico",
+    "chido": "Mexico",
+    "padrísimo": "Mexico",
+    "no manches": "Mexico",
+    "che": "Argentina",
+    "boludo": "Argentina",
+    "copado": "Argentina",
+    "laburo": "Argentina"
+  },
+  "cultural_moments": [
+    {
+      "id": "canas",
+      "milestone": "Plan the night like a madrileño: answer their «¿unas cañas después?», or match their banter",
+      "evidence": "The learner, in Spanish, answers the date's suggestion to go for cañas or tapas afterwards: accepts, proposes a place or a time, or says what they would order.",
+      "cue": "Suggest, half joking, going for unas cañas y unas bravas after the event, and ask where they would go. One short line.",
+      "keywords": [
+        "caña",
+        "cañas",
+        "tapas",
+        "tapeo",
+        "bravas",
+        "vermut",
+        "terraza"
+      ]
+    }
   ]
 }

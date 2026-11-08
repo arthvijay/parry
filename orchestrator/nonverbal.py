@@ -22,7 +22,8 @@ from .face_tracker import FaceReading
 
 @dataclass
 class Signal:
-    kind: str        # smile | laugh | nod | shake | puzzled | surprised | frown | look_away | look_back
+    # smile | laugh | nod | shake | wobble | puzzled | surprised | frown | look_away | look_back
+    kind: str
     label: str       # for the vision panel, e.g. "Smiling"
     note: str        # for the date's prompt
     during_npc: bool
@@ -33,6 +34,7 @@ NOTES = {
     "laugh": "they laughed",
     "nod": "they nodded along",
     "shake": "they shook their head",
+    "wobble": "they did the head wobble (here that means yes, go on)",
     "puzzled": "they looked puzzled, maybe lost",
     "surprised": "they looked surprised",
     "frown": "they frowned",
@@ -41,7 +43,7 @@ NOTES = {
 }
 LABELS = {
     "smile": "Smiling 😊", "laugh": "Laughing 😂", "nod": "Nodding 👍", "shake": "Head shake 🙅",
-    "puzzled": "Puzzled 🤔", "surprised": "Surprised 😮", "frown": "Frowning 😕",
+    "wobble": "Head wobble 👌", "puzzled": "Puzzled 🤔", "surprised": "Surprised 😮", "frown": "Frowning 😕",
     "look_away": "Looking away 👀", "look_back": "Eye contact restored 👁️",
 }
 
@@ -75,13 +77,16 @@ class _Hold:
 
 
 class NonverbalTracker:
-    def __init__(self):
+    def __init__(self, head_wobble: bool = False):
         self.smile = _Hold(0.35)
         self.laugh = _Hold(0.25, 0.8)
         self.puzzled = _Hold(0.8, 0.6)
         self.surprised = _Hold(0.3, 0.6)
         self.frown = _Hold(0.7, 0.6)
-        self.head: deque[tuple[float, float, float]] = deque(maxlen=40)  # (t, pitch, yaw)
+        # Where a side-to-side wobble means "yes, go on" (hi-IN), it is read as such
+        # instead of being ignored; elsewhere a rolling head is not a signal.
+        self.head_wobble = head_wobble
+        self.head: deque[tuple[float, float, float, float]] = deque(maxlen=40)  # (t, pitch, yaw, roll)
         self.last_gesture = -10.0
         self.pending: list[str] = []
         self.levels: dict[str, float] = {}
@@ -121,15 +126,17 @@ class NonverbalTracker:
             out.append(self._signal("surprised", npc_speaking))
         if self.frown.update(frown > 0.35 and smile < 0.15, now):
             out.append(self._signal("frown", npc_speaking))
-        gesture = self._head_gesture(now, reading.pitch, reading.yaw)
+        gesture = self._head_gesture(now, reading.pitch, reading.yaw, reading.roll)
         if gesture:
             out.append(self._signal(gesture, npc_speaking))
         return out
 
-    def _head_gesture(self, now: float, pitch: float, yaw: float) -> str | None:
+    def _head_gesture(self, now: float, pitch: float, yaw: float,
+                      roll: float = 0.0) -> str | None:
         """A nod is pitch going down and up at least twice within ~1.5 s while yaw stays
-        put; a shake is the same on yaw."""
-        self.head.append((now, pitch, yaw))
+        put; a shake is the same on yaw; a wobble (only where it means yes) is the same
+        on roll while pitch and yaw stay put."""
+        self.head.append((now, pitch, yaw, roll))
         recent = [h for h in self.head if now - h[0] <= 1.5]
         if len(recent) < 5 or now - self.last_gesture < 1.5:
             return None
@@ -146,7 +153,13 @@ class NonverbalTracker:
             return count
 
         pitches, yaws = [h[1] for h in recent], [h[2] for h in recent]
+        rolls = [h[3] for h in recent]
         pitch_range, yaw_range = max(pitches) - min(pitches), max(yaws) - min(yaws)
+        roll_range = max(rolls) - min(rolls)
+        if (self.head_wobble and swings(rolls, 4.0) >= 2
+                and max(pitch_range, yaw_range) < roll_range * 0.7):
+            self.last_gesture = now
+            return "wobble"
         if swings(pitches, 4.0) >= 2 and yaw_range < pitch_range * 0.7:
             self.last_gesture = now
             return "nod"

@@ -139,5 +139,67 @@
       "title": "加个微信",
       "note": "Asking to add someone on WeChat is how you ask for their number."
     }
+  ],
+  "nonverbal": {
+    "look_away_seconds": 6.0,
+    "look_away_penalty": 4,
+    "eye_contact": "moderate",
+    "head_wobble": false,
+    "norms": "Young urban Chinese daters keep friendly eye contact but glance away often, especially early on; a softer gaze is polite, not cold. Nods and small smiles show you are following."
+  },
+  "fillers": {
+    "local": [
+      "那个",
+      "就是",
+      "嗯",
+      "然后",
+      "这个"
+    ],
+    "foreign": [
+      "um",
+      "umm",
+      "uh",
+      "uhm",
+      "er",
+      "erm",
+      "hmm"
+    ],
+    "tip": "When you need a second to think, say «那个…» or «就是…» instead of «um»."
+  },
+  "register": {
+    "expected": "casual",
+    "casual": [
+      "你"
+    ],
+    "formal": [
+      "您"
+    ],
+    "mixing_ok": false,
+    "tips": {
+      "formal": "«您» sounds very formal on a date with someone your age; «你» is normal.",
+      "mixed": "You switched between «你» and «您»; with someone your age, stay with «你»."
+    }
+  },
+  "other_region_slang": {
+    "嘅": "Hong Kong (Cantonese)",
+    "唔該": "Hong Kong (Cantonese)",
+    "冇": "Hong Kong (Cantonese)",
+    "係咪": "Hong Kong (Cantonese)"
+  },
+  "cultural_moments": [
+    {
+      "id": "modesty",
+      "milestone": "Take a compliment the local way (哪里哪里), or match their banter",
+      "evidence": "The learner, in Mandarin, answers the date's compliment with modest deflection (for example 哪里哪里, 还差得远呢, 过奖了) or turns it back with a compliment of their own.",
+      "cue": "Compliment their Chinese warmly and specifically (for example 你中文说得真好！). One short line.",
+      "keywords": [
+        "哪里",
+        "差得远",
+        "过奖",
+        "不敢当",
+        "还好啦",
+        "一般般"
+      ]
+    }
   ]
 }

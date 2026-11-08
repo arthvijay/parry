@@ -8,12 +8,15 @@
     WS   /v1/vision                    face tracking alone, for onboarding's vision panel
     POST /v1/avatar/from-selfie        avatar skin and hair colours from a selfie
     POST /v1/date/grade                the verdict receipt (also reachable as /v1/grade)
-    GET  /v1/date/runs/{run_id}        what was said and how the chemistry moved
+    GET  /v1/date/runs/{run_id}        what was said, how the chemistry moved, what it cost
     POST /v1/date/report               "Your date, decoded": the learning report
     GET  /v1/date/report/{run_id}.html the same report as a page
     GET  /v1/date/receipt/{run_id}.svg the shareable receipt, 9:16 (TikTok, Reels, Shorts)
     GET  /v1/date/share/{run_id}       the share page: download, share sheet, upload links
     GET  /v1/face/status               whether webcam face tracking is ready
+
+plus the text card and stored verdict, learner profiles, the class report and costs
+(``share_routes.py``). Both share pages read the one verdict store (``run_records.py``).
 
 Kept as a router so ``app.py`` wires it in one line and the café's routes are untouched.
 """
@@ -24,17 +27,18 @@ import asyncio
 import logging
 import re
 from dataclasses import asdict
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import ValidationError
 
-from . import config
+from . import config, costs
 from .date_models import (DateGradeRequest, DateReport, DateReportRequest, DateScenario,
                           DateVerdict, MatchmakerRequest, PresetRequest)
 from .matchmaker import build_preset
+from .run_records import records
 from .share_card import render_page, render_svg
+from .share_routes import build_share_router
 from .stream_gateway import stream_endpoint, vision_endpoint
 
 log = logging.getLogger("orchestrator")
@@ -72,30 +76,28 @@ async def grade_date(state, payload: DateGradeRequest) -> DateVerdict:
         transcript = await asyncio.to_thread(state.transcripts.get, payload.run_id)
     except (FileNotFoundError, ValueError):
         transcript = []
-    verdict = await state.date_grader.grade(scenario, chemistry, transcript, payload.run_id)
-    # Kept so the receipt can be shared later (the 9:16 card and its page).
-    folder = getattr(state, "verdict_dir", None)
-    if folder is not None:
-        try:
-            await asyncio.to_thread(_save_verdict, folder, verdict)
-        except OSError as error:
-            log.warning("Verdict not saved: %s", type(error).__name__)
+    store = records(state)
+    with costs.charging(costs.Ledger()) as ledger:
+        verdict = await state.date_grader.grade(scenario, chemistry, transcript, payload.run_id)
+    try:
+        await asyncio.to_thread(store.costs.add, payload.run_id, ledger)
+        cost = await asyncio.to_thread(store.costs.date_cost, payload.run_id, scenario.scenario_id)
+        verdict = verdict.model_copy(update={"cost": cost})
+        await asyncio.to_thread(store.verdicts.save, verdict)
+        await asyncio.to_thread(store.learners.record, scenario, chemistry, transcript, verdict)
+    except (OSError, ValueError) as error:
+        # The receipt matters more than its bookkeeping.
+        log.warning("Verdict records not saved: %s", type(error).__name__)
     return verdict
-
-
-def _save_verdict(folder: Path, verdict: DateVerdict):
-    folder.mkdir(parents=True, exist_ok=True)
-    (folder / f"{verdict.run_id}.json").write_text(verdict.model_dump_json(), encoding="utf-8")
 
 
 def _load_verdict(state, run_id: str) -> DateVerdict:
     if not RUN.match(run_id):
         raise HTTPException(422, "Invalid run_id")
-    folder = getattr(state, "verdict_dir", None)
-    path = folder / f"{run_id}.json" if folder is not None else None
-    if path is None or not path.is_file():
-        raise HTTPException(404, "No verdict yet: POST /v1/grade first")
-    return DateVerdict.model_validate_json(path.read_text(encoding="utf-8"))
+    try:
+        return records(state).verdicts.get(run_id)
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(404, "No verdict yet: POST /v1/grade first") from None
 
 
 def build_router() -> APIRouter:
@@ -110,11 +112,23 @@ def build_router() -> APIRouter:
             "schema": MatchmakerRequest.model_json_schema()}}}})
     async def generate(request: Request):
         payload = await _json_body(request, MatchmakerRequest)
-        scenario = await request.app.state.matchmaker.generate(payload)
+        store = records(request.app.state)
+        try:
+            # What this learner missed on earlier dates in this dialect, for this one to invite.
+            practice = await asyncio.to_thread(store.learners.practice_targets,
+                                               payload.learner_name, payload.language)
+        except (OSError, ValueError):
+            practice = []
+        with costs.charging(costs.Ledger()) as ledger:
+            scenario = await request.app.state.matchmaker.generate(payload, practice=practice)
         try:
             await asyncio.to_thread(request.app.state.date_store.save, scenario)
         except OSError:
             raise HTTPException(500, "Could not save the date") from None
+        try:
+            await asyncio.to_thread(store.costs.add, scenario.scenario_id, ledger)
+        except (OSError, ValueError):
+            pass
         return scenario
 
     @router.post("/v1/matchmaker/preset", response_model=DateScenario, openapi_extra={
@@ -157,8 +171,11 @@ def build_router() -> APIRouter:
             transcript = await asyncio.to_thread(state.transcripts.get, run_id)
         except (FileNotFoundError, ValueError):
             transcript = []
+        cost = await asyncio.to_thread(records(state).costs.date_cost, run_id,
+                                       chemistry.scenario_id)
         return {"run_id": run_id, "chemistry": asdict(chemistry),
-                "transcript": [t.model_dump() for t in transcript]}
+                "transcript": [t.model_dump() for t in transcript],
+                "cost": cost.model_dump()}
 
     @router.post("/v1/date/report", response_model=DateReport, openapi_extra={
         "requestBody": {"required": True, "content": {"application/json": {
@@ -227,4 +244,5 @@ def build_router() -> APIRouter:
 
     router.add_api_websocket_route("/v1/stream", stream_endpoint)
     router.add_api_websocket_route("/v1/vision", vision_endpoint)
+    router.include_router(build_share_router())
     return router

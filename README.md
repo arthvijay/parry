@@ -127,6 +127,34 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
    **R** tries again with the same date. **N** goes to the next table, opening on the
    dialect you just unlocked (marked 🔓 in the matchmaker).
 
+### What makes it more than a chatbot
+
+- **Body language is local.** Each dialect file says what eye contact and a glance away
+  mean there: the date in Tokyo lets a look away go for 8 s, the one in Buenos Aires
+  notices after 4. In Mumbai and Delhi the head wobble reads as "yes, go on".
+- **Every city has its moment.** Mate in Buenos Aires, a spice dare in Mexico City, a
+  tsukkomi in Osaka, a compliment to deflect in Shanghai. The date raises it about a
+  minute in, and it becomes that date's cultural milestone.
+- **Locals hear where you learned it.** Say «güey» in Buenos Aires and the date teases you
+  about sounding Mexican.
+- **The app remembers you.** A phrase you got wrong comes back on your next date in that
+  dialect. The date steers toward it without teaching, and the receipt says when you got
+  it right, quoting you.
+- **Nothing is corrected that may not have been said.** A correction built on a word the
+  recogniser doubted is dropped; those words become "words to practise" instead.
+- **How you hesitate counts.** A local «este…» or «えーと» is noticed, and so is an English
+  «um». So is how you address the date (vos or tú, tú or usted, 你 or 您).
+- **Every date has a price.** Provider usage is recorded per date (tokens and cache hits,
+  seconds heard, characters spoken), priced where prices are known, and returned with
+  the verdict (`cost`) and at `GET /v1/costs`. `PLAN=free` runs the per-turn judge on the rules. The
+  judge's prompt is cached, and scripted lines are voiced once, then played from disk.
+- **Shareable and reportable.** `/v1/date/share/{run_id}` is the 9:16 receipt for
+  TikTok, Reels and Shorts; `/v1/date/runs/{run_id}/card` is the receipt as a readable
+  page (with what you said right this time); `/v1/reports/class` shows a whole class at a
+  glance.
+- **Parroting earns nothing.** Repeating the date's own line back is not evidence: a
+  milestone or a quoted grade needs words that are the learner's own, not an echo.
+
 ## How the pieces talk
 
 ```
@@ -158,10 +186,11 @@ in [docs/speed-date.md](docs/speed-date.md).
 - `orchestrator/`: the Python service.
   - `config.py` holds the brand, dialects, venues, personas, models and voices.
   - The speed-date modules are `matchmaker.py` (generated and authored dates), `stream_gateway.py`, `chemistry_director.py` (also the translator), `date_grader.py`, `date_report.py` (*Your date, decoded*), `share_card.py` (the 9:16 shareable receipt), `stt.py` (Nemotron ASR), `tts.py` (ElevenLabs), `date_brain.py`, `face_tracker.py`, `nonverbal.py`, `claude.py` and `date_routes.py`.
+  - What outlives a date: `learner_profile.py` (memory across dates), `costs.py` (the cost ledger), `voice_cache.py`, `run_records.py` (the stores) and `share_routes.py` (the share page, class report and costs).
   - The original café modules (`/v1/speech`, `/v1/scenarios`, `director.py`, `grading.py`) are kept and still pass their tests.
-- `scenarios/speed_dating/dialects/*.json`: authored lines per dialect (host, openers per personality, look-away callouts, wingman fallbacks, closings, verdict stamps, follow-up texts, culture notes).
+- `scenarios/speed_dating/dialects/*.json`: authored lines per dialect (host, openers per personality, look-away callouts, wingman fallbacks, closings, verdict stamps, follow-up texts, culture notes), plus its culture as data: body-language norms (`nonverbal`), hesitation words (`fillers`), how people address each other (`register`), other regions' slang a local would notice (`other_region_slang`) and the local moment the date brings up (`cultural_moments`). The norms are tendencies, written to be checked and tuned by native speakers.
 - `scenarios/speed_dating/presets/cafe_cancun_ar.json`: the authored demo date (people, venue, menu, milestones, closings, follow-ups).
-- `runs/`: what a date leaves behind (not committed): `dates/`, `chemistry/`, `transcripts/`, `audio/{run_id}/` (the learner's lines as WAV), `reports/`, `verdicts/` (for sharing).
+- `runs/`: what a date leaves behind (not committed): `dates/`, `chemistry/`, `transcripts/`, `audio/{run_id}/` (the learner's lines as WAV), `reports/`, `verdicts/` (for sharing), `learners/`, `costs/`, `voice_cache/`.
 - `My project/`: the Unity 6 (URP) client. Scenes: `Wish.unity` (matchmaker), `CancunCafe.unity` (primary venue), `SampleScene.unity` (fallback venue).
 - `demo-pitch/`: the animated HTML pitch deck (open `demo-pitch/index.html` in Chrome; see its README).
 - `tools/test_e2e_pipeline.py`: headless end-to-end check against a running server.
@@ -196,10 +225,11 @@ in [docs/speed-date.md](docs/speed-date.md).
 ## Tests
 
 ```sh
-uv run pytest                                  # 212 tests, no network (2 need the face group)
+uv run pytest                                  # 245 tests, no network (2 need the face group)
 uvx ruff check orchestrator tools eval
 uv run python tools/test_e2e_pipeline.py --offline   # starts a server, plays the demo date: order, translator, verdict, report
 uv run python tools/test_e2e_pipeline.py             # same, with your keys
+uv run python eval/date_selfplay.py --offline        # simulated learners; fails on any false award
 ```
 
 ElevenLabs and Nemotron ASR are tested against local servers speaking their real protocols (a Riva gRPC server for Nemotron).

@@ -24,7 +24,7 @@ import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 
-from . import config
+from . import config, costs
 from .audio import MIC_RATE, EnergyVad
 
 log = logging.getLogger("orchestrator")
@@ -113,6 +113,7 @@ class NemotronRecognizer(SpeechRecognizer):
         self.failed = False
         self.service = None
         self.streaming_config = None
+        self.sent_bytes = 0       # NVIDIA bills the audio it is sent
 
     def _connect(self):
         import riva.client
@@ -145,6 +146,7 @@ class NemotronRecognizer(SpeechRecognizer):
             return
         try:
             self.audio.put_nowait(pcm)
+            self.sent_bytes += len(pcm)
         except queue.Full:
             # The stream has stalled for ~30 s: drop the oldest audio, never block the socket.
             try:
@@ -216,6 +218,13 @@ class NemotronRecognizer(SpeechRecognizer):
 
     async def close(self):
         self.closed.set()
+        if self.sent_bytes:
+            # Which hosted model heard it: Nemotron (English) or the multilingual one.
+            model = ("nemotron-asr-streaming"
+                     if function_for(self.providers, self.language) == self.providers.asr_function_id
+                     else "multilingual-asr")
+            costs.record("nemotron", model, audio_seconds=self.sent_bytes / (MIC_RATE * 2))
+            self.sent_bytes = 0
         try:
             self.audio.put_nowait(None)
         except queue.Full:

@@ -193,6 +193,86 @@ def dialect_content(code: str) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+# --------------------------------------------------------------------------- culture
+
+@dataclass(frozen=True)
+class Norms:
+    """How people in this place tend to read body language on a date. Tendencies the
+    date and the judge take into account, not rules about people; authored per dialect
+    in its data file so a native speaker can tune them."""
+
+    look_away_seconds: float   # looking away longer than this while the date talks is noticed
+    look_away_penalty: int     # what that costs, in chemistry points
+    eye_contact: str           # steady | moderate | soft
+    head_wobble: bool          # a side-to-side head wobble means "yes, go on" here
+    note: str                  # one line for the persona prompt and the judge
+
+
+def norms(code: str) -> Norms:
+    raw = (dialect_content(code).get("nonverbal") or {}) if code in DIALECTS else {}
+    return Norms(look_away_seconds=float(raw.get("look_away_seconds", LOOK_AWAY_CALLOUT_SECONDS)),
+                 look_away_penalty=int(raw.get("look_away_penalty", 6)),
+                 eye_contact=str(raw.get("eye_contact", "steady")),
+                 head_wobble=bool(raw.get("head_wobble", False)),
+                 note=str(raw.get("norms", "")))
+
+
+def other_region_slang(code: str) -> dict[str, str]:
+    """Words a local would place in another region ("güey" in Buenos Aires), mapped to
+    that region, minus anything that is also local slang here."""
+    own = {s.casefold() for s in dialect(code).slang}
+    raw = dialect_content(code).get("other_region_slang") or {}
+    return {word: region for word, region in raw.items() if word.casefold() not in own}
+
+
+# --------------------------------------------------------------------------- plan and prices
+
+def plan() -> str:
+    """``PLAN=free`` moves the per-turn chemistry judge and the wingman to the rules,
+    which removes most of a date's model calls; anything else is the full date."""
+    return "free" if (os.getenv("PLAN") or "").strip().casefold() == "free" else "pro"
+
+
+# Anthropic first-party list prices, USD per million tokens: input, output, cache read,
+# cache write (5-minute TTL, 1.25x input). Override every Claude model at once with
+# CLAUDE_PRICE_INPUT / _OUTPUT / _CACHE_READ / _CACHE_WRITE. The other providers have no
+# built-in price: set theirs from their pricing pages, or a date reports usage only.
+CLAUDE_PRICES: dict[str, tuple[float, float, float, float]] = {
+    "claude-sonnet-5-5": (2.00, 10.00, 0.20, 2.50),
+    "claude-opus-5-5": (4.00, 20.00, 0.20, 5.00),
+    "claude-haiku-5-5": (0.10, 0.50, 0.01, 0.125),
+}
+
+
+@dataclass(frozen=True)
+class Prices:
+    claude: dict[str, tuple[float, float, float, float]]
+    gemini: tuple[float, float] | None       # input, output per million tokens
+    asr_per_minute: float | None            # NVIDIA speech recognition, per audio minute
+    tts_per_million_chars: float | None     # ElevenLabs, per million characters
+
+
+def _price(name: str) -> float | None:
+    value = (os.getenv(name) or "").strip()
+    try:
+        return float(value) if value else None
+    except ValueError:
+        return None
+
+
+def prices() -> Prices:
+    claude = dict(CLAUDE_PRICES)
+    override = [_price(f"CLAUDE_PRICE_{part}") for part in
+                ("INPUT", "OUTPUT", "CACHE_READ", "CACHE_WRITE")]
+    if all(value is not None for value in override):
+        claude = {model: tuple(override) for model in [*claude, "*"]}
+    g_in, g_out = _price("GEMINI_PRICE_INPUT"), _price("GEMINI_PRICE_OUTPUT")
+    return Prices(claude=claude,
+                  gemini=(g_in, g_out) if g_in is not None and g_out is not None else None,
+                  asr_per_minute=_price("NVIDIA_ASR_PRICE_PER_MINUTE"),
+                  tts_per_million_chars=_price("ELEVENLABS_PRICE_PER_MILLION_CHARS"))
+
+
 # --------------------------------------------------------------------------- venues
 
 @dataclass(frozen=True)

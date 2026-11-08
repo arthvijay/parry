@@ -151,5 +151,89 @@
       "title": "Mate is shared",
       "note": "If someone offers you mate, you drink it all and give it back to the person who serves (el cebador). Saying «gracias» means you don't want more."
     }
+  ],
+  "nonverbal": {
+    "look_away_seconds": 4.0,
+    "look_away_penalty": 6,
+    "eye_contact": "steady",
+    "head_wobble": false,
+    "norms": "Porteños are expressive and direct: steady eye contact, animated faces and leaning in are normal; drifting eyes while someone talks reads as disinterest quickly."
+  },
+  "fillers": {
+    "local": [
+      "este",
+      "o sea",
+      "bueno",
+      "viste",
+      "digamos"
+    ],
+    "foreign": [
+      "um",
+      "umm",
+      "uh",
+      "uhm",
+      "er",
+      "erm",
+      "hmm"
+    ],
+    "tip": "When you need a second to think, say «este…» or «o sea…» instead of «um»."
+  },
+  "register": {
+    "expected": "casual",
+    "casual": [
+      "vos",
+      "sos",
+      "tenés",
+      "querés",
+      "hacés",
+      "decime",
+      "contame",
+      "mirá"
+    ],
+    "formal": [
+      "usted"
+    ],
+    "other": [
+      "tú",
+      "eres",
+      "tienes",
+      "quieres",
+      "haces"
+    ],
+    "mixing_ok": false,
+    "tips": {
+      "formal": "With someone your age, «vos» feels warmer than «usted».",
+      "other": "Porteños say «vos sos» and «tenés», not «tú eres» and «tienes».",
+      "mixed": "You switched between «vos» and «usted»; on a date, stay with «vos»."
+    }
+  },
+  "other_region_slang": {
+    "güey": "Mexico",
+    "wey": "Mexico",
+    "órale": "Mexico",
+    "chido": "Mexico",
+    "neta": "Mexico",
+    "padrísimo": "Mexico",
+    "no manches": "Mexico",
+    "guay": "Spain",
+    "mola": "Spain",
+    "vosotros": "Spain",
+    "chaval": "Spain"
+  },
+  "cultural_moments": [
+    {
+      "id": "mate",
+      "milestone": "Mate moment: take the mate like a porteño, or match their banter",
+      "evidence": "The learner, in Spanish, answers the date's offer of mate: accepts or declines it, says how they take it, or asks about the ritual with curiosity.",
+      "cue": "Pull a mate and a thermos out of your bag and offer them some, the way you would with a new friend. One short line.",
+      "keywords": [
+        "mate",
+        "termo",
+        "yerba",
+        "amargo",
+        "cebar",
+        "cebás"
+      ]
+    }
   ]
 }

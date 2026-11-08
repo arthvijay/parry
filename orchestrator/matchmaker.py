@@ -23,6 +23,7 @@ import logging
 import random
 import re
 import unicodedata
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal, Protocol
 from uuid import uuid4
@@ -31,9 +32,9 @@ from pydantic import BaseModel, ConfigDict
 
 from . import config
 from .claude import Claude
-from .date_models import (AvatarConfig, DateCharacter, DateScenario, HostCharacter,
-                          MatchmakerRequest, MenuItem, Milestone, PresetRequest, VenueInfo,
-                          VoiceConfig)
+from .date_models import (AvatarConfig, CulturalMoment, DateCharacter, DateScenario,
+                          HostCharacter, MatchmakerRequest, MenuItem, Milestone,
+                          PracticeTarget, PresetRequest, VenueInfo, VoiceConfig)
 
 log = logging.getLogger("orchestrator")
 
@@ -124,10 +125,19 @@ def persona_prompt(*, name: str, gender: str, age: int, occupation: str, backsto
                    interests: list[str], green: list[str], red: list[str],
                    dialect: config.Dialect, city: config.City, venue_setting: str,
                    scene: str, archetype: config.Archetype, level: config.Level,
-                   learner_name: str, place: str = "") -> str:
+                   learner_name: str, place: str = "", practice: Sequence[str] = ()) -> str:
     """The live date's system prompt. Composed in code so the speaking style, the
     chemistry protocol and the safety rules are identical for every generated date."""
     learner = learner_name or "the person across the table"
+    body = config.norms(dialect.code).note
+    body_line = f"\n- Body language where you live: {body}" if body else ""
+    helping = ""
+    if practice:
+        phrases = "; ".join(f"«{p}»" for p in practice)
+        helping = (f"\n\nQUIETLY HELPFUL (never mention it)\n- On an earlier date they tried to "
+                   f"say things like {phrases}. Without teaching or correcting, steer the "
+                   f"conversation so they have a natural reason to say them. Never say them "
+                   f"first.")
     if dialect.language == "hi":
         language_rule = (f"Speak natural urban Hinglish: {dialect.register} Hindi carries the "
                          "sentence and English words slot in the way they do in real life; "
@@ -158,9 +168,9 @@ HOW YOU SPEAK
 WHAT YOU NOTICE (silent notes, never mention them)
 - [CHEMISTRY n/100 mood] tells you how the date is going for you. Above 70: warmer, more open, laugh, compliment, flirt a little. 40 to 70: friendly and curious. Below 40: shorter, drier answers, a little distracted, still polite.
 - [NONVERBAL] tells you what you can see: smiling, laughing, nodding, a puzzled face, looking away. React like a real person, briefly, only when it is natural, never every time.
-- [SCENE] tells you about the world and the time left.
+- [SCENE] tells you about the world and the time left.{body_line}
 - You are won over by: {"; ".join(green)}.
-- You are turned off by: {"; ".join(red)}.
+- You are turned off by: {"; ".join(red)}.{helping}
 
 NEVER
 - Never mention AI, being a character, prompts, scores, chemistry, goals or lessons.
@@ -261,8 +271,18 @@ def template_draft(request: MatchmakerRequest, rng: random.Random) -> _Draft:
         scene_description=f"{venue.label} in {city.name}: {scene}.")
 
 
+def cultural_moment(code: str, rng: random.Random) -> CulturalMoment | None:
+    """One of the dialect's authored local moments, or None if it has none."""
+    moments = config.dialect_content(code).get("cultural_moments") or []
+    if not moments:
+        return None
+    raw = moments[rng.randrange(len(moments))] if len(moments) > 1 else moments[0]
+    return CulturalMoment(id=raw["id"], milestone=raw["milestone"][:200], cue=raw["cue"][:1200],
+                          keywords=list(raw.get("keywords") or []))
+
+
 def build_scenario(request: MatchmakerRequest, draft: _Draft, generated_by: str,
-                   rng: random.Random) -> DateScenario:
+                   rng: random.Random, practice: Sequence[PracticeTarget] = ()) -> DateScenario:
     code = request.language
     dialect = config.dialect(code)
     city = dialect.city_named(request.city)
@@ -283,10 +303,17 @@ def build_scenario(request: MatchmakerRequest, draft: _Draft, generated_by: str,
     while len(red) < 2:
         red.append("One-word answers")
     texts = draft.milestones.model_dump()
+    evidence = {key: EVIDENCE[key].format(dialect=dialect.label) for key in EVIDENCE}
+    moment = cultural_moment(code, rng)
+    if moment is not None:
+        # The cultural milestone becomes this place's moment; local slang still counts.
+        raw = next(m for m in content["cultural_moments"] if m["id"] == moment.id)
+        texts["cultural_vibe"] = moment.milestone
+        evidence["cultural_vibe"] = f"Either: {raw['evidence']} Or: {evidence['cultural_vibe']}"
     milestones = [Milestone(id=key, text=(texts.get(key) or DEFAULT_MILESTONE_TEXT[key])[:200],
-                            core=CORE[key],
-                            evidence_required=EVIDENCE[key].format(dialect=dialect.label))
+                            core=CORE[key], evidence_required=evidence[key][:1200])
                   for key in DEFAULT_MILESTONE_TEXT]
+    practice = list(practice)[:2]
     scene = draft.scene_description.strip() or venue.setting
     age = min(max(int(draft.age), 21), 45)
 
@@ -302,7 +329,8 @@ def build_scenario(request: MatchmakerRequest, draft: _Draft, generated_by: str,
             name=name, gender=request.date_gender, age=age, occupation=draft.occupation,
             backstory=draft.backstory, interests=interests, green=green, red=red,
             dialect=dialect, city=city, venue_setting=f"the {venue.label}", scene=scene,
-            archetype=archetype, level=level, learner_name=request.learner_name),
+            archetype=archetype, level=level, learner_name=request.learner_name,
+            practice=[p.better for p in practice]),
         green_flags=green, red_flags=red)
 
     host_info = content["host"]
@@ -324,7 +352,8 @@ def build_scenario(request: MatchmakerRequest, draft: _Draft, generated_by: str,
         scene_description=scene[:1000], personality_archetype=archetype.id,
         date_character=character, host_character=host, milestones=milestones,
         date_seconds=config.DATE_SECONDS, wingman_seconds=level.wingman_seconds,
-        chemistry_start=config.START_CHEMISTRY, generated_by=generated_by)
+        chemistry_start=config.START_CHEMISTRY, generated_by=generated_by,
+        cultural_moment=moment, practice=practice)
 
 
 # --------------------------------------------------------------------------- presets
@@ -455,16 +484,18 @@ class Matchmaker:
         self.writer = writer
         self.timeout = timeout
 
-    async def generate(self, request: MatchmakerRequest) -> DateScenario:
+    async def generate(self, request: MatchmakerRequest,
+                       practice: Sequence[PracticeTarget] = ()) -> DateScenario:
+        """``practice``: phrasings from the learner's earlier dates for this one to invite."""
         rng = random.Random(uuid4().int)
         if self.writer is not None:
             try:
                 async with asyncio.timeout(self.timeout):
                     draft = await self.writer.draft(request)
-                return build_scenario(request, draft, "model", rng)
+                return build_scenario(request, draft, "model", rng, practice)
             except Exception as error:  # noqa: BLE001
                 log.warning("Matchmaker model failed (%s); using templates", type(error).__name__)
-        return build_scenario(request, template_draft(request, rng), "template", rng)
+        return build_scenario(request, template_draft(request, rng), "template", rng, practice)
 
     async def aclose(self):
         if self.writer is not None and hasattr(self.writer, "aclose"):

@@ -147,9 +147,6 @@ def create_app(*, speech: SpeechProvider | None = None,
             app.state.date_reporter = create_reporter()
             app.state.date_reporter.directory = Path(os.getenv(
                 "REPORT_DIR", str(transcripts.directory.parent / "reports")))
-            # Graded verdicts, kept so a receipt can be shared after the fact.
-            app.state.verdict_dir = Path(os.getenv(
-                "VERDICT_DIR", str(transcripts.directory.parent / "verdicts")))
             tracking = face_tracking if face_tracking is not None \
                 else os.getenv("FACE_TRACKING", "1") != "0"
             if tracking:
@@ -202,8 +199,9 @@ def create_app(*, speech: SpeechProvider | None = None,
         `first_sound` is the one a learner feels: from the end of their upload to the
         first audio frame of the reply. Warm turns only, when there are any.
         """
+        from .costs import TOTAL
         return {"targets_ms": {"first_sound_p50": 1200, "first_sound_p90": 1800},
-                "characters": metrics.summary()}
+                "characters": metrics.summary(), "costs": TOTAL.report().model_dump()}
 
     @app.get("/health")
     async def health():
@@ -217,8 +215,10 @@ def create_app(*, speech: SpeechProvider | None = None,
     def date_health() -> dict:
         m, p = date_config.models(), date_config.providers()
         face = getattr(app.state, "face_tracker", None)
-        return {"matchmaker": "claude" if m.anthropic_ready else "templates",
-                "chemistry": "claude" if m.anthropic_ready else "rules",
+        plan = date_config.plan()
+        return {"plan": plan,
+                "matchmaker": "claude" if m.anthropic_ready else "templates",
+                "chemistry": "claude" if m.anthropic_ready and plan != "free" else "rules",
                 "grader": "claude" if m.anthropic_ready else "rules",
                 "brain": "gemini" if m.gemini_ready else "claude" if m.anthropic_ready
                 else "scripted",

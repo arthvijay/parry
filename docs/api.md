@@ -503,11 +503,16 @@ when `NVIDIA_API_KEY` is set or `NEMOTRON_ASR_SERVER` points at a self-hosted NI
 | `WS /v1/stream` | The live date (below) |
 | `WS /v1/vision` | Face tracking alone (onboarding): `face_frame` in, `face_analysis` and `signal` out |
 | `POST /v1/grade` | With a `date_…` scenario id: the verdict receipt (also `POST /v1/date/grade`) |
-| `GET /v1/date/runs/{run_id}` | The recorded transcript and the chemistry state of a run |
+| `GET /v1/date/runs/{run_id}` | The recorded transcript, the chemistry state and the `cost` of a run |
 | `POST /v1/date/report` | *Your date, decoded* for a run: `{"run_id","scenario_id"}` |
 | `GET /v1/date/report/{run_id}.html` | The same report as a self-contained page |
 | `GET /v1/date/receipt/{run_id}.svg` | The shareable receipt, 1080×1920 (9:16), from the saved verdict |
 | `GET /v1/date/share/{run_id}` | The share page: download, system share sheet, TikTok / Reels / Shorts |
+| `GET /v1/date/runs/{run_id}/card` | The graded verdict as a shareable HTML page |
+| `GET /v1/date/runs/{run_id}/verdict` | The stored verdict as JSON, without re-grading |
+| `GET /v1/learners/{name}` | One learner's profile: their dates and their practice list |
+| `GET /v1/reports/class` | Every learner at a glance (HTML; `?format=json` for data, `?learners=a,b` to filter) |
+| `GET /v1/costs` | Usage and dollars by provider since the server started, and the `plan` |
 | `GET /v1/face/status` | Whether MediaPipe and its model are loaded |
 
 ### `POST /v1/matchmaker/generate`
@@ -541,6 +546,13 @@ The response is a `DateScenario`:
 - **Timing:** `date_seconds` (180), `wingman_seconds`, `chemistry_start` (50).
 - **`generated_by`:** `model`, `template`, or `authored` for a preset.
 - **The café (authored dates only):** `preset_id`, `menu`, `currency`, `serve_line`, `closings`, `followups`. Empty on a generated date.
+- **`cultural_moment`:** `{id, milestone, cue, keywords}`, the local custom this date
+  brings up about a minute in (mate in Buenos Aires, a tsukkomi in Osaka). Its
+  `milestone` replaces the `cultural_vibe` milestone's text, whose evidence then accepts
+  either the moment or local slang. Can be null.
+- **`practice`:** up to two `{heard, better, why_en}`: phrasings this learner (by
+  `learner_name`) got wrong on earlier dates in this dialect, which the date gives them a
+  natural chance to say. Empty for a new learner.
 
 Claude writes the creative fields; code writes the ids, voice, avatar parameters and the
 system prompt, so its speaking style, chemistry protocol and safety rules are the same
@@ -583,7 +595,7 @@ character's voice as binary frames and sends JSON events.
 | `wingman_hint` `{whisper_context, options:[{tone, target, gloss}×3]}` | 4 s of silence after the date finished |
 | `clear_audio` `{npc_id}` | Acknowledges a barge-in: drop everything buffered |
 | `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame |
-| `signal` `{kind, label, effect, during_npc}` | A smile, laugh, nod, head shake, puzzled or surprised look, look-away, look-back |
+| `signal` `{kind, label, effect, during_npc}` | A smile, laugh, nod, head shake, head wobble (only where it means yes: hi-IN), puzzled or surprised look, look-away, look-back |
 | `user_speech` `{speaking}` | The recogniser heard speech start or end |
 | `help_card` `{said, meaning_en, suggestions:[{target, gloss}]×1–3, tip}` | The translator's answer. Without Claude, `meaning_en` says translation needs the key and the suggestions are the wingman's lines |
 | `scene_action` `{action:"order_placed", npc_id:"host", items}` | An order was placed (once per date): send the host to the table |
@@ -601,8 +613,12 @@ the date's prompt each turn:
 - what the face tracker and gaze saw since their last line;
 - the time left when under 45 s.
 
-Looking away for more than 4.5 s while the date talks costs chemistry and triggers an
-in-character callout after the line ends.
+Looking away too long while the date talks costs chemistry and triggers an in-character
+callout after the line ends. How long is too long, and what it costs, is the dialect's
+norm (`nonverbal` in its data file): 4 s in Buenos Aires, 8 s in Tokyo.
+
+Slang from another region ("güey" in Buenos Aires) gets a light in-character reaction
+and a small chemistry note naming the region.
 
 **The translator.** `help` is answered with a `help_card` for the learner's eyes only:
 nothing is said to the date. It adds an `event` line to the transcript and counts in
@@ -631,8 +647,10 @@ The response is a `DateVerdict`:
   - `icebreaker`, `dialect_authenticity` and `active_listening` are judged.
   - `agility_pacing` is measured: latency, recogniser confidence, wingman use, and a small cost per translator use.
 - **`milestones`:** each with its quote.
-- **`metrics`:** turns, words, average response latency, pronunciation confidence, wingman hints and lines used, unassisted fluency, eye contact, smiles, look-away callouts, barge-ins, `help_requests`.
+- **`metrics`:** turns, words, average response latency, pronunciation confidence, wingman hints and lines used, unassisted fluency, eye contact, smiles, look-away callouts, barge-ins, `help_requests`; and, measured from the learner's lines, `local_fillers` and `foreign_fillers` (a local «este…» versus an English «um»), `register_used` (`casual`, `formal`, `mixed` or null), `words_to_practise` (words the recogniser doubted) and `other_region_words`.
 - **`followup`:** a text from the date in the dialect, its translation, and one `correction` drawn from the learner's words. An authored date's own `followups` replace the dialect's.
+- **`progress`:** `[{better, quote}]`, earlier dates' phrasings said right on this one, quoted.
+- **`cost`:** `{lines: [{provider, model, calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, audio_seconds, characters, characters_cached, usd}], total_usd, complete}` for the whole date (matchmaker, live date, grade). `usd` is null for a provider with no configured price; `complete` says whether every line was priced.
 - **Also:** `overall`, `summary`, `chemistry_timeline` and `graded_by` (`model` or `rules`).
 - **`roast`:** one short, affectionate English line about how the date went (at most
   160 characters). Claude writes it; any quote in it (in «», “” or "") must be the
@@ -650,7 +668,14 @@ Every graded verdict is saved as `VERDICT_DIR/{run_id}.json` (default `runs/verd
 so the receipt can be shared after the fact.
 
 A judged pillar graded C- or better must quote the learner's own words, checked against
-the transcript; otherwise it is capped at D+.
+the transcript, and must not be the date's own line repeated back (an echo);
+otherwise it is capped at D+. The `correction` must also be the learner's
+own words, and is never one built on a word the recogniser was unsure of. A register
+remark (tú or usted) is added to the dialect pillar's comment only; it never moves a grade.
+
+Grading also stores the verdict (for the card), adds the date to the learner's profile
+when the date had a `learner_name`, and records its cost.
+
 
 ### `POST /v1/matchmaker/preset`: authored dates and the café
 

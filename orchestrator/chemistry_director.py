@@ -33,7 +33,7 @@ from . import config
 from .claude import Claude
 from .date_models import (ChemistryUpdate, DateScenario, HelpCard, HelpSuggestion, WingmanHint,
                           WingmanOption)
-from .director import normalise, said_by_learner
+from .director import echoes_the_date, normalise, said_by_learner
 from .models import TranscriptTurn
 
 log = logging.getLogger("orchestrator")
@@ -67,8 +67,11 @@ the quote against evidence_required; holds: true only if every condition passed.
 strict: a wrong tick is worse than a late one.
 date_was_joking: the date's line just before the learner's latest one was a joke,
 tease or playful line that invites a smile.
-used_local_slang: the latest line uses a local expression of the target dialect.
+used_local_slang: the latest line uses a local expression of the target dialect. Words
+listed in other_region_slang_used belong to another region and never count as local.
 used_english: the latest line is mostly English (for Hinglish: plain full English).
+Read non-verbal signals by the body-language norms of this place: a glance away is not
+the same thing in Tokyo as in Buenos Aires.
 mistake: the single most useful error in the latest learner line, or null: quote is the
 learner's exact words, better is how a local would say it, why_en one friendly
 sentence. Ignore punctuation and accents (speech recognition). Never invent one."""
@@ -126,6 +129,10 @@ class ChemistryState:
     learner_turns: int = 0
     mistakes: list[dict] = field(default_factory=list)
     nonverbal: list[str] = field(default_factory=list)
+    # Earlier dates' mistakes said right on this one: {"better", "quote"}.
+    fixed: list[dict] = field(default_factory=list)
+    # Slang from another region the learner used on this date.
+    other_region: list[str] = field(default_factory=list)
     ended: bool = False
 
     @property
@@ -216,6 +223,7 @@ class JudgeContext:
     open_milestones: list[str]
     nonverbal: list[str]
     used_wingman: bool
+    other_region: list[str] = field(default_factory=list)
 
 
 class ChemistryJudge(Protocol):
@@ -228,6 +236,24 @@ def _line(turn: TranscriptTurn) -> str:
     return f"[{who}] {turn.text}"
 
 
+def persona_context(scenario: DateScenario) -> str:
+    """Everything about the date that stays the same from the first turn to the last,
+    as one deterministic block: it sits after the instructions in the system prompt, so
+    the judge's prompt prefix is identical every turn and is read from the cache."""
+    date = scenario.date_character
+    return "THE DATE (fixed for this whole date)\n" + json.dumps({
+        "dialect": scenario.dialect_label, "learner_level": scenario.proficiency,
+        "date": {"name": date.display_name, "personality": scenario.personality_archetype,
+                 "interests": date.interests, "green_flags": date.green_flags,
+                 "red_flags": date.red_flags},
+        "body_language_norms": config.norms(scenario.dialect).note or None,
+        "milestones": [{"id": m.id, "evidence_required": m.evidence_required}
+                       for m in scenario.milestones],
+        # An authored date's café: what can be ordered (the order_together milestone).
+        "cafe_menu": [m.name for m in scenario.menu] or None,
+    }, ensure_ascii=False, sort_keys=True)
+
+
 class ClaudeChemistryJudge:
     def __init__(self, claude: Claude, model: str, effort: str):
         self.claude = claude
@@ -235,33 +261,26 @@ class ClaudeChemistryJudge:
         self.effort = effort
 
     async def judge(self, ctx: JudgeContext) -> TurnJudgement:
-        date = ctx.scenario.date_character
         payload = {
-            "dialect": ctx.scenario.dialect_label, "learner_level": ctx.scenario.proficiency,
-            "date": {"name": date.display_name, "personality": ctx.scenario.personality_archetype,
-                     "interests": date.interests, "green_flags": date.green_flags,
-                     "red_flags": date.red_flags},
             "conversation": [_line(t) for t in ctx.transcript[-24:]],
             "latest_learner_line": ctx.latest,
             "nonverbal": ctx.nonverbal or ["nothing notable"],
             "read_from_wingman_card": ctx.used_wingman,
-            "open_milestones": [{"id": m.id, "evidence_required": m.evidence_required}
-                                for m in ctx.scenario.milestones if m.id in ctx.open_milestones],
-            "cafe_menu": [m.name for m in ctx.scenario.menu],
+            "open_milestones": list(ctx.open_milestones),
+            "other_region_slang_used": ctx.other_region,
         }
-        return await self.claude.parse(model=self.model, system=JUDGE_INSTRUCTIONS,
+        return await self.claude.parse(model=self.model,
+                                       system=[JUDGE_INSTRUCTIONS, persona_context(ctx.scenario)],
                                        payload=payload, schema=TurnJudgement,
                                        effort=self.effort, max_tokens=4000, timeout=12.0)
 
     async def wingman(self, scenario: DateScenario,
                       transcript: Sequence[TranscriptTurn]) -> _WireWingman:
-        payload = {"dialect": scenario.dialect_label, "learner_level": scenario.proficiency,
-                   "date_name": scenario.date_character.display_name,
-                   "date_interests": scenario.date_character.interests,
-                   "conversation": [_line(t) for t in transcript[-12:]]}
+        payload = {"conversation": [_line(t) for t in transcript[-12:]]}
         # The hint is shown four seconds after the date stops talking; it is prepared as
         # soon as they stop, so it has to land inside that window.
-        return await self.claude.parse(model=self.model, system=WINGMAN_INSTRUCTIONS,
+        return await self.claude.parse(model=self.model,
+                                       system=[WINGMAN_INSTRUCTIONS, persona_context(scenario)],
                                        payload=payload, schema=_WireWingman, effort="low",
                                        max_tokens=3000, timeout=6.0)
 
@@ -309,6 +328,14 @@ CLOSE = re.compile(r"whats ?app|n[uú]mero|num[eé]ro|instagram|insta\b|tel[eé]
 ENGLISH = {"the", "and", "you", "is", "are", "what", "my", "i", "it", "that", "this",
            "do", "like", "yes", "no", "so", "to", "of", "a", "in", "your", "me", "have"}
 RED_HINTS = re.compile(r"crypto|bitcoin|cripto|money|dinero|acciones|stocks", re.I)
+# Romanised Hindi that real Hinglish always carries; a line with none of it (and no
+# Devanagari) is plain English, even in a dialect where English words are welcome.
+HINDI = {"hai", "hain", "kya", "main", "mein", "tum", "aap", "nahi", "nahin", "haan", "ka",
+         "ki", "ke", "ko", "se", "bhi", "toh", "yaar", "accha", "achha", "acha", "kaise",
+         "kahan", "mera", "meri", "tera", "teri", "tumhara", "tumhari", "hum", "ho", "tha",
+         "thi", "karo", "karna", "chal", "bas", "matlab", "sahi", "ekdum", "arre", "bilkul",
+         "phir", "milte", "sakta", "sakti", "kuch", "bahut", "bohot", "aur", "lekin", "kyun"}
+DEVANAGARI = re.compile(r"[\u0900-\u097F]")
 
 
 class RulesChemistryJudge:
@@ -325,6 +352,11 @@ class RulesChemistryJudge:
 
         english = (dialect.language != "en" and dialect.language != "hi" and tokens
                    and sum(t in ENGLISH for t in tokens) / len(tokens) > 0.5)
+        if dialect.language == "hi" and tokens and not DEVANAGARI.search(text):
+            # Hinglish welcomes English words, but not a line with no Hindi in it at all.
+            hindi = HINDI | {s.casefold() for s in dialect.slang}
+            english = (sum(t in ENGLISH for t in tokens) / len(tokens) > 0.3
+                       and not any(t in hindi for t in tokens))
         if english:
             delta -= 6
             reasons.append("answered in English")
@@ -363,6 +395,9 @@ class RulesChemistryJudge:
             reasons.append("too formal for a date")
 
         quote = text[:300]
+        moment = ctx.scenario.cultural_moment
+        took_moment = bool(moment) and any(k.casefold() in text.casefold()
+                                           for k in moment.keywords if k)
         if not english and n >= 2:
             if "break_ice" in ctx.open_milestones and INTRO.search(text):
                 ticks.append(_WireTick(id="break_ice", evidence_quote=quote, check="introduced",
@@ -370,9 +405,10 @@ class RulesChemistryJudge:
             if "find_common_ground" in ctx.open_milestones and asked and (LIKE.search(text) or mentioned):
                 ticks.append(_WireTick(id="find_common_ground", evidence_quote=quote,
                                        check="asked and shared", holds=True))
-            if "cultural_vibe" in ctx.open_milestones and slang:
+            if "cultural_vibe" in ctx.open_milestones and (slang or took_moment):
                 ticks.append(_WireTick(id="cultural_vibe", evidence_quote=quote,
-                                       check="local slang", holds=True))
+                                       check="local slang" if slang else "the local moment",
+                                       holds=True))
             if "order_together" in ctx.open_milestones and ctx.scenario.menu and ORDERING.search(text):
                 from .matchmaker import ordered_items
                 if ordered_items(text, ctx.scenario.menu):
@@ -501,26 +537,41 @@ class ChemistryDirector:
         return update
 
     def learner_turn(self, transcript: Sequence[TranscriptTurn], text: str,
-                     nonverbal: list[str]) -> asyncio.Task:
+                     nonverbal: list[str], other_region: Sequence[str] = ()) -> asyncio.Task:
         """Judge the turn in the background; the date's reply never waits for this."""
         used = self.check_wingman_use(text)
         self.stalled = False
-        task = asyncio.create_task(self._judge(list(transcript), text, nonverbal, used))
+        task = asyncio.create_task(self._judge(list(transcript), text, nonverbal, used,
+                                               list(other_region)))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return task
 
-    async def _judge(self, transcript, text, nonverbal, used_wingman):
+    async def _judge(self, transcript, text, nonverbal, used_wingman, other_region=()):
         open_ids = [m.id for m in self.scenario.milestones if m.id not in self.state.milestones]
-        ctx = JudgeContext(self.scenario, transcript, text, open_ids, nonverbal, used_wingman)
+        ctx = JudgeContext(self.scenario, transcript, text, open_ids, nonverbal, used_wingman,
+                           list(other_region))
         try:
             judgement = await self.judge.judge(ctx) if self.judge else await self.fallback.judge(ctx)
         except Exception as error:  # noqa: BLE001
             log.warning("Chemistry judge failed (%s); rules judge used", type(error).__name__)
             judgement = await self.fallback.judge(ctx)
-        await self._settle(judgement, transcript, text, used_wingman, open_ids)
+        await self._settle(judgement, transcript, text, used_wingman, open_ids, other_region)
 
-    async def _settle(self, j: TurnJudgement, transcript, text, used_wingman, open_ids):
+    def practice_hits(self, text: str) -> list[dict]:
+        """Earlier dates' corrections this line now says right, word for word. The quote
+        is the learner's own line, so the same evidence rule holds."""
+        said = plain(text)
+        done = {f["better"] for f in self.state.fixed}
+        hits = []
+        for target in self.scenario.practice:
+            better = plain(target.better)
+            if target.better not in done and better and better in said:
+                hits.append({"better": target.better, "quote": text.strip()[:300]})
+        return hits
+
+    async def _settle(self, j: TurnJudgement, transcript, text, used_wingman, open_ids,
+                      other_region=()):
         date = self.scenario.date_character
         delta = max(-MAX_DELTA, min(MAX_DELTA, int(j.delta)))
         delta = round(delta * self.volatility * (self.level.forgiveness if delta < 0 else 1.0))
@@ -539,8 +590,10 @@ class ChemistryDirector:
         ticks: dict[str, str] = {}
         for tick in j.milestones:
             quote = (tick.evidence_quote or "").strip()
+            # The learner's own words, and not the date's line repeated back.
             if (tick.holds and tick.id in open_ids and quote
-                    and said_by_learner(quote, transcript)):
+                    and said_by_learner(quote, transcript)
+                    and not echoes_the_date(quote, transcript)):
                 ticks[tick.id] = quote[:300]
         state = self.state
         state.learner_turns += 1
@@ -551,6 +604,19 @@ class ChemistryDirector:
             state.mistakes.append({"heard": j.mistake.quote.strip()[:300],
                                    "better": j.mistake.better.strip()[:300],
                                    "why_en": j.mistake.why_en.strip()[:300]})
+        # Slang from another region: a local notices, a little.
+        new_region = [w for w in other_region if w not in state.other_region]
+        if new_region:
+            state.other_region.extend(new_region)
+            regions = config.other_region_slang(self.scenario.dialect)
+            delta -= 1
+            reason += "; " + ", ".join(f"«{w}» sounds like {regions.get(w, 'somewhere else')}"
+                                       for w in new_region[:2])
+        # A slip from an earlier date, said right this time: noted, never scored as chemistry.
+        hits = self.practice_hits(text)
+        if hits:
+            state.fixed.extend(hits)
+            reason += "; said «" + hits[0]["better"][:60] + "» right this time"
         async with self._lock:
             await self._apply(delta, reason, green, red, ticks, "turn")
 
@@ -614,9 +680,36 @@ class ChemistryDirector:
         self.save()
 
 
+PUNCTUATION = re.compile(r"[^\w\s]", re.UNICODE)
+
+
+def plain(text: str) -> str:
+    """Casefolded, punctuation gone, spaces collapsed: what is compared when deciding
+    whether a phrase was said, since speech recognition decides the punctuation."""
+    return " ".join(PUNCTUATION.sub(" ", text.casefold()).split())
+
+
+def other_region_words(code: str, text: str) -> list[str]:
+    """Slang in this line that a local would place in another region, whole words only
+    ("che" is not inside "noche")."""
+    mapping = config.other_region_slang(code)
+    if not mapping:
+        return []
+    spaced = config.dialect(code).script not in ("han", "kana")
+    lowered = text.casefold()
+    found = []
+    for word in mapping:
+        w = word.casefold()
+        if (re.search(rf"(?<!\w){re.escape(w)}(?!\w)", lowered) if spaced else w in lowered):
+            found.append(word)
+    return found
+
+
 def create_judge() -> ClaudeChemistryJudge | None:
+    """The per-turn judge. None means the rules judge and the authored wingman lines:
+    without a key, or on ``PLAN=free``, where this is the call a date makes most."""
     m = config.models()
-    if not m.anthropic_ready:
+    if not m.anthropic_ready or config.plan() == "free":
         return None
     return ClaudeChemistryJudge(Claude(timeout=15.0, max_retries=0, fallbacks=m.claude_fallbacks),
                                 m.chemistry, m.chemistry_effort)

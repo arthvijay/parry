@@ -20,9 +20,10 @@ import logging
 import re
 from collections.abc import AsyncIterator
 
-from . import config
+from . import config, costs
 from .audio import VOICE_RATE, sample_speech
 from .date_models import VoiceConfig
+from .voice_cache import VoiceCache
 
 log = logging.getLogger("orchestrator")
 
@@ -149,8 +150,11 @@ class ElevenLabsVoice:
 
         async def send():
             await ws.send(json.dumps(start))
+            costs.record("elevenlabs", self.model)
             async for sentence in sentences:
                 await ws.send(json.dumps({"text": sentence + " ", "flush": True}))
+                # ElevenLabs bills the characters it is sent, heard or not.
+                costs.record("elevenlabs", self.model, calls=0, characters=len(sentence))
             await ws.send(json.dumps({"text": ""}))
 
         sender = asyncio.create_task(send())
@@ -187,13 +191,15 @@ class ElevenLabsVoice:
 
 class Voice:
     """The session's voice: ElevenLabs when configured, the sample otherwise, and the
-    sample for any turn ElevenLabs fails before a single frame has been sent."""
+    sample for any turn ElevenLabs fails before a single frame has been sent. Scripted
+    lines play from the voice cache once ElevenLabs has spoken them."""
 
-    def __init__(self):
+    def __init__(self, cache: VoiceCache | None = None):
         p = config.providers()
         self.primary = ElevenLabsVoice(p.elevenlabs_key, p.elevenlabs_model) \
             if p.elevenlabs_key else None
         self.fallback = SampleVoice()
+        self.cache = cache
 
     @property
     def name(self) -> str:
@@ -204,11 +210,26 @@ class Voice:
             await self.primary.prewarm(voice)
 
     async def speak(self, sentences: AsyncIterator[str], voice: VoiceConfig,
-                    language: str) -> AsyncIterator[bytes]:
+                    language: str, cache_text: str | None = None) -> AsyncIterator[bytes]:
+        """``cache_text`` marks a scripted line (the whole of it): played from the cache
+        when ElevenLabs has spoken it before, and kept when it speaks it to the end."""
         if self.primary is None or voice.provider != "elevenlabs":
             async for frame in self.fallback.speak(sentences, voice, language):
                 yield frame
             return
+        key = None
+        if cache_text and self.cache is not None:
+            key = self.cache.key(cache_text, voice, language, self.primary.model, VOICE_RATE)
+            pcm = self.cache.get(key)
+            if pcm is not None:
+                async for _ in sentences:   # the captions still go out, line by line
+                    pass
+                costs.record("elevenlabs", self.primary.model, calls=0,
+                             characters_cached=len(cache_text))
+                for frame in frames(pcm):
+                    yield frame
+                return
+        heard: list[bytes] | None = [] if key else None
         # Keep every sentence so the sample can voice them if ElevenLabs fails early.
         spoken: list[str] = []
         queue: asyncio.Queue[str | None] = asyncio.Queue()
@@ -228,7 +249,12 @@ class Voice:
         try:
             async for frame in self.primary.speak(from_queue(), voice, language):
                 sent_any = True
+                if heard is not None:
+                    heard.append(frame)
                 yield frame
+            # Reached only when the whole line was spoken: never after a barge-in or failure.
+            if key and heard:
+                self.cache.put(key, b"".join(heard))
         except asyncio.CancelledError:
             raise
         except Exception as error:  # noqa: BLE001

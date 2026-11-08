@@ -338,7 +338,21 @@ the speed date itself; the contract is in [api.md](api.md#speed-date) and the re
   "speech ended" arriving before the final words, so measured latency and clip cuts are
   right.
 
-**Tests.** 212 (`uv run pytest`), with the Nemotron path tested against a local Riva gRPC
+**Merged from `features/10-fea-enhance`.** Culture as data (`nonverbal`, `fillers`,
+`register`, `other_region_slang`, `cultural_moments` in every dialect file), memory
+across dates (`learner_profile.py`, `practice` on the scenario, `progress` on the
+verdict), filler and register measures, the cost ledger (`costs.py`, `cost` on the
+verdict, `GET /v1/costs`, `PLAN=free`, Claude prompt caching for the judge), the voice
+cache for scripted lines, the readable receipt page, learner profiles and the class
+report (`share_routes.py`), one verdict store (`run_records.py`, shared with the 9:16
+share page) and `eval/date_selfplay.py`. The branch predated the provider switch, so
+its cost and cache hooks were ported to Nemotron and ElevenLabs
+(`NVIDIA_ASR_PRICE_PER_MINUTE`, `ELEVENLABS_PRICE_PER_MILLION_CHARS`). Its self-play
+gate failed on the branch (15 false awards: echoing learners, and plain English in
+Hinglish); both holes are closed (`echoes_the_date`, the Hinglish English check) and
+the gate now passes.
+
+**Tests.** 245 (`uv run pytest`), with the Nemotron path tested against a local Riva gRPC
 server and ElevenLabs against a local WebSocket server. `tools/test_e2e_pipeline.py` now
 plays the demo date: it orders, waits for the host to serve, asks the translator, then
 checks the verdict (with its roast, unlock and shareable card) and the report.

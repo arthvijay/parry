@@ -15,6 +15,12 @@ The first three come from a model when one is configured, held to the café's ru
 quote, no pass; the quote must be the learner's own words, checked here). The last is
 computed. Then the date texts the learner, in the dialect, with one correction drawn
 from something they actually said.
+
+Two more things are measured from the learner's own lines, never judged: how they
+hesitated (a local «este…» or an English «um») and how they addressed the date (tú or
+usted, vos or tú, 你 or 您), each against the dialect's data. A correction is never
+built on a word the recogniser was unsure of: if the learner may not have said it, they
+are not told they said it wrong.
 """
 
 from __future__ import annotations
@@ -27,10 +33,10 @@ from pydantic import BaseModel, ConfigDict
 
 from . import config
 from .claude import Claude
-from .chemistry_director import QUESTION, ChemistryState
+from .chemistry_director import QUESTION, ChemistryState, plain
 from .date_models import (Correction, DateMetrics, DateScenario, DateVerdict, FollowUp,
-                          MilestoneResult, NextDate, Pillar)
-from .director import said_by_learner
+                          MilestoneResult, NextDate, Pillar, ProgressItem)
+from .director import echoes_the_date, said_by_learner
 from .grading import letter, points
 from .models import LetterGrade, TranscriptTurn
 
@@ -121,7 +127,97 @@ def learner_lines(transcript: Sequence[TranscriptTurn]) -> list[str]:
     return [t.text for t in transcript if t.role == "learner"]
 
 
-def metrics_for(state: ChemistryState, transcript: Sequence[TranscriptTurn]) -> DateMetrics:
+# --------------------------------------------------------------------------- what was heard
+
+def asr_suspect(heard: str, transcript: Sequence[TranscriptTurn]) -> bool:
+    """True when the quoted words overlap words the recogniser was unsure of in the line
+    they came from: the learner may not have said them, so they cannot be corrected."""
+    needle = plain(heard)
+    if not needle:
+        return False
+    unsure = {plain(w) for t in transcript if t.role == "learner" and needle in plain(t.text)
+              for w in t.low_confidence_words}
+    unsure.discard("")
+    tokens = set(needle.split())
+    return any(u in tokens or (" " not in needle and u in needle) for u in unsure)
+
+
+def words_to_practise(transcript: Sequence[TranscriptTurn], limit: int = 5) -> list[str]:
+    """The words the recogniser struggled with most: an impression, never a score."""
+    counts: dict[str, int] = {}
+    for turn in transcript:
+        if turn.role != "learner":
+            continue
+        for word in turn.low_confidence_words:
+            word = plain(word)
+            if len(word) >= 2:
+                counts[word] = counts.get(word, 0) + 1
+    return sorted(counts, key=lambda w: -counts[w])[:limit]
+
+
+# --------------------------------------------------------------------------- how they spoke
+
+FILLER_AFTER = re.compile(r"\s*(?:[,，、…—–-]|\.\.\.|$)")
+
+
+def _spaced(code: str) -> bool:
+    return config.dialect(code).script not in ("han", "kana")
+
+
+def _occurrences(marker: str, text: str, spaced: bool) -> list[re.Match]:
+    m = re.escape(marker.casefold())
+    pattern = rf"(?<!\w){m}(?!\w)" if spaced else m
+    return list(re.finditer(pattern, text))
+
+
+def count_fillers(words: Sequence[str], lines: Sequence[str], spaced: bool) -> int:
+    """A filler counts where a filler sits: opening the line, or followed by a pause
+    (comma, ellipsis, dash, end of line). «este café» is not a hesitation; «este…» is."""
+    total = 0
+    for line in lines:
+        text = line.casefold().strip()
+        for word in words:
+            for match in _occurrences(word, text, spaced):
+                if match.start() == 0 or FILLER_AFTER.match(text, match.end()):
+                    total += 1
+    return total
+
+
+def _marked(markers: Sequence[str], line: str, spaced: bool) -> bool:
+    text = line.casefold()
+    return any(_occurrences(marker, text, spaced) for marker in markers if marker)
+
+
+def speech_habits(code: str, lines: Sequence[str]) -> dict:
+    """Fillers and register from the learner's lines, against the dialect's data.
+    Returns counts, the register they used, and at most one tip with its quote."""
+    content = config.dialect_content(code)
+    spaced = _spaced(code)
+    fillers = content.get("fillers") or {}
+    out = {"local_fillers": count_fillers(fillers.get("local") or [], lines, spaced),
+           "foreign_fillers": count_fillers(fillers.get("foreign") or [], lines, spaced),
+           "filler_tip": fillers.get("tip"), "register": None, "register_tip": None,
+           "register_quote": None}
+    reg = content.get("register") or {}
+    if not reg:
+        return out
+    casual = [line for line in lines if _marked(reg.get("casual") or [], line, spaced)]
+    formal = [line for line in lines if _marked(reg.get("formal") or [], line, spaced)]
+    other = [line for line in lines if _marked(reg.get("other") or [], line, spaced)]
+    out["register"] = ("mixed" if casual and formal else "casual" if casual
+                       else "formal" if formal else None)
+    tips = reg.get("tips") or {}
+    if other and tips.get("other"):
+        out["register_tip"], out["register_quote"] = tips["other"], other[0]
+    elif out["register"] == "formal" and reg.get("expected") == "casual" and tips.get("formal"):
+        out["register_tip"], out["register_quote"] = tips["formal"], formal[0]
+    elif out["register"] == "mixed" and not reg.get("mixing_ok") and tips.get("mixed"):
+        out["register_tip"], out["register_quote"] = tips["mixed"], formal[0]
+    return out
+
+
+def metrics_for(state: ChemistryState, transcript: Sequence[TranscriptTurn],
+                dialect: str | None = None) -> DateMetrics:
     lines = learner_lines(transcript)
     words = sum(len(re.findall(r"[^\W_]+", line)) for line in lines)
     turns = max(len(lines), state.learner_turns)
@@ -133,17 +229,24 @@ def metrics_for(state: ChemistryState, transcript: Sequence[TranscriptTurn]) -> 
     latency = round(sum(state.latencies_ms) / len(state.latencies_ms)) if state.latencies_ms else None
     confidence = round(100 * sum(state.confidences) / len(state.confidences)) \
         if state.confidences else None
+    habits = speech_habits(dialect, lines) if dialect in config.DIALECTS else {}
     return DateMetrics(turns=turns, learner_words=words, avg_response_latency_ms=latency,
                        pronunciation_confidence_pct=confidence,
                        wingman_hints_used=state.wingman_hints,
                        wingman_lines_used=state.wingman_lines_used,
                        unassisted_fluency_pct=unassisted, eye_contact_pct=state.eye_contact_pct,
                        smiles=state.smiles, look_away_callouts=state.look_away_callouts,
-                       barge_ins=state.barge_ins, help_requests=state.help_requests)
+                       barge_ins=state.barge_ins, help_requests=state.help_requests,
+                       local_fillers=habits.get("local_fillers", 0),
+                       foreign_fillers=habits.get("foreign_fillers", 0),
+                       register_used=habits.get("register"),
+                       words_to_practise=words_to_practise(transcript),
+                       other_region_words=list(state.other_region))
 
 
-def pacing_pillar(m: DateMetrics) -> Pillar:
-    """Measured, so it needs no quote: latency, recogniser confidence, wingman use."""
+def pacing_pillar(m: DateMetrics, filler_tip: str | None = None) -> Pillar:
+    """Measured, so it needs no quote: latency, recogniser confidence, wingman use, and
+    how pauses were filled."""
     if m.turns == 0:
         return Pillar(id="agility_pacing", label=PILLAR_LABELS["agility_pacing"], grade=None,
                       comment="You never got a word in, so there was no pace to measure.",
@@ -164,6 +267,16 @@ def pacing_pillar(m: DateMetrics) -> Pillar:
         notes.append(f"the wingman stepped in {m.wingman_hints_used}×")
     else:
         notes.append("no wingman needed")
+    if m.foreign_fillers:
+        score -= 0.1 * min(m.foreign_fillers, 4)
+        notes.append(f"you filled pauses with an English «um» {m.foreign_fillers}×"
+                     + (f" ({filler_tip.rstrip('.')})" if filler_tip else ""))
+    elif m.local_fillers:
+        score += 0.2
+        notes.append(f"you hesitated like a local {m.local_fillers}×")
+    if m.words_to_practise:
+        notes.append("words the recogniser struggled with: "
+                     + ", ".join(f"«{w}»" for w in m.words_to_practise[:3]))
     grade = letter(max(0.0, min(4.0, score)))
     comment = (notes[0][0].upper() + "; ".join(notes)[1:] + ".") if notes else "Steady pace."
     return Pillar(id="agility_pacing", label=PILLAR_LABELS["agility_pacing"], grade=grade,
@@ -173,7 +286,7 @@ def pacing_pillar(m: DateMetrics) -> Pillar:
 def checked(pillar_id: str, wire: _WirePillar, transcript: Sequence[TranscriptTurn]) -> Pillar:
     """No quote, no pass: an unquotable passing grade is capped at D+."""
     quote = (wire.evidence_quote or "").strip() or None
-    if quote and not said_by_learner(quote, transcript):
+    if quote and (not said_by_learner(quote, transcript) or echoes_the_date(quote, transcript)):
         quote = None
     grade = wire.grade
     if grade is not None and points(grade) >= points("C-") and quote is None:
@@ -294,6 +407,26 @@ def rules_pillars(scenario: DateScenario, state: ChemistryState,
     return [ice, auth, listen], summary
 
 
+def choose_correction(candidates: Sequence[dict],
+                      transcript: Sequence[TranscriptTurn]) -> Correction | None:
+    """The first correction whose words the learner certainly said. One built on a word
+    the recogniser was unsure of is skipped: a false correction is worse than none."""
+    for c in candidates:
+        heard, better = (c.get("heard") or "").strip(), (c.get("better") or "").strip()
+        if heard and better and not asr_suspect(heard, transcript):
+            return Correction(heard=heard[:300], better=better[:300],
+                              why_en=(c.get("why_en") or "").strip()[:300] or "More natural.")
+    return None
+
+
+def with_register_note(pillar: Pillar, habits: dict) -> Pillar:
+    """A measured remark on how they addressed the date, added to the comment only: the
+    grade stays exactly what the quoted evidence earned."""
+    quote = (habits.get("register_quote") or "").strip()
+    note = habits["register_tip"] + (f" (You said «{quote[:80]}».)" if quote else "")
+    return pillar.model_copy(update={"comment": f"{pillar.comment} {note}"[:1200]})
+
+
 class DateGrader:
     def __init__(self, claude: Claude | None = None, model: str = "", effort: str = "medium"):
         self.claude = claude
@@ -304,8 +437,11 @@ class DateGrader:
                     transcript: Sequence[TranscriptTurn], run_id: str) -> DateVerdict:
         kind = verdict_for(state.score)
         content = config.dialect_content(scenario.dialect)
-        metrics = metrics_for(state, transcript)
+        metrics = metrics_for(state, transcript, scenario.dialect)
+        habits = speech_habits(scenario.dialect, learner_lines(transcript))
+        # An authored date (a preset) brings its own follow-up texts.
         authored_followup = scenario.followups.get(kind) or content["followups"][kind]
+        authored_translation = scenario.followups.get(f"{kind}_en") or TRANSLATIONS[kind]
         wire, graded_by = None, "rules"
         if self.claude is not None and learner_lines(transcript):
             try:
@@ -318,26 +454,28 @@ class DateGrader:
                        for pid in ("icebreaker", "dialect_authenticity", "active_listening")]
             summary = wire.summary.strip()[:1000] or "Good effort."
             text = wire.followup_text.strip()[:600] or authored_followup
-            translation = wire.followup_translation_en.strip()[:600] or \
-                scenario.followups.get(f"{kind}_en") or TRANSLATIONS[kind]
-            correction = None
+            translation = wire.followup_translation_en.strip()[:600] or authored_translation
+            candidates = []
             if wire.correction is not None and said_by_learner(wire.correction.heard, transcript):
-                correction = Correction(heard=wire.correction.heard.strip()[:300],
-                                        better=wire.correction.better.strip()[:300],
-                                        why_en=wire.correction.why_en.strip()[:300] or "More natural.")
+                candidates.append(wire.correction.model_dump())
         else:
             raw, summary = rules_pillars(scenario, state, transcript)
             pillars = [checked(pid, w, transcript) for pid, w in
                        zip(("icebreaker", "dialect_authenticity", "active_listening"), raw, strict=True)]
-            translation = scenario.followups.get(f"{kind}_en") or TRANSLATIONS[kind]
-            text, correction = authored_followup, None
-        if correction is None and state.mistakes:
-            m = state.mistakes[0]
-            if said_by_learner(m["heard"], transcript):
-                correction = Correction(heard=m["heard"], better=m["better"], why_en=m["why_en"])
+            text, translation, candidates = authored_followup, authored_translation, []
+        candidates += [m for m in state.mistakes if said_by_learner(m["heard"], transcript)]
+        correction = choose_correction(candidates, transcript)
+        if habits.get("register_tip"):
+            pillars = [with_register_note(p, habits) if p.id == "dialect_authenticity" else p
+                       for p in pillars]
+        progress = [ProgressItem(better=f["better"][:1200], quote=f["quote"][:1200])
+                    for f in state.fixed if f.get("better") and said_by_learner(f["quote"], transcript)]
+        if progress:
+            summary = (f"You said «{progress[0].better}» right this time, after missing it on an "
+                       f"earlier date. " + summary)[:1200]
         roast = (checked_roast(wire.roast, transcript) if wire is not None else None) \
             or rules_roast(kind, scenario, state, metrics)
-        pillars.append(pacing_pillar(metrics))
+        pillars.append(pacing_pillar(metrics, habits.get("filler_tip")))
         graded = [points(p.grade) for p in pillars if p.grade is not None]
         overall: LetterGrade = letter(sum(graded) / len(graded)) if graded else "F"
         date = scenario.date_character
@@ -355,8 +493,8 @@ class DateGrader:
             followup=FollowUp(sender=date.display_name, text=text, translation_en=translation,
                               correction=correction),
             overall=overall, summary=summary, chemistry_timeline=state.timeline[-200:],
-            graded_by=graded_by, roast=roast, next_date=next_date_for(kind, scenario),
-            share_path=f"/v1/date/share/{run_id}")
+            graded_by=graded_by, progress=progress, roast=roast,
+            next_date=next_date_for(kind, scenario), share_path=f"/v1/date/share/{run_id}")
 
     async def _model(self, scenario, state, transcript, kind) -> _WireGrade:
         lines = []

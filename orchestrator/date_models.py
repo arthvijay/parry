@@ -148,6 +148,25 @@ class VenueInfo(Model):
     lighting_preset: str
 
 
+class CulturalMoment(Model):
+    """One local custom the date brings up mid-date (mate in Buenos Aires, a tsukkomi in
+    Osaka), authored in the dialect's data. It sharpens the cultural_vibe milestone."""
+
+    id: Short
+    milestone: Short
+    cue: Line                 # the stage direction the date gets, in English
+    keywords: list[str] = []  # words the offline judge listens for
+
+
+class PracticeTarget(Model):
+    """A phrasing the learner got wrong on an earlier date, carried into this one so
+    the date gives them a natural chance to say it right."""
+
+    heard: Line
+    better: Line
+    why_en: Line
+
+
 class DateScenario(Model):
     scenario_id: DateId
     city: Short
@@ -177,6 +196,8 @@ class DateScenario(Model):
     # Lines the authored date says or sends instead of the dialect's general ones.
     closings: dict[str, str] = {}
     followups: dict[str, str] = {}
+    cultural_moment: CulturalMoment | None = None
+    practice: Annotated[list[PracticeTarget], Field(max_length=3)] = []
 
 
 # --------------------------------------------------------------------------- live events
@@ -255,6 +276,14 @@ class DateMetrics(Model):
     look_away_callouts: int
     barge_ins: int
     help_requests: int = 0
+    # How the learner hesitated and addressed the date, measured from their own lines.
+    local_fillers: int = 0
+    foreign_fillers: int = 0
+    register_used: Literal["casual", "formal", "mixed"] | None = None
+    # Words the recogniser was unsure of: an impression of what to practise, not a score.
+    words_to_practise: list[str] = []
+    # Slang from another region the learner used ("güey" in Buenos Aires).
+    other_region_words: list[str] = []
 
 
 class NextDate(Model):
@@ -266,6 +295,36 @@ class NextDate(Model):
     label: str
     city: str
     headline: str
+
+
+class ProgressItem(Model):
+    """A phrasing missed on an earlier date and said right on this one, quoted."""
+
+    better: Line
+    quote: Line
+
+
+class CostLine(Model):
+    provider: str
+    model: str
+    calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    audio_seconds: float = 0.0
+    characters: int = 0
+    characters_cached: int = 0
+    usd: float | None = None
+
+
+class DateCost(Model):
+    """What one date cost to run, by provider. ``usd`` is None for a provider with no
+    configured price, and ``total_usd`` then covers only the priced lines."""
+
+    lines: list[CostLine]
+    total_usd: float | None
+    complete: bool
 
 
 class DateVerdict(Model):
@@ -288,6 +347,8 @@ class DateVerdict(Model):
     summary: Line
     chemistry_timeline: list[int]
     graded_by: Literal["model", "rules"]
+    progress: list[ProgressItem] = []
+    cost: DateCost | None = None
     # The shareable bits: one affectionate line about how it went (any quote in it is the
     # learner's own words, checked), what the verdict unlocks, and the share page.
     roast: str = ""
