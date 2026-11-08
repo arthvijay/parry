@@ -77,8 +77,11 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
    a lighting preset (post-processing, so the Gaussian splat changes too), plus ambient
    sound. The host greets you in the dialect when you walk up and leads you to the table.
 5. **The date.** Sit down (F) and the bell rings: 3:00 on the clock. The mic is open.
-   - **Chemistry** (0–100, from 50) moves after every line you say, judged off the
-     reply path, with the reason shown.
+   - **The live match bar** runs across the top of the screen: the clock, then
+     chemistry (0–100, from 50) on a GHOSTED / FRIENDZONED / MATCH track. The needle
+     moves after every line you say, judged off the reply path, with the reason shown,
+     a floating +/− delta, your best reading so far, and a banner when you cross into a
+     new zone.
    - **Milestones** tick only with your own words as evidence.
    - **Smiling** at a joke helps. **Looking away** for 4.5 s while the date talks gets
      called out in character.
@@ -90,11 +93,17 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
    - **T** opens the **translator**: what the date just said, in English, plus three
      replies. The date never knows. It's counted, gently, in the pacing grade.
    - **M** (authored dates) shows the menu with prices.
-6. **The verdict.** At the bell the date says goodbye in character. The receipt shows:
-   - **The stamp:** MATCH (65+), FRIENDZONED (45+) or GHOSTED.
-   - **Four graded pillars**, each with a verbatim quote.
-   - **The measured pacing.**
-   - **A text from the date**, with one correction drawn from what you said.
+6. **The verdict.** At the bell the date says goodbye in character, and the verdict
+   prints out of a little printer as a thermal-paper **Match-or-Ghost receipt**:
+   - **The header:** venue, dialect, the date and their personality.
+   - **Chemistry:** the final score, a dotted bar and the curve of the whole date.
+   - **Four graded pillars**, each with a verbatim quote; the pacing one carries the
+     measured latency, recogniser confidence, wingman and translator use.
+   - **Milestones met** and the **overall grade**.
+   - **The stamp** slams down across it: MATCH (65+), FRIENDZONED (45+) or GHOSTED,
+     in the dialect.
+   - **A text from the date** slides in on a phone, with one correction drawn from what
+     you said.
 
    **Tab** flips to the learning page. **L** opens *Your date, decoded* in the browser,
    with:
@@ -143,6 +152,7 @@ in [docs/speed-date.md](docs/speed-date.md).
 - `scenarios/speed_dating/presets/cafe_cancun_ar.json`: the authored demo date (people, venue, menu, milestones, closings, follow-ups).
 - `runs/`: what a date leaves behind (not committed): `dates/`, `chemistry/`, `transcripts/`, `audio/{run_id}/` (the learner's lines as WAV), `reports/`.
 - `My project/`: the Unity 6 (URP) client. Scenes: `Wish.unity` (matchmaker), `CancunCafe.unity` (primary venue), `SampleScene.unity` (fallback venue).
+- `demo-pitch/`: the animated HTML pitch deck (open `demo-pitch/index.html` in Chrome; see its README).
 - `tools/test_e2e_pipeline.py`: headless end-to-end check against a running server.
 - `tools/spz_to_collider.py`: builds a walkable collider `.glb` from a Gaussian splat.
 
@@ -158,7 +168,7 @@ in [docs/speed-date.md](docs/speed-date.md).
 | `Vision/PlayerAvatar.cs` | The learner's seated avatar for the cinematic view |
 | `Conversation/FullDuplexStreamClient.cs` | The `/v1/stream` socket, open mic, voice activity, barge-in, telemetry |
 | `Conversation/StreamingAudioPlayer.cs` | Ring-buffer playback of streamed voice; audio analysis for lip-sync |
-| `Conversation/ChemistryAndWingmanHUD.cs` | Timer, chemistry meter, milestones, subtitles, wingman card, type-to-talk, translator card (T), menu (M), sending the host with the order |
+| `Conversation/ChemistryAndWingmanHUD.cs` | The live match bar (clock, chemistry zones, needle, deltas, zone banners), milestones, subtitles, wingman card, type-to-talk, translator card (T), menu (M), sending the host with the order |
 | `Conversation/SpatialTelemetryBroadcaster.cs` | Eye contact, gaze target, look-away time, seat |
 | `Conversation/ScenarioClient.cs`, `CastClient.cs` | The date into the venue: milestones, lighting, cast; plays the demo date when Play is pressed straight in a venue |
 | `Npc/DateBodyLanguage.cs` | Lean, smile, frown, blinks from chemistry |
@@ -166,7 +176,7 @@ in [docs/speed-date.md](docs/speed-date.md).
 | `Npc/NpcLookAt.cs` | Eye contact, boredom glances, gaze reciprocity |
 | `Npc/NpcSchedule.cs` | Scripted NPC walks from `npcs_*.json` (the host's `bring_order`), with a `MoveFinished` event |
 | `Seating/DateCameraRig.cs` | V: first person ↔ cinematic two-shot |
-| `Quests/DateVerdictReceipt.cs` | The verdict card, the phone follow-up, the learning page (Tab) and the full report in the browser (L) |
+| `Quests/DateVerdictReceipt.cs` | The printed Match-or-Ghost receipt and its stamp, the phone follow-up, the learning page (Tab) and the full report in the browser (L) |
 | `Venue/VenueAmbience.cs` | Post-processing grade, lights and ambient loops per venue |
 | `Core/DateBootstrap.cs` | Adds the speed-date systems to any venue scene at load |
 

@@ -148,6 +148,55 @@ public static class GlassUI
         GUI.Label(r, text, style);
     }
 
+    // ---- receipt type: a monospaced face, like a thermal printer ------------------
+
+    static Font mono;
+    static readonly Dictionary<(int, FontStyle, TextAnchor, bool), GUIStyle> monoStyles = new();
+
+    public static Font Mono()
+    {
+        if (mono != null)
+            return mono;
+        var installed = new HashSet<string>(UnityEngine.Font.GetOSInstalledFontNames() ?? Array.Empty<string>(),
+                                            StringComparer.OrdinalIgnoreCase);
+        foreach (var name in new[] { "JetBrains Mono", "Menlo", "Consolas", "SF Mono", "DejaVu Sans Mono",
+                                     "Liberation Mono", "Noto Sans Mono", "Courier New" })
+            if (installed.Contains(name))
+            {
+                // Fallbacks keep accents, CJK and Devanagari readable on the receipt.
+                var f = UnityEngine.Font.CreateDynamicFontFromOSFont(
+                    new[] { name, "Noto Sans CJK SC", "Noto Sans Devanagari", "Microsoft YaHei",
+                            "Yu Gothic", "Hiragino Sans", "Nirmala UI", "Arial Unicode MS" }, 16);
+                if (f != null)
+                    return mono = f;
+            }
+        return mono = Font();
+    }
+
+    public static GUIStyle MonoStyle(int size, FontStyle weight = FontStyle.Normal,
+                                     TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
+    {
+        var key = (size, weight, anchor, wrap);
+        if (monoStyles.TryGetValue(key, out var style))
+            return style;
+        style = new GUIStyle(Style(size, weight, anchor, wrap)) { font = Mono() };
+        monoStyles[key] = style;
+        return style;
+    }
+
+    public static void MonoLabel(Rect r, string text, int size, Color color,
+                                 FontStyle weight = FontStyle.Normal,
+                                 TextAnchor anchor = TextAnchor.MiddleLeft, bool wrap = false)
+    {
+        var style = MonoStyle(size, weight, anchor, wrap);
+        foreach (var state in new[] { style.normal, style.hover, style.active, style.focused })
+            state.textColor = color;
+        GUI.Label(r, text, style);
+    }
+
+    public static float MonoHeight(string text, int size, float width, FontStyle weight = FontStyle.Normal)
+        => MonoStyle(size, weight, TextAnchor.UpperLeft, true).CalcHeight(new GUIContent(text), width);
+
     public static float TextHeight(string text, int size, float width, FontStyle weight = FontStyle.Normal)
         => Style(size, weight, TextAnchor.UpperLeft, true).CalcHeight(new GUIContent(text), width);
 
