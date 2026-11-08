@@ -801,7 +801,7 @@ body.edit .slot{cursor:copy}
      SLIDE 6: HOW A DATE WORKS
      ================================================================= -->
 <section class="slide s-flow" data-id="flow" data-title="How it works"
-  data-notes="Four stages. One: snap a selfie and you're a rigged 3D avatar in under five seconds; pick a dialect, a venue and your date's personality. Two: the clouds part, a host greets you in dialect and seats you. Three: the bell rings and the mic stays open for three minutes. Four: you pitch a second date and get your verdict receipt.">
+  data-notes="Four stages. One: snap a selfie and MediaPipe tints a rigged 3D avatar with your skin and hair; pick a dialect, a venue and your date's personality. Two: the clouds part, a host greets you in dialect and seats you. Three: the bell rings and the mic stays open for three minutes. Four: you pitch a second date and get your verdict receipt.">
   <p class="eyebrow a" style="--d:.1">How a date works</p>
   <h2 class="title sm a" style="--d:.2">From selfie to verdict in <em>four scenes.</em></h2>
   <div class="flow">
@@ -809,8 +809,8 @@ body.edit .slot{cursor:copy}
     <div class="stage-card a" style="--d:.5;--c:var(--ice)">
       <div class="node"><svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/><circle cx="12" cy="10.5" r="3"/><path d="M7.5 17c1-2 2.6-3 4.5-3s3.5 1 4.5 3"/></svg></div>
       <span class="k">STAGE 01</span><h3>Matchmaker studio</h3>
-      <p>Snap a selfie and become a rigged 3D avatar in under five seconds. Pick a dialect, a venue and your date’s archetype.</p>
-      <div class="tags"><span>52 ARKit blendshapes</span><span>Ready Player Me</span></div>
+      <p>Snap a selfie and a rigged 3D avatar takes on your skin and hair. Pick a dialect, a venue and your date’s archetype.</p>
+      <div class="tags"><span>52 ARKit blendshapes</span><span>MediaPipe + Rocketbox</span></div>
     </div>
     <div class="stage-card a" style="--d:1.1;--c:var(--hud)">
       <div class="node"><svg viewBox="0 0 24 24"><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M3 21h18"/><circle cx="14.5" cy="12" r="1"/></svg></div>
@@ -879,7 +879,7 @@ body.edit .slot{cursor:copy}
     </div>
     <div id="deltas"></div>
     <div class="stall" id="stall"><svg viewBox="0 0 160 160"><circle class="bg" cx="80" cy="80" r="70"/><circle class="fg" id="stallFg" cx="80" cy="80" r="70"/></svg><div class="txt"><div><b id="stallTxt">0.0s</b><span>SILENCE</span></div></div></div>
-    <div class="barge" id="barge">BARGE-IN · lip-sync cut in 84 ms</div>
+    <div class="barge" id="barge">BARGE-IN · voices cut at 120 ms</div>
     <div class="wing" id="wing">
       <h4><i></i>WINGMAN · EARPIECE</h4>
       <div class="opt" data-k="flirty"><b>FLIRTY</b><p>Ahora mismo, me dan ganas de fotografiarte a vos.</p><small>“Right now? I’m tempted to photograph you.”</small></div>
@@ -895,9 +895,9 @@ body.edit .slot{cursor:copy}
     <h2 class="title xs a" style="--d:.3">Every second <em>is scored.</em></h2>
     <div class="mechs">
       <div class="mech a" data-m="chem" style="--d:.45"><h3>Live chemistry <span>0–100%</span></h3><p>Callbacks, follow-up questions and local idioms push it up. Monologues and textbook stiffness drag it down.</p></div>
-      <div class="mech a" data-m="gaze" style="--d:.55"><h3>Eye contact &amp; smiles <span>250 ms</span></h3><p>Look away for 4.5 s while your date talks and they call you out. Your real smile mirrors onto your avatar.</p></div>
+      <div class="mech a" data-m="gaze" style="--d:.55"><h3>Eye contact &amp; smiles <span>250 ms</span></h3><p>Your webcam reads smiles, nods and where you look, calibrated to your face. Look away for 4.5 s while your date talks and they call you out.</p></div>
       <div class="mech a" data-m="wing" style="--d:.65"><h3>Digital wingman <span>4.0 s stall</span></h3><p>Freeze and an earpiece whispers three replies (flirty, curious or playful) with English glosses.</p></div>
-      <div class="mech a" data-m="barge" style="--d:.75"><h3>Barge-in <span>&lt;100 ms</span></h3><p>Interrupt like a human. Lip-sync stops instantly and the AI drops the rest of its sentence.</p></div>
+      <div class="mech a" data-m="barge" style="--d:.75"><h3>Barge-in <span>120 ms</span></h3><p>Interrupt like a human. Lip-sync stops instantly and the AI drops the rest of its sentence.</p></div>
     </div>
     <button class="replay a" style="--d:.9" id="replay" type="button">↻ Replay the date (R)</button>
   </div>
@@ -949,19 +949,19 @@ body.edit .slot{cursor:copy}
      SLIDE 9: ARCHITECTURE
      ================================================================= -->
 <section class="slide s-stack" data-id="stack" data-title="Under the hood"
-  data-notes="Under the hood: Unity 6 renders Gaussian-splat venues at 60 FPS and runs voice activity detection and face tracking locally. One WebSocket carries mic audio and gaze telemetry up, and voice, chemistry and wingman events down. The FastAPI orchestrator fans out to Deepgram for speech-to-text, Gemini Flash for dialogue, Fish Audio for voice, and Claude for personas and grading. Our target is under 400 milliseconds to first audio.">
+  data-notes="Under the hood: Unity 6 renders Gaussian-splat venues and catches barge-in locally. One WebSocket carries mic audio, webcam frames and gaze telemetry up, and voice, chemistry, face signals and wingman hints down. The FastAPI orchestrator fans out to NVIDIA Nemotron for streaming speech-to-text, Gemini Flash for the date's replies, ElevenLabs for the voice, and Claude for personas, live chemistry and grading. MediaPipe reads your face locally: smiles, nods, puzzled looks and where you're looking. Every provider has an offline fallback, so the whole date runs with zero keys. Our target is under 400 milliseconds to first audio.">
   <div class="stack-head">
     <div><p class="eyebrow a" style="--d:.1">Under the hood</p><h2 class="title sm a" style="--d:.2">Engineered for <em style="white-space:nowrap">sub-400 ms</em> banter.</h2></div>
-    <p class="lede a" style="--d:.35">Heavy AI inference runs on low-latency cloud APIs. Unity handles splat rendering, webcam blendshapes and spatial audio locally.</p>
+    <p class="lede a" style="--d:.35">Speech, dialogue and voice stream through cloud APIs. MediaPipe reads your face locally, and Unity renders the splat venues and catches barge-in.</p>
   </div>
   <svg class="arch-svg a fade" style="--d:.6" viewBox="0 0 1920 1080" aria-hidden="true">
     <path class="flow-up" id="pUp" d="M560 480 L790 480"/>
     <path class="flow-down" id="pDown" d="M790 650 L560 650"/>
     <path class="wire" d="M560 480 L790 480M560 650 L790 650"/>
     <text x="675" y="440" text-anchor="middle">16 kHz mic PCM</text>
-    <text x="675" y="462" text-anchor="middle">+ 250 ms telemetry →</text>
+    <text x="675" y="462" text-anchor="middle">+ webcam · gaze →</text>
     <text x="675" y="684" text-anchor="middle">← 24 kHz voice</text>
-    <text x="675" y="706" text-anchor="middle">chemistry · hints</text>
+    <text x="675" y="706" text-anchor="middle">chemistry · face signals</text>
     <path class="wire-anim" id="s1" d="M1190 570 C1300 570 1300 346 1404 346"/>
     <path class="wire-anim" id="s2" d="M1190 570 C1300 570 1300 458 1404 458"/>
     <path class="wire-anim" id="s3" d="M1190 570 C1300 570 1300 570 1404 570"/>
@@ -976,34 +976,35 @@ body.edit .slot{cursor:copy}
     <circle r="5" class="pk-c"><animateMotion dur="1.8s" begin="1.2s" repeatCount="indefinite"><mpath href="#s5"/></animateMotion></circle>
   </svg>
   <div class="box client a left" style="--d:.4">
-    <h3>Unity 6 client</h3><div class="sub2">URP · 60 FPS · local</div>
+    <h3>Unity 6 client</h3><div class="sub2">URP · Gaussian splatting · local</div>
     <ul>
       <li>Gaussian-splat venues<small>.spz + walkable .glb colliders</small></li>
-      <li>Selfie-to-avatar<small>Ready Player Me + MediaPipe Face Mesh</small></li>
-      <li>Silero VAD barge-in<small>flush + lip-sync stop &lt;100 ms</small></li>
+      <li>Selfie-tinted avatars<small>Rocketbox bodies mirroring 52 live blendshapes</small></li>
+      <li>Energy-VAD barge-in<small>flushes every voice after 120 ms of speech</small></li>
       <li>Streaming audio player<small>thread-safe circular ring buffer</small></li>
     </ul>
   </div>
   <div class="box orch a" style="--d:.55">
-    <h3>Orchestrator</h3><div class="sub2">Python 3.12 · FastAPI · uv</div>
+    <h3>Orchestrator</h3><div class="sub2">Python 3.13 · FastAPI · uv</div>
     <ul>
       <li>POST /v1/matchmaker/generate</li>
       <li class="ws">WS /v1/stream</li>
       <li>POST /v1/grade</li>
-      <li>chemistry_director.py<small>emits chemistry_update + wingman_hint</small></li>
+      <li>chemistry_director.py<small>chemistry_update + wingman_hint</small></li>
+      <li>face_tracker + nonverbal.py<small>MediaPipe → smiles, nods, gaze</small></li>
     </ul>
   </div>
-  <div class="svc a right" style="top:300px;--d:.7"><b>Deepgram Nova-2 Live</b><span>Streaming STT · 150–200 ms</span></div>
-  <div class="svc a right" style="top:412px;--d:.8"><b>Gemini 2.5 Flash</b><span>Real-time dialogue brain</span></div>
-  <div class="svc a right" style="top:524px;--d:.9"><b>Fish Audio</b><span>Expressive 24 kHz accented TTS</span></div>
-  <div class="svc a right" style="top:636px;--d:1"><b>Claude</b><span>Persona synthesis + grading</span></div>
-  <div class="svc a right" style="top:748px;--d:1.1"><b>FLUX.1 on Fal</b><span>Portraits + venue cards</span></div>
+  <div class="svc a right" style="top:300px;--d:.7"><b>NVIDIA Nemotron ASR</b><span>Streaming STT over Riva gRPC</span></div>
+  <div class="svc a right" style="top:412px;--d:.8"><b>Gemini 3.8 Flash</b><span>Live dialogue brain · Claude fallback</span></div>
+  <div class="svc a right" style="top:524px;--d:.9"><b>ElevenLabs Flash v2.5</b><span>Streaming TTS · 24 kHz dialect voices</span></div>
+  <div class="svc a right" style="top:636px;--d:1"><b>Claude Sonnet 5.5</b><span>Personas · live chemistry · grading</span></div>
+  <div class="svc a right" style="top:748px;--d:1.1"><b>MediaPipe Face Landmarker</b><span>Blendshapes + head pose · runs locally</span></div>
   <div class="metrics">
-    <div class="metric a" style="--d:1.3"><b>&lt;400 ms</b><span>time to first audio</span></div>
-    <div class="metric a" style="--d:1.4"><b>&lt;100 ms</b><span>barge-in cutoff</span></div>
+    <div class="metric a" style="--d:1.3"><b>&lt;400 ms</b><span>first-audio target</span></div>
+    <div class="metric a" style="--d:1.4"><b>120 ms</b><span>barge-in trigger</span></div>
     <div class="metric a" style="--d:1.5"><b>250 ms</b><span>gaze telemetry</span></div>
-    <div class="metric a" style="--d:1.6"><b>&lt;5 s</b><span>selfie → 3D avatar</span></div>
-    <div class="metric a" style="--d:1.7"><b>60 FPS</b><span>splat rendering</span></div>
+    <div class="metric a" style="--d:1.6"><b>8 fps</b><span>face analysis</span></div>
+    <div class="metric a" style="--d:1.7"><b>0 keys</b><span>to run fully offline</span></div>
   </div>
 </section>
 

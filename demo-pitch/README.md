@@ -47,7 +47,7 @@ Save files with these exact names, or drag them onto the slot while in media mod
 - **cancun.jpg**: "Photoreal 3D game render, seaside café in Cancún at dusk, turquoise sea, palm silhouettes, wooden two-top table with two coffees, warm lanterns, cinematic, portrait 4:5, no people, no text."
 - **tokyo.jpg**: "Photoreal 3D game render, cozy lantern-lit izakaya in Tokyo at night, red paper lanterns, wooden counter, steam and soft bokeh, cinematic, portrait 4:5, no people, no readable text."
 - **mumbai.jpg**: "Photoreal 3D game render, upscale rooftop lounge in Mumbai at night, teal and gold Indo-Art Deco arches, warm pendant lights, two-person table, city lights behind, cinematic, portrait 4:5, no people, no text."
-- **date-scene.jpg**: "Over-the-shoulder view across a candlelit two-person table on a Buenos Aires rooftop at night, a stylized 3D avatar of a smiling woman in date-night clothes sitting opposite, Ready Player Me style, warm bokeh, cinematic, landscape 4:3, leave the lower third darker for subtitles, no text."
+- **date-scene.jpg**: "Over-the-shoulder view across a candlelit two-person table on a Buenos Aires rooftop at night, a stylized 3D game avatar of a smiling woman in date-night clothes sitting opposite, warm bokeh, cinematic, landscape 4:3, leave the lower third darker for subtitles, no text."
 
 ## Edit the team slide
 
