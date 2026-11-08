@@ -949,10 +949,10 @@ body.edit .slot{cursor:copy}
      SLIDE 9: ARCHITECTURE
      ================================================================= -->
 <section class="slide s-stack" data-id="stack" data-title="Under the hood"
-  data-notes="Under the hood: Unity 6 renders Gaussian-splat venues and catches barge-in locally. One WebSocket carries mic audio, webcam frames and gaze telemetry up, and voice, chemistry, face signals and wingman hints down. The FastAPI orchestrator fans out to NVIDIA Nemotron for streaming speech-to-text, Gemini Flash for the date's replies, ElevenLabs for the voice, and Claude for personas, live chemistry and grading. MediaPipe reads your face locally: smiles, nods, puzzled looks and where you're looking. Every provider has an offline fallback, so the whole date runs with zero keys. Our target is under 400 milliseconds to first audio.">
+  data-notes="Under the hood: Unity 6 renders Gaussian-splat venues and catches barge-in locally. One WebSocket carries mic audio, webcam frames and gaze telemetry up, and voice, chemistry, face signals and wingman hints down. The FastAPI orchestrator fans out to NVIDIA Nemotron for streaming speech-to-text, Claude for the date's live replies, personas, chemistry and grading, ElevenLabs for the voice, and Gemini Flash to coach your recorded voice in the report. MediaPipe reads your face locally: smiles, nods, puzzled looks and where you're looking. Every provider has an offline fallback, so the whole date runs with zero keys. Our target is under 400 milliseconds to first audio.">
   <div class="stack-head">
     <div><p class="eyebrow a" style="--d:.1">Under the hood</p><h2 class="title sm a" style="--d:.2">Engineered for <em style="white-space:nowrap">sub-400 ms</em> banter.</h2></div>
-    <p class="lede a" style="--d:.35">Speech, dialogue and voice stream through cloud APIs. MediaPipe reads your face locally, and Unity renders the splat venues and catches barge-in.</p>
+    <p class="lede a" style="--d:.35">Speech, Claude's replies and voice stream through cloud APIs. MediaPipe reads your face locally, and Unity renders the splat venues and catches barge-in.</p>
   </div>
   <svg class="arch-svg a fade" style="--d:.6" viewBox="0 0 1920 1080" aria-hidden="true">
     <path class="flow-up" id="pUp" d="M560 480 L790 480"/>
@@ -995,9 +995,9 @@ body.edit .slot{cursor:copy}
     </ul>
   </div>
   <div class="svc a right" style="top:300px;--d:.7"><b>NVIDIA Nemotron ASR</b><span>Streaming STT over Riva gRPC</span></div>
-  <div class="svc a right" style="top:412px;--d:.8"><b>Gemini 3.8 Flash</b><span>Live dialogue brain · Claude fallback</span></div>
+  <div class="svc a right" style="top:412px;--d:.8"><b>Claude Sonnet 5.5</b><span>The date's brain · personas · grading</span></div>
   <div class="svc a right" style="top:524px;--d:.9"><b>ElevenLabs Flash v2.5</b><span>Streaming TTS · 24 kHz dialect voices</span></div>
-  <div class="svc a right" style="top:636px;--d:1"><b>Claude Sonnet 5.5</b><span>Personas · live chemistry · grading</span></div>
+  <div class="svc a right" style="top:636px;--d:1"><b>Gemini 3.8 Flash</b><span>Coaches your recorded voice</span></div>
   <div class="svc a right" style="top:748px;--d:1.1"><b>MediaPipe Face Landmarker</b><span>Blendshapes + head pose · runs locally</span></div>
   <div class="metrics">
     <div class="metric a" style="--d:1.3"><b>&lt;400 ms</b><span>first-audio target</span></div>
