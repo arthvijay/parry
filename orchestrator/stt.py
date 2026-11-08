@@ -69,8 +69,25 @@ class SpeechRecognizer:
         return None
 
 
+# Spanish opening marks the model sometimes puts after the first word ("Qué¿ quieres").
+MISPLACED_OPENER = re.compile(r"(\w+)([¿¡])\s*")
+
+
+SPACE_BEFORE_MARK = re.compile(r"\s+([,.;:!?…])")
+
+
 def clean(text: str) -> str:
-    return LANG_TAG.sub(" ", text or "").strip()
+    text = LANG_TAG.sub(" ", text or "").strip()
+    text = MISPLACED_OPENER.sub(lambda m: f"{m.group(2)}{m.group(1)} ", text).strip()
+    return SPACE_BEFORE_MARK.sub(r"\1", text)
+
+
+def function_for(p: config.Providers, language: str) -> str:
+    """English locales use the Nemotron function; every other language the hosted
+    multilingual one (when there is one), since hosted Nemotron is English only."""
+    if language.lower().startswith("en") or not p.asr_multilingual_function_id:
+        return p.asr_function_id
+    return p.asr_multilingual_function_id
 
 
 class NemotronRecognizer(SpeechRecognizer):
@@ -100,8 +117,9 @@ class NemotronRecognizer(SpeechRecognizer):
     def _connect(self):
         import riva.client
         metadata = []
-        if self.providers.asr_function_id:
-            metadata.append(["function-id", self.providers.asr_function_id])
+        function_id = function_for(self.providers, self.language)
+        if function_id:
+            metadata.append(["function-id", function_id])
         if self.providers.nvidia_key:
             metadata.append(["authorization", f"Bearer {self.providers.nvidia_key}"])
         auth = riva.client.Auth(uri=self.providers.asr_server, use_ssl=self.providers.asr_ssl,
@@ -166,7 +184,12 @@ class NemotronRecognizer(SpeechRecognizer):
             except Exception as error:  # noqa: BLE001
                 if self.closed.is_set():
                     return
-                log.warning("Nemotron ASR stream ended: %s", type(error).__name__)
+                # gRPC errors carry a status code and the server's reason; no credentials.
+                code = getattr(error, "code", None)
+                details = getattr(error, "details", None)
+                log.warning("Nemotron ASR stream ended: %s %s",
+                            code() if callable(code) else type(error).__name__,
+                            (details() if callable(details) else "") or "")
             # A stream that lived a while just hit a server limit; one that died at once
             # counts towards giving up.
             restarts = 0 if time.monotonic() - started > 30 else restarts + 1

@@ -189,12 +189,15 @@ async def live_date(url: str, date: dict, wingman_wait: float) -> str | None:
                                           "look_away_duration_sec": 0.0, "player_smiling": False,
                                           "distance_m": 1.15, "is_seated": True}))
             await asyncio.sleep(0.02)
-        await ws.send(b"\x00\x00" * 16000)
+        # An open mic keeps sending (silence), which is what lets the recogniser close the line.
+        for _ in range(150):
+            await ws.send(b"\x00\x00" * 320)
+            await asyncio.sleep(0.02)
         silence_from = time.monotonic()
         heard = await wait("user_speech", mark, 5)
         check(heard is not None, "microphone speech detected", "voice activity from streamed audio")
         if ready["providers"]["stt"] == "nemotron":
-            await asyncio.sleep(3)
+            await asyncio.sleep(1)
             user = [m for t, m in seen.get("transcript", []) if t >= mark and m["speaker"] == "user"
                     and m["is_final"]]
             check(bool(user), "nemotron transcribed the microphone",
@@ -213,6 +216,12 @@ async def live_date(url: str, date: dict, wingman_wait: float) -> str | None:
         answer = ANSWERS.get(date["dialect"]) or (hint["options"][1]["target"] if hint else "Hola")
         await ws.send(json.dumps({"type": "user_text", "text": answer}))
         start = await wait("audio_start", mark, 30)
+        # Barge in while that reply is still playing (it may be over by the time the
+        # chemistry judgement lands).
+        barge_mark = time.monotonic()
+        await asyncio.sleep(0.8)
+        await ws.send(json.dumps({"type": "barge_in", "timestamp_ms": 1}))
+        cleared = await wait("clear_audio", barge_mark, 5)
         update = await wait("chemistry_update", mark, 20)
         if start:
             first_audio.append(start.get("first_audio_ms") or 0)
@@ -245,9 +254,6 @@ async def live_date(url: str, date: dict, wingman_wait: float) -> str | None:
             check(card is not None and len(card.get("suggestions", [])) >= 1, "translator card",
                   (card.get("meaning_en") or "")[:70] if card else "no card")
 
-        mark = time.monotonic()
-        await ws.send(json.dumps({"type": "barge_in", "timestamp_ms": 1}))
-        cleared = await wait("clear_audio", mark, 5)
         check(cleared is not None, "barge-in clears the date's audio")
 
         mark = time.monotonic()

@@ -391,6 +391,10 @@ def models() -> Models:
 # deployment, or NEMOTRON_ASR_SERVER at a self-hosted NIM ("type=multi", port 50051).
 NEMOTRON_HOSTED_SERVER = "grpc.nvcf.nvidia.com:443"
 NEMOTRON_HOSTED_FUNCTION = "bb0837de-8c7b-481f-9ec8-ef5663e9c1fa"
+# NVIDIA's multilingual Nemotron has no hosted endpoint (self-hosted NIM only, which needs
+# an NVIDIA GPU). Its hosted multilingual sibling on the same platform, key and protocol is
+# Parakeet 1.1B RNNT Multilingual; non-English dates use it unless told otherwise.
+NVIDIA_MULTILINGUAL_FUNCTION = "71203149-d3b7-4460-8231-1be2543a1fca"
 
 
 @dataclass(frozen=True)
@@ -400,6 +404,7 @@ class Providers:
     asr_function_id: str
     asr_ssl: bool
     asr_language: str | None   # overrides every dialect's locale when set
+    asr_multilingual_function_id: str
     elevenlabs_key: str | None
     elevenlabs_model: str
 
@@ -414,6 +419,8 @@ def providers() -> Providers:
             NEMOTRON_HOSTED_FUNCTION if server == NEMOTRON_HOSTED_SERVER else ""),
         asr_ssl=(env("NEMOTRON_ASR_SSL") or ("1" if server.endswith(":443") else "0")) != "0",
         asr_language=env("NEMOTRON_ASR_LANGUAGE") or None,
+        asr_multilingual_function_id=env("NVIDIA_ASR_MULTILINGUAL_FUNCTION_ID") or (
+            NVIDIA_MULTILINGUAL_FUNCTION if server == NEMOTRON_HOSTED_SERVER else ""),
         elevenlabs_key=env("ELEVENLABS_API_KEY") or None,
         # Flash v2.5: ElevenLabs' lowest-latency multilingual model, and it streams over
         # the text-to-speech WebSocket.

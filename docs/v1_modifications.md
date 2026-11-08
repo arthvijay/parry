@@ -291,7 +291,7 @@ the speed date itself; the contract is in [api.md](api.md#speed-date) and the re
 
 | Job | Was | Now | Why it matters |
 | --- | --- | --- | --- |
-| Hearing the learner | Deepgram live (`nova-3`, `nova-2` for Mandarin), `DEEPGRAM_API_KEY` | NVIDIA Nemotron ASR Streaming over Riva gRPC (`nvidia-riva-client`), `NVIDIA_API_KEY`, `NEMOTRON_ASR_*` | Riva gives words, not speech onsets, so a local voice detector now marks speech start and end. The hosted default function is English; Spanish needs a multilingual function id or a self-hosted NIM. `Dialect.stt_language` / `stt_model` became `asr_language` |
+| Hearing the learner | Deepgram live (`nova-3`, `nova-2` for Mandarin), `DEEPGRAM_API_KEY` | NVIDIA Nemotron ASR Streaming over Riva gRPC (`nvidia-riva-client`), `NVIDIA_API_KEY`, `NEMOTRON_ASR_*` | Riva gives words, not speech onsets, so a local voice detector now marks speech start and end. Hosted Nemotron is English only, so non-English dates use NVIDIA's hosted Parakeet 1.1B RNNT Multilingual by default (`NVIDIA_ASR_MULTILINGUAL_FUNCTION_ID` overrides; a self-hosted multilingual Nemotron NIM also works). `Dialect.stt_language` / `stt_model` became `asr_language` |
 | The date's voice | Fish Audio (`s2.1-pro`, msgpack socket), `FISH_AUDIO_API_KEY`, `FISH_VOICE_*` | ElevenLabs Flash v2.5 over the `stream-input` WebSocket, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_<DIALECT>_<GENDER>` | `VoiceConfig` is now `{provider: elevenlabs\|sample, voice_id, stability, similarity_boost, speaking_rate 0.7–1.2}`; archetypes carry `voice_stability` instead of `voice_temperature`. Without a voice set, a premade multilingual voice speaks. `ormsgpack` is no longer a dependency |
 
 `/health` and `session_ready` now report `stt: nemotron` and `tts: elevenlabs`.
@@ -328,11 +328,17 @@ the speed date itself; the contract is in [api.md](api.md#speed-date) and the re
   saved under `VERDICT_DIR`; `share_card.py` serves the 9:16 card
   (`/v1/date/receipt/{run_id}.svg`) and the share page (`/v1/date/share/{run_id}`).
   Unity: S shares, N opens the matchmaker on the unlocked dialect.
+- **Webcam.** `VisionFeed` tries colour cameras before infrared (face-login) ones, moves
+  on if one won't start, and frees the device properly; the camera survives scene loads.
+- **Editor helpers.** `Editor/OpenDemoScene.cs` opens the matchmaker scene on an empty
+  editor; `Editor/EditorRemote.cs` lets a script drive the editor for headless testing.
+  The client's `MenuItem` became `CafeMenuItem`, so it no longer clashes with Unity's
+  `[MenuItem]` in editor scripts.
 - **Recognition timing.** The start of an utterance now survives the voice detector's
   "speech ended" arriving before the final words, so measured latency and clip cuts are
   right.
 
-**Tests.** 211 (`uv run pytest`), with the Nemotron path tested against a local Riva gRPC
+**Tests.** 212 (`uv run pytest`), with the Nemotron path tested against a local Riva gRPC
 server and ElevenLabs against a local WebSocket server. `tools/test_e2e_pipeline.py` now
 plays the demo date: it orders, waits for the host to serve, asks the translator, then
 checks the verdict (with its roast, unlock and shareable card) and the report.

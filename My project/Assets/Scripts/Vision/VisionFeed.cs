@@ -101,15 +101,30 @@ public class VisionFeed : MonoBehaviour
         alive = false;
         try { cts?.Cancel(); } catch (ObjectDisposedException) { }
         try { socket?.Abort(); } catch (Exception) { }
-        if (Camera != null)
-            Camera.Stop();
+        ReleaseCamera();
         if (frameRT != null)
             frameRT.Release();
     }
 
     // ---- camera -----------------------------------------------------------------
 
-    public void StartCamera() => StartCoroutine(OpenCamera());
+    /// <summary>Opens the webcam unless it is already open (it survives scene loads).</summary>
+    public void StartCamera()
+    {
+        if (Camera != null && Camera.isPlaying)
+            return;
+        StartCoroutine(OpenCamera());
+    }
+
+    /// <summary>Stops and frees the camera, so the device is not held by a lost texture.</summary>
+    void ReleaseCamera()
+    {
+        if (Camera == null)
+            return;
+        Camera.Stop();
+        Destroy(Camera);
+        Camera = null;
+    }
 
     bool opening;
 
@@ -118,6 +133,7 @@ public class VisionFeed : MonoBehaviour
         if (Running || opening)
             yield break;
         opening = true;
+        ReleaseCamera();
         if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
             yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
         var devices = WebCamTexture.devices;
@@ -127,19 +143,36 @@ public class VisionFeed : MonoBehaviour
             opening = false;
             yield break;
         }
-        string device = devices[0].name;
-        foreach (var d in devices)
-            if (d.isFrontFacing)
-                device = d.name;
-        Camera = new WebCamTexture(device, requestWidth, requestHeight, requestFps);
-        Camera.Play();
-        float giveUp = Time.unscaledTime + 5f;
-        while (Camera.width <= 16 && Time.unscaledTime < giveUp)
-            yield return null;
+        // Laptops often list an infrared (face-login) camera too; try colour cameras first,
+        // and move on to the next one if a camera will not start.
+        var order = new List<WebCamDevice>(devices);
+        order.Sort((a, b) => Rank(a).CompareTo(Rank(b)));
+        string device = order[0].name;
+        foreach (var candidate in order)
+        {
+            device = candidate.name;
+            Camera = new WebCamTexture(device, requestWidth, requestHeight, requestFps);
+            Camera.Play();
+            float giveUp = Time.unscaledTime + 5f;
+            while (Camera.width <= 16 && Time.unscaledTime < giveUp)
+                yield return null;
+            if (Running)
+                break;
+            ReleaseCamera();
+            Debug.LogWarning($"VisionFeed: webcam '{device}' did not start; trying the next one");
+        }
         Error = Running ? "" : "Webcam did not start (is another app using it?)";
         if (Running)
             Debug.Log($"VisionFeed: webcam '{device}' {Camera.width}×{Camera.height}");
         opening = false;
+    }
+
+    static int Rank(WebCamDevice d)
+    {
+        string n = d.name.ToLowerInvariant();
+        bool infrared = n.Contains("infrared") || n.Contains(" ir ") || n.EndsWith(" ir")
+                        || n.EndsWith("integrated i") || n.Contains(": integrated i ");
+        return (infrared ? 2 : 0) + (d.isFrontFacing ? 0 : 1);
     }
 
     /// <summary>A JPEG of the current frame at full camera resolution, for the selfie.</summary>

@@ -33,3 +33,6 @@ CLAUDE.md
 *.so
 */My project_BurstDebugInformation_DoNotShip
 
+
+# Unity editor crash dumps
+mono_crash.*

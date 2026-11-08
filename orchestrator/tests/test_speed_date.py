@@ -756,6 +756,17 @@ def test_pronunciation_impressions_only_name_words_that_were_said(tmp_path, monk
     assert notes[0].problem_words == ["cortado"] and "Tap the r" in notes[0].impression
 
 
+def test_spanish_goes_to_the_hosted_multilingual_asr(monkeypatch):
+    from orchestrator.stt import clean, function_for
+    p = config.providers()
+    assert function_for(p, "es-US") == config.NVIDIA_MULTILINGUAL_FUNCTION
+    assert function_for(p, "en-US") == config.NEMOTRON_HOSTED_FUNCTION
+    monkeypatch.setenv("NVIDIA_ASR_MULTILINGUAL_FUNCTION_ID", "custom")
+    assert function_for(config.providers(), "ja-JP") == "custom"
+    assert clean("Qué¿ quieres tomar? <es-US>") == "¿Qué quieres tomar?"
+    assert clean("Hola , buenas tardes .") == "Hola, buenas tardes."
+
+
 # --------------------------------------------------------------------------- the shareable receipt
 
 def test_a_roast_that_misquotes_the_learner_is_dropped():

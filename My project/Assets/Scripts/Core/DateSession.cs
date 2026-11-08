@@ -152,12 +152,12 @@ public class DateScenario
     public string generated_by;
     // Authored dates (presets) carry their café.
     public string preset_id;
-    public MenuItem[] menu = Array.Empty<MenuItem>();
+    public CafeMenuItem[] menu = Array.Empty<CafeMenuItem>();
     public string currency;
 }
 
 [Serializable]
-public class MenuItem
+public class CafeMenuItem
 {
     public string id;
     public string name;

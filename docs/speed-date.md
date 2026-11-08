@@ -10,6 +10,10 @@ From the learner's last word to the date's first sound:
    with its own endpointing; a local voice detector marks speech start and end at once,
    because Riva reports words, not the moment speech starts. Each dialect asks for its
    own locale (`asr_language` in `config.py`); `NEMOTRON_ASR_LANGUAGE` forces one.
+   Hosted Nemotron is English only, so non-English locales are sent to NVIDIA's hosted
+   multilingual model (Parakeet 1.1B RNNT Multilingual) on the same key and protocol
+   (`stt.function_for`). Its output is tidied: the language tag is dropped, a Spanish
+   ¿/¡ placed after the first word is moved back, and spaces before punctuation go.
 2. **First token.** Gemini Flash with thinking at `MINIMAL`. The persona prompt is
    identical across turns, so it stays warm.
 3. **First sentence.** The token stream is cut at the first sentence or, if the opening

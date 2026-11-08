@@ -35,7 +35,7 @@ Every key is optional. Without one, that part falls back, so the whole flow runs
 | Translator card (T), *Your date, decoded* | Claude | same | wingman lines; a plainer report from the dialect's authored lines |
 | Pronunciation notes in the report | Gemini, listening to the learner's clips | same as the date's replies | left out |
 | The date's live replies | Gemini `gemini-3.8-flash` | `GEMINI_API_KEY` or Vertex (`GOOGLE_CLOUD_PROJECT`) | Claude, then a scripted date |
-| Hearing the learner | NVIDIA Nemotron ASR Streaming over Riva gRPC (locale per dialect: `es-US` for Mexican and Argentine Spanish, `es-ES`, `fr-FR`, `ja-JP`, `hi-IN`, auto for Mandarin) | `NVIDIA_API_KEY`; the default hosted function is English, so for Spanish set `NEMOTRON_ASR_FUNCTION_ID` to a multilingual deployment or `NEMOTRON_ASR_SERVER` to a self-hosted NIM | voice detection only; type with Enter |
+| Hearing the learner | NVIDIA Nemotron ASR Streaming over Riva gRPC (locale per dialect: `es-US` for Mexican and Argentine Spanish, `es-ES`, `fr-FR`, `ja-JP`, `hi-IN`, auto for Mandarin) | `NVIDIA_API_KEY`. Hosted Nemotron is English only, so other languages go to NVIDIA's hosted multilingual model (Parakeet 1.1B RNNT Multilingual) on the same key; override with `NVIDIA_ASR_MULTILINGUAL_FUNCTION_ID`, or point `NEMOTRON_ASR_SERVER` at a self-hosted multilingual Nemotron NIM | voice detection only; type with Enter |
 | The date's voice | ElevenLabs streaming TTS (`eleven_flash_v2_5`) | `ELEVENLABS_API_KEY` | a bundled sample voice |
 | Face, smiles, nods, head pose | MediaPipe Face Landmarker (local) | none (`uv sync --group face`) | no face; the date carries on |
 
@@ -190,11 +190,13 @@ in [docs/speed-date.md](docs/speed-date.md).
 | `Quests/DateVerdictReceipt.cs` | The printed Match-or-Ghost receipt (roast, unlock, stamp), share (S), the phone follow-up, the learning page (Tab) and the full report in the browser (L) |
 | `Venue/VenueAmbience.cs` | Post-processing grade, lights and ambient loops per venue |
 | `Core/DateBootstrap.cs` | Adds the speed-date systems to any venue scene at load |
+| `Editor/OpenDemoScene.cs` | Opens `Wish.unity` when the editor starts on an empty scene |
+| `Editor/EditorRemote.cs` | Dev aid: drive the editor from a script through `Temp/remote_cmd.txt` (play, stop, open, shot, call, key) |
 
 ## Tests
 
 ```sh
-uv run pytest                                  # 211 tests, no network (2 need the face group)
+uv run pytest                                  # 212 tests, no network (2 need the face group)
 uvx ruff check orchestrator tools eval
 uv run python tools/test_e2e_pipeline.py --offline   # starts a server, plays the demo date: order, translator, verdict, report
 uv run python tools/test_e2e_pipeline.py             # same, with your keys
