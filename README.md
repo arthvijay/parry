@@ -393,6 +393,11 @@ matchmaker. You'll get your last demo date, or the Argentine preset at B1.
 ./play server       # only the orchestrator; ./play stop stops one started in the background
 ```
 
+**One command.** `./date` starts the server and opens the game fullscreen (it is
+`./play --fullscreen`). To type just `date` from any folder, add an alias to `~/.bashrc`:
+`alias date='/path/to/repo/date'`. Aliases apply only in interactive shells, so scripts
+still get the system `date`; type `command date` when you want the time.
+
 `./play build` refuses while the project is open in the editor (Unity locks it); use
 **Build ▸ Linux App** there instead, which writes the same app. Logs go to
 `runs/server.log`, `runs/game.log` and `runs/build.log`.

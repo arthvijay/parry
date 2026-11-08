@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# One command for a whole session: starts the backend, then opens the game fullscreen.
+# Quitting the game (Esc ▸ Quit) stops the backend again.
+#
+#   ./date            from the repo root
+#   date              anywhere, once the shell alias is set up (see README: "One command")
+#
+# It is ./play --fullscreen; any extra arguments are passed through.
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+exec "$ROOT/play" --fullscreen "$@"
