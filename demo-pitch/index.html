@@ -810,7 +810,7 @@ body.edit .slot{cursor:copy}
       <div class="node"><svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/><circle cx="12" cy="10.5" r="3"/><path d="M7.5 17c1-2 2.6-3 4.5-3s3.5 1 4.5 3"/></svg></div>
       <span class="k">STAGE 01</span><h3>Matchmaker studio</h3>
       <p>Snap a selfie and become a rigged 3D avatar in under five seconds. Pick a dialect, a venue and your date’s archetype.</p>
-      <div class="tags"><span>52 ARKit blendshapes</span><span>Ready Player Me</span></div>
+      <div class="tags"><span>MediaPipe Face Landmarker</span><span>52 ARKit blendshapes</span></div>
     </div>
     <div class="stage-card a" style="--d:1.1;--c:var(--hud)">
       <div class="node"><svg viewBox="0 0 24 24"><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M3 21h18"/><circle cx="14.5" cy="12" r="1"/></svg></div>
@@ -895,7 +895,7 @@ body.edit .slot{cursor:copy}
     <h2 class="title xs a" style="--d:.3">Every second <em>is scored.</em></h2>
     <div class="mechs">
       <div class="mech a" data-m="chem" style="--d:.45"><h3>Live chemistry <span>0–100%</span></h3><p>Callbacks, follow-up questions and local idioms push it up. Monologues and textbook stiffness drag it down.</p></div>
-      <div class="mech a" data-m="gaze" style="--d:.55"><h3>Eye contact &amp; smiles <span>250 ms</span></h3><p>Look away for 4.5 s while your date talks and they call you out. Your real smile mirrors onto your avatar.</p></div>
+      <div class="mech a" data-m="gaze" style="--d:.55"><h3>Eye contact &amp; smiles <span>250 ms</span></h3><p>Look away for 4.5 s while your date talks and they call you out. Your webcam catches a turned head or a phone in your lap. Your real smile mirrors onto your avatar.</p></div>
       <div class="mech a" data-m="wing" style="--d:.65"><h3>Digital wingman <span>4.0 s stall</span></h3><p>Freeze and an earpiece whispers three replies (flirty, curious or playful) with English glosses.</p></div>
       <div class="mech a" data-m="barge" style="--d:.75"><h3>Barge-in <span>&lt;100 ms</span></h3><p>Interrupt like a human. Lip-sync stops instantly and the AI drops the rest of its sentence.</p></div>
     </div>
@@ -949,10 +949,10 @@ body.edit .slot{cursor:copy}
      SLIDE 9: ARCHITECTURE
      ================================================================= -->
 <section class="slide s-stack" data-id="stack" data-title="Under the hood"
-  data-notes="Under the hood: Unity 6 renders Gaussian-splat venues at 60 FPS and runs voice activity detection and face tracking locally. One WebSocket carries mic audio and gaze telemetry up, and voice, chemistry and wingman events down. The FastAPI orchestrator fans out to Deepgram for speech-to-text, Gemini Flash for dialogue, Fish Audio for voice, and Claude for personas and grading. Our target is under 400 milliseconds to first audio.">
+  data-notes="Under the hood: Unity 6 renders Gaussian-splat venues at 60 FPS, runs voice activity detection locally, and streams small webcam frames to the orchestrator. There, Google's MediaPipe Face Landmarker reads 52 expressions and the head pose on the CPU, and our calibration layer turns them into smiles, nods, puzzled looks and looking away, measured against your own resting face. No camera image ever reaches a cloud model; the date only hears what it noticed. If asked whether the vision model is trained: it is Google's stock model, not fine-tuned. Our work is the per-learner calibration and the social signals on top. One WebSocket carries mic audio and gaze telemetry up, and voice, chemistry and wingman events down. The FastAPI orchestrator fans out to Deepgram for speech-to-text, Gemini Flash for dialogue, Fish Audio for voice, and Claude for personas and grading. Our target is under 400 milliseconds to first audio.">
   <div class="stack-head">
     <div><p class="eyebrow a" style="--d:.1">Under the hood</p><h2 class="title sm a" style="--d:.2">Engineered for <em style="white-space:nowrap">sub-400 ms</em> banter.</h2></div>
-    <p class="lede a" style="--d:.35">Heavy AI inference runs on low-latency cloud APIs. Unity handles splat rendering, webcam blendshapes and spatial audio locally.</p>
+    <p class="lede a" style="--d:.35">Heavy AI inference runs on low-latency cloud APIs. Unity handles splats and spatial audio. Face tracking runs locally; no camera image reaches a cloud AI.</p>
   </div>
   <svg class="arch-svg a fade" style="--d:.6" viewBox="0 0 1920 1080" aria-hidden="true">
     <path class="flow-up" id="pUp" d="M560 480 L790 480"/>
@@ -979,7 +979,7 @@ body.edit .slot{cursor:copy}
     <h3>Unity 6 client</h3><div class="sub2">URP · 60 FPS · local</div>
     <ul>
       <li>Gaussian-splat venues<small>.spz + walkable .glb colliders</small></li>
-      <li>Selfie-to-avatar<small>Ready Player Me + MediaPipe Face Mesh</small></li>
+      <li>Selfie-to-avatar<small>Rocketbox avatar, tinted from the selfie</small></li>
       <li>Silero VAD barge-in<small>flush + lip-sync stop &lt;100 ms</small></li>
       <li>Streaming audio player<small>thread-safe circular ring buffer</small></li>
     </ul>
@@ -991,6 +991,7 @@ body.edit .slot{cursor:copy}
       <li class="ws">WS /v1/stream</li>
       <li>POST /v1/grade</li>
       <li>chemistry_director.py<small>emits chemistry_update + wingman_hint</small></li>
+      <li>face_tracker.py + nonverbal.py<small>MediaPipe Face Landmarker · calibrated per learner</small></li>
     </ul>
   </div>
   <div class="svc a right" style="top:300px;--d:.7"><b>Deepgram Nova-2 Live</b><span>Streaming STT · 150–200 ms</span></div>

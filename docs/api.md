@@ -497,7 +497,7 @@ The speed date's routes sit beside the café's; the café contracts above are un
 | `WS /v1/vision` | Face tracking alone (onboarding): `face_frame` in, `face_analysis` and `signal` out |
 | `POST /v1/grade` | With a `date_…` scenario id: the verdict receipt (also `POST /v1/date/grade`) |
 | `GET /v1/date/runs/{run_id}` | The recorded transcript and the chemistry state of a run |
-| `GET /v1/face/status` | Whether MediaPipe and its model are loaded |
+| `GET /v1/face/status` | `{available, reason}`: whether MediaPipe and its model (stock Face Landmarker, loaded on first call) are ready |
 
 ### `POST /v1/matchmaker/generate`
 
@@ -550,7 +550,7 @@ character's voice as binary frames and sends JSON events.
 | `{"type":"focus","npc_id":"host"}` | Walked up to the host: the host greets |
 | `{"type":"start_date"}` | Seated at the table: opening line, clock starts |
 | `{"type":"telemetry","is_looking_at_date","gaze_target","look_away_duration_sec","player_smiling","distance_m","is_seated"}` | Every 250 ms |
-| `{"type":"face_frame","jpeg_base64"}` | ~8 per second, ~320 px wide |
+| `{"type":"face_frame","jpeg_base64"}` | ~8 per second, ~320 px wide. Analysed in memory and never stored. A frame that arrives while the last is still being read is dropped, so send the newest and don't queue |
 | `{"type":"barge_in","timestamp_ms"}` | The client's voice detector heard the learner over the date |
 | `{"type":"user_text","text"}` | Typed instead of spoken |
 | `{"type":"playback_done","npc_id"}` | The last frame of a line has played (starts the wingman's 4 s) |

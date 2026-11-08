@@ -83,10 +83,39 @@ tracker on its own, `GET /v1/face/status` should return `"available": true`. If 
 It reads 52 ARKit blendshapes, the head's pitch, yaw and roll, and the face mesh.
 `nonverbal.py` turns those into the signals a person across the table would notice.
 
-- **Signals:** smile, laugh, nod, head shake, puzzled, surprised, frown, look away and
-  look back. Each must hold for a moment, so a flicker doesn't count.
-- **Calibrated to you:** every expression is measured against your own resting face, a
-  low quantile of the last ~20 s, capped so a long real smile still counts. A resting
+**The model.** Google's stock [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker)
+(`face_landmarker.task`, float16, version 1). We have not trained or fine-tuned it.
+
+| | |
+| --- | --- |
+| Where it runs | Locally, on the CPU, inside the orchestrator. Unity only captures the webcam and sends JPEGs. |
+| File | Downloaded once from Google's model bucket to `runs/models/face_landmarker.task` (3.6 MB). Checked against a pinned SHA-256, so a modified file is refused. `FACE_MODEL_PATH` points at another copy. |
+| Settings | Image mode, one face, detection/presence/tracking confidence 0.5 (MediaPipe's defaults). Blendshapes and the head's transform matrix turned on. |
+| Throughput | One worker thread. A frame that arrives while the last is still being read is dropped, so the panel shows the newest face rather than a backlog. Each `face_analysis` reports `analysis_ms`. |
+| Turning it off | `FACE_TRACKING=0`, or skip `uv sync --group face`. The date carries on with gaze from the game camera alone. |
+| Privacy | Frames are analysed in memory and never written to disk. No image is sent to Gemini, Claude or any other cloud model. The language models only get the text notes below ("they smiled while you were talking"). The selfie is used for skin and hair colour, nothing else. |
+
+All the tuning is in `nonverbal.py`, which sits on top of the model. Its thresholds are
+hand-set and have been checked by hand, not measured against a labelled dataset:
+
+| Signal | Fires when (blendshape weights 0 to 1, above your resting face) | Held for |
+| --- | --- | --- |
+| Smile | mean of `mouthSmileLeft/Right` > 0.45 | 0.35 s |
+| Laugh | smile > 0.5 and `jawOpen` > 0.3 (wins over smile) | 0.25 s |
+| Puzzled | smile < 0.2, and brows down > 0.35 or (inner brow up > 0.35 and squint > 0.3) | 0.8 s |
+| Surprised | inner brow up > 0.5, eyes wide > 0.3, jaw open > 0.2 | 0.3 s |
+| Frown | mouth frown > 0.35 and smile < 0.15 | 0.7 s |
+| Nod / head shake | two pitch reversals of 4° or more (yaw: 6°) within 1.5 s, while the other axis stays steadier | at most one per 1.5 s |
+| Looking away (face) | head turned > 28° or tilted > 20° from centre, eyes aside > 0.65 (not blinking), or no face for 1 s | 0.5 s |
+| Look-away callout | looking away for 4.5 s while the date is talking (`LOOK_AWAY_CALLOUT_SECONDS`) | once per episode |
+
+Each signal fires once per occurrence and must lapse (0.4 to 0.8 s) before it can fire
+again, so a flicker doesn't count.
+
+- **Calibrated to you:** every expression is measured against your own resting face: the
+  20th percentile of the last 160 frames (~20 s), used once 12 frames (~1.5 s) have
+  arrived. It is capped (0.15 to 0.3 depending on the shape) so a long real smile still
+  counts, and readings are rescaled so the full 0 to 1 range is still reachable. A resting
   furrowed brow isn't read as "puzzled".
 - **Camera position doesn't matter:** the head's centre is learned from where you
   normally face the screen, so a webcam off to the side or below your chin isn't read
@@ -177,6 +206,10 @@ The Claude request shape is tested against a mock transport.
 
 ## Limits worth knowing
 
+- **Face signals.** The model is stock and the thresholds above were set by hand, not
+  measured on labelled footage. Expect misses in low light, with glasses that hide the
+  brows, or with the face side-on to the camera. Only one face is tracked; anyone else
+  in the frame is ignored or may take over.
 - **Avatars.** Two Rocketbox bodies, tinted. Ready Player Me shut down on 31 January 2026,
   so a selfie colours an avatar rather than reshaping its face.
 - **Worlds.** The scene prompt chooses between the scanned worlds and re-lights them; it

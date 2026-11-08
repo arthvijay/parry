@@ -49,21 +49,44 @@ measured gap.
 ## What the face does
 
 MediaPipe Face Landmarker reads 52 ARKit blendshapes, the head pose and a 478-point mesh
-from ~8 webcam frames a second. `nonverbal.py` debounces these into human signals:
+from ~8 webcam frames a second.
 
-- **Smile:** held 0.35 s.
-- **Laugh:** a smile with an open jaw.
-- **Nod / head shake:** two pitch or yaw reversals within 1.5 s.
-- **Puzzled, surprised, frown:** brow and mouth shapes.
+**The model is stock, not trained by us.** It is Google's `face_landmarker.task`
+(float16, v1), run locally on the CPU in `face_tracker.py`: image mode, one face, every
+confidence threshold at MediaPipe's default 0.5. The file is fetched once to
+`runs/models/` and pinned by SHA-256 (`FACE_MODEL_PATH` overrides it, `FACE_TRACKING=0`
+turns tracking off). Frames are analysed in memory on one worker thread, and a frame
+that arrives while the last is still being read is dropped. Nothing is saved. No image
+reaches Gemini or Claude: the date's brain, the judge and the grader only see the text
+signals below.
+
+The judgement lives in `nonverbal.py`, whose thresholds are set by hand. It debounces
+the blendshapes, after calibration, into human signals:
+
+- **Smile:** mean smile > 0.45, held 0.35 s.
+- **Laugh:** smile > 0.5 with the jaw open > 0.3, held 0.25 s. Takes precedence over a smile.
+- **Nod / head shake:** two pitch reversals of 4° or more (yaw: 6°) within 1.5 s, while
+  the other axis moves less; at most one every 1.5 s.
+- **Puzzled:** little smile (< 0.2), and brows down > 0.35 or a raised inner brow with
+  a squint; held 0.8 s.
+- **Surprised:** inner brow up > 0.5, eyes wide > 0.3, jaw open > 0.2; held 0.3 s.
+- **Frown:** mouth frown > 0.35 with no smile (< 0.15); held 0.7 s.
 - **Look away / look back:** from gaze telemetry, overruled by the face when the head
   turns more than 28° from centre, tilts 20° up or down (a phone in the lap), the eyes hold off to
   one side, or the face leaves the frame for a second. With no frames arriving, the game
   camera's gaze stands alone.
 
-Everything is measured against the learner's own resting face. Each expression's
-baseline is a low quantile of the last ~20 s (capped, so a long real smile still counts),
-and the head's centre is its median pose, so a resting brow or a webcam below the chin
-is not read as a frown or as looking away. `date_ended` carries a `face` summary: frames,
+Everything is measured against the learner's own resting face, so a resting brow or a
+webcam below the chin is not read as a frown or as looking away:
+
+- Each expression's baseline is the 20th percentile of the last 160 frames (~20 s),
+  zero for the first 12 frames. It is capped at 0.15 to 0.3, so a long real smile still
+  counts, and readings above it are rescaled to 0 to 1.
+- The head's centre is the median of the on-screen poses. Looking away never moves it.
+- The face's verdict on looking away must hold 0.5 s, so a glance or a blink doesn't
+  count.
+
+`date_ended` carries a `face` summary: frames,
 `face_visible_pct`, `attentive_pct`, and signal counts overall and while the date talked.
 
 Each signal goes to the vision panel's feed, to the date's prompt, and to the chemistry
@@ -93,7 +116,7 @@ instead of ending it.
 | Gemini | Claude speaks; without Claude, a scripted date in the dialect |
 | Deepgram | Voice detection still drives barge-in and the wingman's silence timer; the learner types with Enter |
 | Fish Audio | The bundled sample voice, paced like speech so the lip-sync and barge-in still work |
-| MediaPipe | No face signals; gaze still comes from where the camera looks |
+| MediaPipe (not installed, model missing, or `FACE_TRACKING=0`) | No face signals; gaze still comes from where the camera looks |
 
 A turn whose provider fails before its first audio frame is replayed through the
 fallback. A failure after audio has started ends that line where it is.
