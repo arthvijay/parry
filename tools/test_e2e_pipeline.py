@@ -42,6 +42,12 @@ DIALECTS = ("es-MX", "es-AR", "es-ES", "zh-CN", "hi-IN", "ja-JP", "ja-JP-kansai"
             "en-US-south")
 ANSWERS = {
     "es-AR": "Hola, me llamo Arth, che. Soy fotógrafo y me encanta el rock indie. ¿Y vos qué hacés?",
+    "en-US-south": "Well hey there, I'm Arth. I'm a photographer and I love indie rock. What about y'all?",
+}
+# Ordering at the café, in the date's language.
+ORDERS = {
+    "es-AR": "Dale, pedimos unas medialunas y yo quiero un cortado, che.",
+    "en-US-south": "How about we share some medialunas, and I'll have a cortado, please.",
 }
 
 results: list[tuple[bool, str, str]] = []
@@ -234,7 +240,7 @@ async def live_date(url: str, date: dict, wingman_wait: float) -> str | None:
         if date.get("menu"):
             mark = time.monotonic()
             await ws.send(json.dumps({"type": "user_text",
-                                      "text": "Dale, pedimos unas medialunas y yo quiero un cortado, che."}))
+                                      "text": ORDERS.get(date["dialect"], ORDERS["es-AR"])}))
             action = await wait("scene_action", mark, 25)
             check(action is not None, "ordering sends the host",
                   ", ".join(action["items"]) if action else "no order detected")
@@ -260,7 +266,8 @@ async def live_date(url: str, date: dict, wingman_wait: float) -> str | None:
         await ws.send(json.dumps({"type": "user_text",
                                   "text": "Perdón, te interrumpí. ¿Me contás más?"}))
         await wait("audio_start", mark, 30)
-        for away in (1.0, 5.0):
+        # Past every dialect's threshold (Tokyo allows 8 s).
+        for away in (1.0, 9.0):
             await ws.send(json.dumps({"type": "telemetry", "is_looking_at_date": False,
                                       "look_away_duration_sec": away, "player_smiling": False,
                                       "distance_m": 1.15, "is_seated": True}))

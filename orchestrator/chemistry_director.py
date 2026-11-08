@@ -314,7 +314,11 @@ class _WireWingman(BaseModel):
 
 ORDERING = re.compile(r"\b(ped(i|imos|ir|ime)|quiero|quisiera|queremos|dame|danos|me das|"
                       r"traeme|traenos|tra[eé]nos|para m[ií]|nos pedimos|compartimos|"
-                      r"probamos|uno?s?|unas?|dos)\b", re.I)
+                      r"probamos|uno?s?|unas?|dos|"
+                      # The American date orders in English.
+                      r"i'?ll have|i'?d like|i'?ll take|can (?:we|i) get|could (?:we|i) get|"
+                      r"let'?s (?:get|share|order|try)|we'?ll have|how about we|order|share)\b",
+                      re.I)
 QUESTION = re.compile(r"[?？¿]|\b(qu[eé]|c[oó]mo|d[oó]nde|cu[aá]l|por qu[eé]|qui[eé]n|quoi|"
                       r"comment|pourquoi|o[uù]|est-ce|kya|kaise|kahan|kyun|kaun)\b|吗|呢|什么|"
                       r"怎么|哪|か[？?]?$|क्या|कैसे|कहाँ|क्यों", re.I)

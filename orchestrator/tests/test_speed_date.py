@@ -985,3 +985,28 @@ def test_card_text_wraps_wide_glyphs_and_escapes():
     assert len(lines) == 3 and lines[-1].endswith("…")
     assert wrap("short line", 24, 480, 2) == ["short line"]
     assert esc('<b> & "x"') == "&lt;b&gt; &amp; &quot;x&quot;"
+
+
+def test_the_host_waits_for_a_long_reply_and_still_serves():
+    """A live reply can run past ten seconds; the order must be served after it, not dropped."""
+    from orchestrator.date_models import PresetRequest
+    from orchestrator.matchmaker import build_preset
+    session = stream_gateway.StreamSession.__new__(stream_gateway.StreamSession)
+    session.scenario = build_preset(PresetRequest(preset="cafe_cancun_south"))
+    session.pending_order = ["Medialunas", "Cortado"]
+    session.speaking, session.user_speaking, session.ended = None, False, False
+    spoken = []
+
+    async def speak(npc, text="", kind=""):
+        spoken.append((npc, text, kind))
+
+    session._speak = speak
+
+    async def go():
+        session.turn_task = asyncio.create_task(asyncio.sleep(0.4))   # the date still talking
+        await session._serve()
+        await session.turn_task
+
+    asyncio.run(go())
+    assert len(spoken) == 1 and spoken[0][2] == "serve"
+    assert "Medialunas and Cortado" in spoken[0][1]   # an English date joins with "and"

@@ -809,14 +809,26 @@ class StreamSession:
     async def _serve(self):
         """The host reaches the table: wait for the date to finish, then serve."""
         items, self.pending_order = self.pending_order, []
-        names = " y ".join([", ".join(items[:-1]), items[-1]] if len(items) > 1 else items)
+        joiner = " and " if config.dialect(self.scenario.dialect).language == "en" else " y "
+        names = joiner.join([", ".join(items[:-1]), items[-1]] if len(items) > 1 else items)
         line = (self.scenario.serve_line or "{items}").format(items=names)
-        for _ in range(100):
-            if self.speaking is None and not self.user_speaking:
+
+        def busy() -> bool:
+            return (self.speaking is not None or self.user_speaking
+                    or (self.turn_task is not None and not self.turn_task.done()))
+
+        # The host never talks over the date or the learner, and never drops the order:
+        # wait for the whole turn (a live reply can run well past ten seconds).
+        for _ in range(600):
+            if not busy() or self.ended:
                 break
             await asyncio.sleep(0.1)
-        if self.turn_task is None or self.turn_task.done():
-            self.turn_task = asyncio.create_task(self._speak(HOST, text=line, kind="serve"))
+        if self.turn_task is not None and not self.turn_task.done():
+            with contextlib.suppress(Exception):
+                await asyncio.wait({self.turn_task}, timeout=30.0)
+        if self.ended:
+            return
+        self.turn_task = asyncio.create_task(self._speak(HOST, text=line, kind="serve"))
 
     async def _help(self):
         card = await self.director.help(list(self.transcript))

@@ -210,32 +210,6 @@ public class MatchmakerUI : MonoBehaviour
         yield return Matched(req);
     }
 
-    /// <summary>The authored demo date: same café, same person, every time.</summary>
-    IEnumerator GeneratePreset(PresetInfo preset)
-    {
-        step = Step.Matching;
-        stepStart = Time.time;
-        matchError = "";
-        city = preset.city;
-        Pin(preset.lat, preset.lon, preset.city);
-        DateSession.LearnerName = learnerName;
-        string body = Json.Write(new Dictionary<string, object>
-        {
-            ["preset"] = preset.id, ["learner_name"] = learnerName, ["proficiency"] = level,
-            ["date_gender"] = dateGender == "male" ? "male" : "female",
-        });
-        using var req = new UnityWebRequest($"{DateSession.Base}/v1/matchmaker/preset", "POST")
-        {
-            uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body)) { contentType = "application/json" },
-            downloadHandler = new DownloadHandlerBuffer(),
-            timeout = 30,
-        };
-        yield return req.SendWebRequest();
-        while (Since < 2.2f)
-            yield return null;
-        yield return Matched(req);
-    }
-
     IEnumerator Generate()
     {
         step = Step.Matching;
