@@ -25,6 +25,21 @@ uv run python -m orchestrator   # http://127.0.0.1:8765, /docs for the API
 
 Open `My project/` in Unity 6 (6000.0.x) and press Play in `Assets/Scenes/Wish.unity`.
 
+### Or run it as an app (no editor)
+
+```sh
+./play build        # once: builds the Linux app into Builds/Linux/ (or in the editor: Build ▸ Linux App)
+./play              # starts the server, opens the game in its own window, stops the server on quit
+./play --fullscreen
+./play install      # adds it to your desktop's app menu, so it starts like any other app
+```
+
+Inside the game, **Esc** opens the session menu from any screen: resume, restart this
+date, start a new session from the matchmaker, fullscreen, quit. It also shows whether the
+server is reachable. **F11** toggles fullscreen. `./play build` refuses while the project
+is open in the editor (Unity locks it); use the editor's **Build ▸ Linux App** then, which
+writes the same app. Logs go to `runs/server.log`, `runs/game.log` and `runs/build.log`.
+
 Every key is optional. Without one, that part falls back, so the whole flow runs offline:
 
 | Job | Provider | Key | Offline fallback |
@@ -233,6 +248,7 @@ in [docs/speed-date.md](docs/speed-date.md).
 - `scenarios/speed_dating/presets/cafe_cancun_ar.json`: the authored demo date (people, venue, menu, milestones, closings, follow-ups).
 - `runs/`: what a date leaves behind (not committed): `dates/`, `chemistry/`, `transcripts/`, `audio/{run_id}/` (the learner's lines as WAV), `reports/`, `verdicts/` (for sharing), `learners/`, `costs/`, `voice_cache/`.
 - `My project/`: the Unity 6 (URP) client. Scenes: `Wish.unity` (matchmaker), `CancunCafe.unity` (primary venue), `SampleScene.unity` (fallback venue).
+- `play`: the launcher for the standalone app (build, run, install; see above). Builds go to `Builds/` (not committed).
 - `demo-pitch/`: the animated HTML pitch deck (open `demo-pitch/index.html` in Chrome; see its README).
 - `eval/`: `date_selfplay.py` (simulated learners on whole dates; the zero-false-award
   gate) and the café director's eval (`run_eval.py`). See `eval/README.md`.
@@ -262,6 +278,8 @@ in [docs/speed-date.md](docs/speed-date.md).
 | `Quests/DateVerdictReceipt.cs` | The printed Match-or-Ghost receipt (roast, unlock, stamp), share (S), the phone follow-up, the learning page (Tab) and the full report in the browser (L) |
 | `Venue/VenueAmbience.cs` | Post-processing grade, lights and ambient loops per venue |
 | `Core/DateBootstrap.cs` | Adds the speed-date systems to any venue scene at load |
+| `Core/SessionMenu.cs` | Esc: the app's session menu (resume, restart the date, new session, fullscreen, quit, server status); created at startup |
+| `Editor/AppBuild.cs` | **Build ▸ Linux / Windows / macOS App**: the standalone build (all three scenes, named from `BrandConfig.json`, keeps running when unfocused) |
 | `Editor/OpenDemoScene.cs` | Opens `Wish.unity` when the editor starts on an empty scene |
 | `Editor/EditorRemote.cs` | Dev aid: drive the editor from a script through `Temp/remote_cmd.txt` (play, stop, open, shot, call, key) |
 

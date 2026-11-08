@@ -116,6 +116,10 @@ public class FirstPersonController : MonoBehaviour
             return;
         }
 
+        // The session menu owns the mouse and keyboard while it is open.
+        if (SessionMenu.IsOpen)
+            return;
+
         // Escape releases the cursor, click recaptures it.
         if (keyboard.escapeKey.wasPressedThisFrame)
             LockCursor(false);

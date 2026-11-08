@@ -43,12 +43,20 @@ public static class LowPoly
         return palette;
     }
 
+    /// <summary>An unlit shader, whatever this build kept. Shader.Find only sees shaders the
+    /// build includes: URP Unlit is always included by the app build (Editor/AppBuild.cs),
+    /// and URP Lit, which every scene uses, is the last resort, so the matchmaker never
+    /// fails for a missing shader.</summary>
+    static Shader Unlit() =>
+        Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Texture")
+        ?? Shader.Find("Universal Render Pipeline/Lit");
+
     /// <summary>One material for palette meshes: lit (the Earth, under the sun) or not (clouds, which carry their own shading).</summary>
     public static Material PaletteMaterial(bool lit)
     {
         var shader = lit
             ? Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard")
-            : Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Texture");
+            : Unlit();
         var m = new Material(shader);
         m.SetTexture("_BaseMap", PaletteTexture());
         m.SetTexture("_MainTex", PaletteTexture());
@@ -80,7 +88,7 @@ public static class LowPoly
         }
         tex.SetPixels(px);
         tex.Apply(false, true);
-        var m = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Texture"));
+        var m = new Material(Unlit());
         m.SetTexture("_BaseMap", tex);
         m.SetTexture("_MainTex", tex);
         return m;

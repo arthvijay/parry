@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# Run the game as a standalone app: start the orchestrator, open the built game in its
+# own window, and stop the orchestrator again when the game quits.
+#
+#   ./play                  start the server (if it isn't running) and open the game
+#   ./play --fullscreen     same, fullscreen
+#   ./play build            build the Linux app (Builds/Linux/) with Unity in batch mode
+#   ./play install          add the game to your desktop's app menu
+#   ./play server           run only the orchestrator, in this terminal
+#   ./play stop             stop an orchestrator this script started in the background
+#
+# Inside the game: Esc opens the session menu (restart the date, new session, quit),
+# F11 toggles fullscreen. Logs: runs/server.log and runs/game.log.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+PROJECT="$ROOT/My project"
+RUNS="$ROOT/runs"
+URL="${SERVER_URL:-http://127.0.0.1:8765}"
+PIDFILE="$RUNS/server.pid"
+mkdir -p "$RUNS"
+
+name() {   # the product name, from the one file it lives in
+  python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' \
+    "$PROJECT/Assets/Resources/BrandConfig.json" 2>/dev/null || echo "Game"
+}
+NAME="$(name)"
+GAME="$ROOT/Builds/Linux/$NAME.x86_64"
+
+find_uv() {
+  command -v uv 2>/dev/null || { for c in "$HOME/.local/bin/uv" "$HOME/.cargo/bin/uv"; do
+    [ -x "$c" ] && { echo "$c"; return; }; done; echo ""; }
+}
+
+find_unity() {
+  if [ -n "${UNITY:-}" ]; then echo "$UNITY"; return; fi
+  local version
+  version="$(sed -n 's/^m_EditorVersion: //p' "$PROJECT/ProjectSettings/ProjectVersion.txt")"
+  for c in "$HOME/Unity/Hub/Editor/$version/Editor/Unity" "/opt/unity/Editor/Unity"; do
+    [ -x "$c" ] && { echo "$c"; return; }
+  done
+  echo ""
+}
+
+# Errors also go to a desktop notification: started from the app menu there is no terminal.
+fail() {
+  echo "$*" >&2
+  if [ ! -t 2 ] && command -v notify-send >/dev/null; then notify-send "$NAME" "$*"; fi
+  exit 1
+}
+
+healthy() { curl -fsS --max-time 2 "$URL/health" >/dev/null 2>&1; }
+
+start_server() {
+  if healthy; then echo "Server already running at $URL"; STARTED=0; return; fi
+  local uv; uv="$(find_uv)"
+  [ -n "$uv" ] || fail "uv not found: install it from https://docs.astral.sh/uv/"
+  echo "Starting the server (log: runs/server.log)…"
+  (cd "$ROOT" && nohup "$uv" run python -m orchestrator >"$RUNS/server.log" 2>&1 & echo $! >"$PIDFILE")
+  STARTED=1
+  for _ in $(seq 1 60); do
+    healthy && { echo "Server ready at $URL"; return; }
+    sleep 1
+  done
+  fail "The server didn't come up in 60 s; see runs/server.log"
+}
+
+stop_server() {
+  [ -f "$PIDFILE" ] || return 0
+  local pid; pid="$(cat "$PIDFILE")"
+  # uv starts python as a child: stop the whole group it leads.
+  pkill -TERM -P "$pid" 2>/dev/null || true
+  kill -TERM "$pid" 2>/dev/null || true
+  rm -f "$PIDFILE"
+  echo "Server stopped."
+}
+
+cmd_run() {
+  local mode=(-screen-fullscreen 0)
+  [ "${1:-}" = "--fullscreen" ] && mode=(-screen-fullscreen 1)
+  if [ ! -x "$GAME" ]; then
+    fail "No build yet at Builds/Linux/$NAME.x86_64. Build it with ./play build (or in the editor: Build ▸ Linux App)."
+  fi
+  STARTED=0
+  start_server
+  [ "$STARTED" = 1 ] && trap stop_server EXIT INT TERM
+  echo "Opening $NAME (Esc in the game: session menu)…"
+  "$GAME" "${mode[@]}" -logFile "$RUNS/game.log" >/dev/null 2>&1 || true
+}
+
+cmd_build() {
+  if [ -f "$PROJECT/Temp/UnityLockfile" ] && pgrep -f -- "-projectPath $PROJECT" >/dev/null 2>&1; then
+    echo "The project is open in the Unity editor, which locks it."
+    echo "Build from the editor instead: Build ▸ Linux App (same output), or close it and rerun."
+    exit 1
+  fi
+  local unity; unity="$(find_unity)"
+  [ -n "$unity" ] || { echo "Unity not found: set UNITY=/path/to/Editor/Unity" >&2; exit 1; }
+  echo "Building with $unity (log: runs/build.log); the first build imports the project and takes a while…"
+  "$unity" -batchmode -quit -projectPath "$PROJECT" \
+    -buildTarget Linux64 -executeMethod AppBuild.BuildLinux -logFile "$RUNS/build.log"
+  grep -a "AppBuild:" "$RUNS/build.log" | tail -1
+  [ -x "$GAME" ] && echo "Built: $GAME  ·  run it with ./play"
+}
+
+cmd_install() {
+  local dir="$HOME/.local/share/applications"
+  local file="$dir/$(echo "$NAME" | tr '[:upper:] ' '[:lower:]-').desktop"
+  mkdir -p "$dir"
+  cat >"$file" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$NAME
+Comment=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("tagline",""))' "$PROJECT/Assets/Resources/BrandConfig.json" 2>/dev/null)
+Exec="$ROOT/play"
+Path=$ROOT
+Icon=applications-games
+Terminal=false
+Categories=Game;
+EOF
+  chmod +x "$file"
+  command -v update-desktop-database >/dev/null && update-desktop-database "$dir" >/dev/null 2>&1 || true
+  echo "Installed $file: $NAME is now in your app menu."
+}
+
+case "${1:-}" in
+  build) cmd_build ;;
+  install) cmd_install ;;
+  server) cd "$ROOT" && exec "$(find_uv)" run python -m orchestrator ;;
+  stop) stop_server ;;
+  ""|--fullscreen|--windowed) cmd_run "${1:-}" ;;
+  -h|--help|help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) echo "Unknown command: $1 (try ./play --help)" >&2; exit 2 ;;
+esac

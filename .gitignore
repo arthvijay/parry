@@ -36,3 +36,6 @@ CLAUDE.md
 
 # Unity editor crash dumps
 mono_crash.*
+
+# Standalone app builds (./play build)
+Builds/
