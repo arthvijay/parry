@@ -129,7 +129,7 @@ fallback. A failure after audio has started ends that line where it is.
 - **The roast** is the line people screenshot. It is held to the same honesty as the
   grades: a roast that quotes the learner must quote them exactly, or it is replaced by
   one built from what was measured. It teases what happened, never who the learner is.
-- **Unlocks.** A match unlocks the next dialect on a fixed trip around the eight
+- **Unlocks.** A match unlocks the next dialect on a fixed trip around all nine
   (es-AR unlocks Kansai-ben in Osaka); the client remembers it (🔓 in the matchmaker)
   and N opens the matchmaker on it. Anything short of a match is a rematch.
 - **Sharing.** S opens a share page with the receipt as a 9:16 card for TikTok, Reels
