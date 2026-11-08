@@ -162,7 +162,7 @@ body.edit .slot{cursor:copy}
 .title-chips{display:flex;gap:14px;margin-top:56px}
 
 /* =====================================================================
-   SLIDE 2: PROBLEM (Mental Translation Trap)
+   Legacy trap styles (fillW, fromL/fromR are still used by other slides)
    ===================================================================== */
 .s-problem{display:grid;grid-template-columns:740px 1fr;gap:110px;align-items:center}
 .trap{display:flex;flex-direction:column;gap:22px}
@@ -608,8 +608,30 @@ body.edit .slot{cursor:copy}
 @keyframes burst{0%{opacity:1;translate:0 0;rotate:0deg}100%{opacity:0;translate:var(--dx) var(--dy);rotate:var(--rot)}}
 
 /* === REDUCED MOTION ================================================== */
+/* =====================================================================
+   SLIDE 2: THE HOOK (four lines slam in, one at a time)
+   ===================================================================== */
+.s-hook{display:flex;align-items:center}
+.hook-stack{display:flex;flex-direction:column;gap:26px}
+.hook-line{margin:0;font-family:var(--f-display);font-weight:600;font-size:108px;line-height:1;
+  letter-spacing:-.03em;color:var(--cream);opacity:0;transform-origin:left center;text-wrap:balance}
+.hook-line em{font-style:italic;font-weight:400;color:var(--amber)}
+.hook-line.payoff{font-size:150px;font-style:italic;font-weight:500;color:var(--rose);
+  text-shadow:0 0 28px rgba(255,61,110,.55),0 0 80px rgba(255,61,110,.35);margin-top:18px}
+.is-active .hook-line{animation:slam .5s cubic-bezier(.2,.9,.25,1.15) both;animation-delay:calc(var(--d) * 1s)}
+.is-active .hook-line.dim{animation:slam .5s cubic-bezier(.2,.9,.25,1.15) both,hookDim .9s var(--ease) both;
+  animation-delay:calc(var(--d) * 1s),5.2s}
+.is-active .hook-line.payoff{animation:slamBig .7s cubic-bezier(.2,.9,.25,1.2) both;animation-delay:calc(var(--d) * 1s)}
+.is-active .hook-stack{animation:shake .32s linear .82s,shake .32s linear 2.02s,shake .32s linear 3.22s,shakeBig .45s linear 5.05s}
+@keyframes slam{0%{opacity:0;scale:2.1;filter:blur(14px)}62%{opacity:1;scale:.97;filter:blur(0)}100%{opacity:1;scale:1;filter:blur(0)}}
+@keyframes slamBig{0%{opacity:0;scale:2.8;filter:blur(20px)}58%{opacity:1;scale:.95;filter:blur(0)}100%{opacity:1;scale:1;filter:blur(0)}}
+@keyframes hookDim{to{opacity:.32}}
+@keyframes shake{0%,100%{translate:0 0}20%{translate:-9px 4px}40%{translate:8px -5px}60%{translate:-6px 3px}80%{translate:4px -2px}}
+@keyframes shakeBig{0%,100%{translate:0 0}15%{translate:-16px 7px}30%{translate:14px -9px}50%{translate:-10px 6px}70%{translate:7px -4px}85%{translate:-3px 2px}}
+
 @media (prefers-reduced-motion:reduce){
   .a,.is-active .a{animation:none!important;opacity:1}
+  .hook-line,.is-active .hook-line,.is-active .hook-stack{animation:none!important;opacity:1}
   .grain,.neon,.is-active .neon{animation:none!important;opacity:1}
   .slide{transition:opacity .3s linear,visibility 0s linear .3s;scale:1}
   .slide.is-active{transition:opacity .3s linear,visibility 0s}
@@ -648,31 +670,15 @@ body.edit .slot{cursor:copy}
 </section>
 
 <!-- =================================================================
-     SLIDE 2: PROBLEM
+     SLIDE 2: THE HOOK
      ================================================================= -->
-<section class="slide s-problem" data-id="problem" data-title="The problem"
-  data-notes="Here's the problem. Apps give you vocabulary, but in a real conversation you fall into the Mental Translation Trap: hear it, decode it into English, draft a safe reply, translate it back, check the conjugation. By step five, the moment is gone. Nothing on the market trains that split second.">
-  <div>
-    <p class="eyebrow a" style="--d:.1">The problem</p>
-    <h2 class="title a" style="--d:.25">A 300-day streak. <em>And you still freeze.</em></h2>
-    <p class="lede a" style="--d:.45">Flashcards and tap-to-answer drills build vocabulary on paper. They never train the split second when a real person is waiting for your reply.</p>
-  </div>
-  <div class="trap">
-    <div class="trap-head">
-      <div class="them"><div class="avatar-dot"></div><div class="bubble">¿Y vos, de dónde sos?<small>“And you, where are you from?”</small></div></div>
-      <div class="watch a fade" style="--d:.8"><b id="trapClock">0.0s</b><span>Awkward silence</span></div>
-    </div>
-    <ol class="steps">
-      <li class="step" style="--d:1"><span class="n">01</span>Hear it<span class="bar"><i></i></span></li>
-      <li class="step" style="--d:1.9"><span class="n">02</span>Decode it into English<span class="bar"><i></i></span></li>
-      <li class="step" style="--d:2.8"><span class="n">03</span>Draft a safe textbook reply<span class="bar"><i></i></span></li>
-      <li class="step" style="--d:3.7"><span class="n">04</span>Translate it back<span class="bar"><i></i></span></li>
-      <li class="step" style="--d:4.6"><span class="n">05</span>Check the verb conjugation<span class="bar"><i></i></span></li>
-    </ol>
-    <div class="gone">
-      <div class="bubble a" style="--d:6.2">Ah… bueno, nada.<small>“Ah… okay, never mind.”</small></div>
-      <p class="verdict-line a" style="--d:6.6">The Mental Translation Trap. By step five, the moment is gone.</p>
-    </div>
+<section class="slide s-hook" data-id="hook" data-title="The hook"
+  data-notes="(Let each line land before you say it.) Learning a language is hard. Dating is hard. Dating in a different language? Brutal. (Beat.) We make it easy. Parry is speed dating in another language: three minutes, one AI date, real pressure, and a coach in your ear.">
+  <div class="hook-stack">
+    <p class="hook-line dim" style="--d:.5">Learning a language is hard.</p>
+    <p class="hook-line dim" style="--d:1.7">Dating is hard.</p>
+    <p class="hook-line dim" style="--d:2.9">Dating in a <em>different language</em> is hard.</p>
+    <p class="hook-line payoff" style="--d:4.6">We make it easy.</p>
   </div>
 </section>
 
@@ -1404,24 +1410,6 @@ function pauseIn(slide) { slide.querySelectorAll(".slot > video").forEach(v => v
 })();
 $$(".slot").forEach(initSlot);
 
-/* === SLIDE 2: awkward-silence stopwatch ============================== */
-const Trap = (() => {
-  let raf = 0;
-  return {
-    enter() {
-      const el = $("#trapClock"), t0 = performance.now();
-      cancelAnimationFrame(raf);
-      const tick = t => {
-        const s = Math.max(0, Math.min(6.4, (t - t0 - 1000) / 1000 * 1.18));
-        el.textContent = s.toFixed(1) + "s";
-        if (s < 6.4) raf = requestAnimationFrame(tick);
-      };
-      el.textContent = "0.0s"; raf = requestAnimationFrame(tick);
-    },
-    leave() { cancelAnimationFrame(raf); }
-  };
-})();
-
 /* === SLIDE 7: the live date simulation =============================== */
 const Sim = (() => {
   const TOTAL = 27000;                 /* 27 s on screen = a 3:00 date */
@@ -1661,7 +1649,6 @@ const Close = (() => {
 
 /* === SLIDE HOOKS ===================================================== */
 const hooks = {
-  problem: Trap,
   live: { enter: () => Sim.start(), leave: () => Sim.stop() },
   global: Globe,
   market: Market,
