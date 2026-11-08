@@ -147,6 +147,9 @@ def create_app(*, speech: SpeechProvider | None = None,
             app.state.date_reporter = create_reporter()
             app.state.date_reporter.directory = Path(os.getenv(
                 "REPORT_DIR", str(transcripts.directory.parent / "reports")))
+            # Graded verdicts, kept so a receipt can be shared after the fact.
+            app.state.verdict_dir = Path(os.getenv(
+                "VERDICT_DIR", str(transcripts.directory.parent / "verdicts")))
             tracking = face_tracking if face_tracking is not None \
                 else os.getenv("FACE_TRACKING", "1") != "0"
             if tracking:

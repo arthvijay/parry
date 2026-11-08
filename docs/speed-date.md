@@ -104,6 +104,26 @@ instead of ending it.
 A turn whose provider fails before its first audio frame is replayed through the
 fallback. A failure after audio has started ends that line where it is.
 
+## Gamified, and shareable
+
+- **The live match bar.** Chemistry runs across the top of the screen as a track in
+  the three verdict zones (GHOSTED below 45, FRIENDZONED to 65, MATCH above), with a
+  needle that eases to each update, a floating +/− delta, the best reading so far,
+  and a banner when the date crosses into a new zone. The zone colours (rose, amber,
+  ice) are the receipt's and the pitch deck's.
+- **The receipt prints.** The verdict comes out of a little printer as thermal paper,
+  line by line, then the stamp slams down across it.
+- **The roast** is the line people screenshot. It is held to the same honesty as the
+  grades: a roast that quotes the learner must quote them exactly, or it is replaced by
+  one built from what was measured. It teases what happened, never who the learner is.
+- **Unlocks.** A match unlocks the next dialect on a fixed trip around the eight
+  (es-AR unlocks Kansai-ben in Osaka); the client remembers it (🔓 in the matchmaker)
+  and N opens the matchmaker on it. Anything short of a match is a rematch.
+- **Sharing.** S opens a share page with the receipt as a 9:16 card for TikTok, Reels
+  and Shorts. The card is SVG drawn from the saved verdict, so the server needs no
+  imaging library; the browser makes the PNG and hands it to the share sheet or the
+  platform's upload page.
+
 ## Teaching, after the date
 
 During the date nobody corrects the learner. There are two places help lives instead:

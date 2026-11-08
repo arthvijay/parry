@@ -150,7 +150,14 @@ public class MatchmakerUI : MonoBehaviour
         else
             catalogError = "The orchestrator isn't running: uv run python -m orchestrator";
         if (catalog != null && catalog.dialects.Length > 0)
+        {
+            // Arriving from a receipt's "next date unlocked": open on that dialect.
+            string next = DateSession.NextDialect;
+            DateSession.NextDialect = null;
+            if (!string.IsNullOrEmpty(next) && Array.Exists(catalog.dialects, d => d.code == next))
+                dialect = next;
             ChooseDialect(dialect);
+        }
     }
 
     /// <summary>The authored demo date: same café, same person, every time.</summary>
@@ -536,7 +543,8 @@ public class MatchmakerUI : MonoBehaviour
         for (int i = 0; i < dialects.Length; i++)
         {
             var chip = new Rect(r.x + (i % 2) * (cw + 8f), y + (i / 2) * 36f, cw, 30f);
-            if (GlassUI.Chip(chip, dialects[i].label, dialect == dialects[i].code, 12))
+            string chipLabel = (DateSession.IsUnlocked(dialects[i].code) ? "🔓 " : "") + dialects[i].label;
+            if (GlassUI.Chip(chip, chipLabel, dialect == dialects[i].code, 12))
                 ChooseDialect(dialects[i].code);
         }
         y += Mathf.CeilToInt(dialects.Length / 2f) * 36f + 8f;

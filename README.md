@@ -100,6 +100,10 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
    - **Four graded pillars**, each with a verbatim quote; the pacing one carries the
      measured latency, recogniser confidence, wingman and translator use.
    - **Milestones met** and the **overall grade**.
+   - **The roast:** one funny, affectionate line about how it went. If it quotes you,
+     the quote is checked against what you actually said.
+   - **What it unlocks:** a match unlocks the next dialect on the trip
+     (*NEXT DATE UNLOCKED · KANSAI-BEN, OSAKA*); anything else is a rematch.
    - **The stamp** slams down across it: MATCH (65+), FRIENDZONED (45+) or GHOSTED,
      in the dialect.
    - **A text from the date** slides in on a phone, with one correction drawn from what
@@ -115,7 +119,13 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
    - a coach's ear on your recorded voice;
    - the whole conversation.
 
-   **R** tries again with the same date; **N** goes to the next table.
+   **S** opens the **share page**: the receipt as a 9:16 card for TikTok, Reels and
+   Shorts, with the date's text and the roast on it. *Share…* opens the system share
+   sheet (on a phone, that's where TikTok, Instagram and YouTube are); the TikTok, Reels
+   and Shorts buttons save the image, copy a caption and open that platform's upload page.
+
+   **R** tries again with the same date. **N** goes to the next table, opening on the
+   dialect you just unlocked (marked 🔓 in the matchmaker).
 
 ## How the pieces talk
 
@@ -136,7 +146,8 @@ FullDuplexStreamClient ═══ WS /v1/stream ═══▶ stream_gateway.py
   ◀── transcript, chemistry_update, wingman_hint, help_card, scene_action,
       face_analysis, signal, clear_audio
 DateVerdictReceipt ── POST /v1/grade ───────▶ date_grader.py ─▶ Claude
-                   └─ POST /v1/date/report ─▶ date_report.py ─▶ Claude, Gemini (clips)
+                   ├─ POST /v1/date/report ─▶ date_report.py ─▶ Claude, Gemini (clips)
+                   └─ GET /v1/date/share/{run_id} ─▶ share_card.py (9:16 receipt)
 ```
 
 The protocol is documented in [docs/api.md](docs/api.md#speed-date) and the design
@@ -146,11 +157,11 @@ in [docs/speed-date.md](docs/speed-date.md).
 
 - `orchestrator/`: the Python service.
   - `config.py` holds the brand, dialects, venues, personas, models and voices.
-  - The speed-date modules are `matchmaker.py` (generated and authored dates), `stream_gateway.py`, `chemistry_director.py` (also the translator), `date_grader.py`, `date_report.py` (*Your date, decoded*), `stt.py` (Nemotron ASR), `tts.py` (ElevenLabs), `date_brain.py`, `face_tracker.py`, `nonverbal.py`, `claude.py` and `date_routes.py`.
+  - The speed-date modules are `matchmaker.py` (generated and authored dates), `stream_gateway.py`, `chemistry_director.py` (also the translator), `date_grader.py`, `date_report.py` (*Your date, decoded*), `share_card.py` (the 9:16 shareable receipt), `stt.py` (Nemotron ASR), `tts.py` (ElevenLabs), `date_brain.py`, `face_tracker.py`, `nonverbal.py`, `claude.py` and `date_routes.py`.
   - The original café modules (`/v1/speech`, `/v1/scenarios`, `director.py`, `grading.py`) are kept and still pass their tests.
 - `scenarios/speed_dating/dialects/*.json`: authored lines per dialect (host, openers per personality, look-away callouts, wingman fallbacks, closings, verdict stamps, follow-up texts, culture notes).
 - `scenarios/speed_dating/presets/cafe_cancun_ar.json`: the authored demo date (people, venue, menu, milestones, closings, follow-ups).
-- `runs/`: what a date leaves behind (not committed): `dates/`, `chemistry/`, `transcripts/`, `audio/{run_id}/` (the learner's lines as WAV), `reports/`.
+- `runs/`: what a date leaves behind (not committed): `dates/`, `chemistry/`, `transcripts/`, `audio/{run_id}/` (the learner's lines as WAV), `reports/`, `verdicts/` (for sharing).
 - `My project/`: the Unity 6 (URP) client. Scenes: `Wish.unity` (matchmaker), `CancunCafe.unity` (primary venue), `SampleScene.unity` (fallback venue).
 - `demo-pitch/`: the animated HTML pitch deck (open `demo-pitch/index.html` in Chrome; see its README).
 - `tools/test_e2e_pipeline.py`: headless end-to-end check against a running server.
@@ -176,14 +187,14 @@ in [docs/speed-date.md](docs/speed-date.md).
 | `Npc/NpcLookAt.cs` | Eye contact, boredom glances, gaze reciprocity |
 | `Npc/NpcSchedule.cs` | Scripted NPC walks from `npcs_*.json` (the host's `bring_order`), with a `MoveFinished` event |
 | `Seating/DateCameraRig.cs` | V: first person ↔ cinematic two-shot |
-| `Quests/DateVerdictReceipt.cs` | The printed Match-or-Ghost receipt and its stamp, the phone follow-up, the learning page (Tab) and the full report in the browser (L) |
+| `Quests/DateVerdictReceipt.cs` | The printed Match-or-Ghost receipt (roast, unlock, stamp), share (S), the phone follow-up, the learning page (Tab) and the full report in the browser (L) |
 | `Venue/VenueAmbience.cs` | Post-processing grade, lights and ambient loops per venue |
 | `Core/DateBootstrap.cs` | Adds the speed-date systems to any venue scene at load |
 
 ## Tests
 
 ```sh
-uv run pytest                                  # 206 tests, no network (2 need the face group)
+uv run pytest                                  # 211 tests, no network (2 need the face group)
 uvx ruff check orchestrator tools eval
 uv run python tools/test_e2e_pipeline.py --offline   # starts a server, plays the demo date: order, translator, verdict, report
 uv run python tools/test_e2e_pipeline.py             # same, with your keys

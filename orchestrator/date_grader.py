@@ -29,7 +29,7 @@ from . import config
 from .claude import Claude
 from .chemistry_director import QUESTION, ChemistryState
 from .date_models import (Correction, DateMetrics, DateScenario, DateVerdict, FollowUp,
-                          MilestoneResult, Pillar)
+                          MilestoneResult, NextDate, Pillar)
 from .director import said_by_learner
 from .grading import letter, points
 from .models import LetterGrade, TranscriptTurn
@@ -74,7 +74,13 @@ specific, warm reason drawn from the conversation. At most two sentences and one
 followup_translation_en: its English meaning.
 correction: one phrasing correction from something the learner actually said (heard is
 their exact words, better is how a local would say it, why_en is one friendly
-sentence), or null if they made no real mistake."""
+sentence), or null if they made no real mistake.
+
+roast: one short, funny, affectionate English line (at most 140 characters) about how
+this date went, the kind of line people screenshot and send to friends. Tease what
+happened (freezing, the wingman doing the work, ordering half the menu, sliding into
+English, a bold opener), never the learner's identity, looks, accent, gender or ability
+to learn. You may quote the learner's exact words inside «»; quote nothing else."""
 
 
 class _WirePillar(BaseModel):
@@ -100,6 +106,7 @@ class _WireGrade(BaseModel):
     followup_text: str
     followup_translation_en: str
     correction: _WireCorrection | None
+    roast: str
 
 
 def verdict_for(score: int) -> str:
@@ -174,6 +181,64 @@ def checked(pillar_id: str, wire: _WirePillar, transcript: Sequence[TranscriptTu
     comment = (wire.comment or "").strip()[:600] or "No comment."
     return Pillar(id=pillar_id, label=PILLAR_LABELS[pillar_id], grade=grade, comment=comment,
                   evidence_quote=quote[:600] if quote else None)
+
+
+# --------------------------------------------------------------------------- the shareable bits
+
+ROAST_MAX = 160
+QUOTED = re.compile(r"«([^»]+)»|“([^”]+)”|\"([^\"]+)\"")
+
+
+def checked_roast(roast: str, transcript: Sequence[TranscriptTurn]) -> str | None:
+    """The model's roast, if every quote in it is the learner's own words; otherwise None.
+    A roast that puts words in their mouth is worse than a plain one."""
+    roast = " ".join((roast or "").split())
+    if not roast or len(roast) > ROAST_MAX:
+        return None
+    for match in QUOTED.finditer(roast):
+        quote = next(g for g in match.groups() if g)
+        if not said_by_learner(quote, transcript):
+            return None
+    return roast
+
+
+def rules_roast(kind: str, scenario: DateScenario, state: ChemistryState,
+                metrics: DateMetrics) -> str:
+    """A roast from what was measured, for when there is no model (or its line failed)."""
+    name = scenario.date_character.display_name
+    if metrics.turns == 0:
+        return f"Sat down, said nothing, left. {name} is still wondering if you were a mirage."
+    if metrics.wingman_lines_used >= 2:
+        return (f"Your wingman fed you {metrics.wingman_lines_used} lines. "
+                f"Next time maybe just send the wingman.")
+    if metrics.help_requests >= 3:
+        return f"Opened the translator {metrics.help_requests} times. Romance, but with subtitles."
+    if state.english_turns >= 2:
+        return (f"Slid into English {state.english_turns} times on a date that was, "
+                f"technically, a language test.")
+    if metrics.look_away_callouts >= 1:
+        return f"Got called out for looking away. Whatever was over there, {name} wants to know."
+    if kind == "match":
+        return f"{name} is already telling the group chat about you. Stay humble."
+    if kind == "friendzone":
+        return f"{name} thinks you'd make a great… friend. Brutal, but fixable."
+    return "Ghosted in under three minutes. That's a speedrun."
+
+
+def next_date_for(kind: str, scenario: DateScenario) -> NextDate:
+    """A match unlocks the next dialect on the trip; anything else is a rematch here."""
+    if kind == "match":
+        code = config.NEXT_DIALECT.get(scenario.dialect, scenario.dialect)
+        d = config.dialect(code)
+        city, title = d.city.name, "NEXT DATE UNLOCKED"
+        kind_out = "unlocked"
+    else:
+        code, d = scenario.dialect, config.dialect(scenario.dialect)
+        city, title = scenario.city, "REMATCH" if kind == "friendzone" else "TRY AGAIN"
+        kind_out = "rematch"
+    nickname = d.nickname or d.label
+    return NextDate(kind=kind_out, dialect=code, label=d.label, city=city,
+                    headline=f"{title} · {nickname.upper()}, {city.upper()}")
 
 
 def rules_pillars(scenario: DateScenario, state: ChemistryState,
@@ -270,6 +335,8 @@ class DateGrader:
             m = state.mistakes[0]
             if said_by_learner(m["heard"], transcript):
                 correction = Correction(heard=m["heard"], better=m["better"], why_en=m["why_en"])
+        roast = (checked_roast(wire.roast, transcript) if wire is not None else None) \
+            or rules_roast(kind, scenario, state, metrics)
         pillars.append(pacing_pillar(metrics))
         graded = [points(p.grade) for p in pillars if p.grade is not None]
         overall: LetterGrade = letter(sum(graded) / len(graded)) if graded else "F"
@@ -288,7 +355,8 @@ class DateGrader:
             followup=FollowUp(sender=date.display_name, text=text, translation_en=translation,
                               correction=correction),
             overall=overall, summary=summary, chemistry_timeline=state.timeline[-200:],
-            graded_by=graded_by)
+            graded_by=graded_by, roast=roast, next_date=next_date_for(kind, scenario),
+            share_path=f"/v1/date/share/{run_id}")
 
     async def _model(self, scenario, state, transcript, kind) -> _WireGrade:
         lines = []

@@ -23,6 +23,7 @@ public class DateVerdictReceipt : MonoBehaviour
     public Key nextKey = Key.N;
     public Key learnKey = Key.Tab;
     public Key reportKey = Key.L;
+    public Key shareKey = Key.S;
     public string frontScene = "Assets/Scenes/Wish.unity";
 
     /// <summary>True from the bell until a new date starts.</summary>
@@ -66,10 +67,19 @@ public class DateVerdictReceipt : MonoBehaviour
             learning = !learning;
         if (kb[reportKey].wasPressedThisFrame && report != null)
             Application.OpenURL($"{client.Base}/v1/date/report/{client.RunId}.html");
+        // The 9:16 receipt for TikTok, Reels and Shorts, with its share page.
+        if (kb[shareKey].wasPressedThisFrame && Verdict != null)
+            Application.OpenURL(client.Base + (string.IsNullOrEmpty(Verdict.share_path)
+                ? $"/v1/date/share/{client.RunId}" : Verdict.share_path));
         if (kb[retryKey].wasPressedThisFrame)
             Load(SceneManager.GetActiveScene().path);
         else if (kb[nextKey].wasPressedThisFrame)
+        {
+            // A match unlocked the next dialect: the matchmaker opens on it.
+            if (Verdict?.next_date != null && Verdict.next_date.kind == "unlocked")
+                DateSession.NextDialect = Verdict.next_date.dialect;
             Load(frontScene);
+        }
     }
 
     void OnMessage(string type, System.Collections.Generic.Dictionary<string, object> msg)
@@ -105,7 +115,11 @@ public class DateVerdictReceipt : MonoBehaviour
         if (player != null)
             player.enabled = false;
         if (Verdict != null)
+        {
             Debug.Log($"DateVerdictReceipt: {Verdict.verdict} at {Verdict.final_chemistry}, overall {Verdict.overall} ({Verdict.graded_by})");
+            if (Verdict.next_date != null && Verdict.next_date.kind == "unlocked")
+                DateSession.Unlock(Verdict.next_date.dialect);
+        }
         if (Verdict != null && !reportRequested)
         {
             reportRequested = true;
@@ -185,7 +199,9 @@ public class DateVerdictReceipt : MonoBehaviour
 
         string learnHint = report != null ? (learning ? "<b>Tab</b>  verdict      <b>L</b>  full report in browser      " : "<b>Tab</b>  learn from it      ")
             : string.IsNullOrEmpty(reportStatus) ? "" : reportStatus + "      ";
-        string keys = learnHint + "<b>R</b>  try again with " + Verdict.date_name + "      <b>N</b>  next table";
+        var nd = Verdict.next_date;
+        string next = nd != null && nd.kind == "unlocked" ? $"<b>N</b>  next date: {nd.city}" : "<b>N</b>  next table";
+        string keys = learnHint + "<b>S</b>  share      <b>R</b>  try again with " + Verdict.date_name + "      " + next;
         if (learning)
         {
             var card = new Rect((W - 780f) / 2f - 120f, 40f, 780f, H - 80f);
@@ -286,13 +302,13 @@ public class DateVerdictReceipt : MonoBehaviour
         float x = Pad, w = PaperW - 2f * Pad, y = top + 26f;
 
         void Line(string text, int size, Color c, FontStyle style = FontStyle.Normal,
-                  TextAnchor anchor = TextAnchor.UpperLeft, float indent = 0f)
+                  TextAnchor anchor = TextAnchor.UpperLeft, float indent = 0f, float right = 0f)
         {
             if (string.IsNullOrEmpty(text))
                 return;
-            float h = GlassUI.MonoHeight(text, size, w - indent, style);
+            float h = GlassUI.MonoHeight(text, size, w - indent - right, style);
             if (draw)
-                GlassUI.MonoLabel(new Rect(x + indent, y, w - indent, h), text, size, c, style, anchor, true);
+                GlassUI.MonoLabel(new Rect(x + indent, y, w - indent - right, h), text, size, c, style, anchor, true);
             y += h + 1f;
         }
         void Row(string left, string right, int size, int rightSize = 0)
@@ -385,8 +401,36 @@ public class DateVerdictReceipt : MonoBehaviour
             Row("OVERALL", v.overall, 13, 16);
         Rule();
 
-        // The verdict line, and a barcode for the look of it.
-        Line(Brand.Verdict(v.verdict), 13, vc, FontStyle.Bold, TextAnchor.UpperCenter);
+        // The roast: one affectionate line about how it went.
+        if (!string.IsNullOrEmpty(v.roast))
+        {
+            float boxTop = y;
+            y += 10f;
+            Line("THE ROAST", 10, vc, FontStyle.Bold, TextAnchor.UpperLeft, 12f, 12f);
+            Line(v.roast, 12, ink, FontStyle.Bold, TextAnchor.UpperLeft, 12f, 12f);
+            y += 8f;
+            if (draw)
+            {
+                // A dashed box around it, like a coupon.
+                var c = new Color(vc.r, vc.g, vc.b, 0.7f);
+                for (float dx = 0f; dx < w; dx += 9f)
+                {
+                    GlassUI.Rounded(new Rect(x + dx, boxTop, 5f, 2f), c, 1);
+                    GlassUI.Rounded(new Rect(x + dx, y, 5f, 2f), c, 1);
+                }
+                for (float dy = boxTop; dy < y; dy += 9f)
+                {
+                    GlassUI.Rounded(new Rect(x, dy, 2f, Mathf.Min(5f, y - dy)), c, 1);
+                    GlassUI.Rounded(new Rect(x + w - 2f, dy, 2f, Mathf.Min(5f, y - dy)), c, 1);
+                }
+            }
+            y += 6f;
+            Rule();
+        }
+
+        // What it unlocks (or the verdict line), and a barcode for the look of it.
+        Line(v.next_date != null && !string.IsNullOrEmpty(v.next_date.headline) ? v.next_date.headline : Brand.Verdict(v.verdict),
+             13, vc, FontStyle.Bold, TextAnchor.UpperCenter);
         y += 8f;
         if (draw)
         {

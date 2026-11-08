@@ -321,11 +321,18 @@ the speed date itself; the contract is in [api.md](api.md#speed-date) and the re
   reformatted, one item per line.
 - **Grading.** An authored date's own `followups` (and `<kind>_en` translations) replace
   the dialect's; its `closings` replace the dialect's goodbyes.
+- **Gamified and shareable.** A full-width live match bar replaces the chemistry
+  meter. The verdict prints as a thermal receipt with a stamp. `DateVerdict` gained
+  `roast` (quotes checked), `next_date` (a match unlocks the next dialect,
+  `config.NEXT_DIALECT`; `Dialect.nickname` names it) and `share_path`. Verdicts are
+  saved under `VERDICT_DIR`; `share_card.py` serves the 9:16 card
+  (`/v1/date/receipt/{run_id}.svg`) and the share page (`/v1/date/share/{run_id}`).
+  Unity: S shares, N opens the matchmaker on the unlocked dialect.
 - **Recognition timing.** The start of an utterance now survives the voice detector's
   "speech ended" arriving before the final words, so measured latency and clip cuts are
   right.
 
-**Tests.** 206 (`uv run pytest`), with the Nemotron path tested against a local Riva gRPC
+**Tests.** 211 (`uv run pytest`), with the Nemotron path tested against a local Riva gRPC
 server and ElevenLabs against a local WebSocket server. `tools/test_e2e_pipeline.py` now
 plays the demo date: it orders, waits for the host to serve, asks the translator, then
-checks the verdict and the report.
+checks the verdict (with its roast, unlock and shareable card) and the report.

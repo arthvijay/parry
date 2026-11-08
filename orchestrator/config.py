@@ -90,6 +90,8 @@ class Dialect:
     # What stiff, textbook register sounds like on a date in this dialect (a regex), or
     # empty where formal address is normal and warm.
     formal_marker: str = ""
+    # How the receipt names it: "NEXT DATE UNLOCKED · KANSAI-BEN, OSAKA".
+    nickname: str = ""
 
     @property
     def city(self) -> City:
@@ -110,7 +112,7 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "qué onda, neta, padrísimo, ¿mande?, ahorita, órale, no manches.",
             ("güey", "wey", "qué onda", "neta", "padre", "padrísimo", "chido", "órale",
              "ahorita", "no manches", "mande", "chamba", "qué padre"),
-            asr_language="es-US", formal_marker=r"\busted(es)?\b"),
+            asr_language="es-US", formal_marker=r"\busted(es)?\b", nickname="Mexican Spanish"),
     Dialect("es-AR", "Argentine Spanish (Buenos Aires)", "es", "es-AR",
             (City("Buenos Aires", -34.60, -58.38, "Palermo"),),
             "Rioplatense Spanish with voseo (vos sos, tenés, decime, mirá), sh-sounding ll/y, "
@@ -118,14 +120,14 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "dale, qué sé yo, bárbaro, buenísimo.",
             ("che", "vos", "sos", "tenés", "decime", "re", "copado", "posta", "dale", "bárbaro",
              "boludo", "laburo", "mirá", "qué sé yo", "buenísimo"),
-            asr_language="es-US", formal_marker=r"\busted(es)?\b"),
+            asr_language="es-US", formal_marker=r"\busted(es)?\b", nickname="Porteño Spanish"),
     Dialect("es-ES", "Castilian Spanish (Madrid)", "es", "es-ES",
             (City("Madrid", 40.42, -3.70, "Malasaña"),),
             "Peninsular Spanish from Madrid with vosotros, a quick cadence and castizo colour: "
             "tío/tía, guay, vale, mola, flipar, qué fuerte, en plan, currar, a tope.",
             ("tío", "tía", "guay", "vale", "mola", "flipo", "flipar", "qué fuerte", "en plan",
              "currar", "curro", "a tope", "vosotros", "majo", "maja"),
-            asr_language="es-ES", formal_marker=r"\busted(es)?\b"),
+            asr_language="es-ES", formal_marker=r"\busted(es)?\b", nickname="Madrileño Spanish"),
     Dialect("zh-CN", "Mandarin Chinese (Shanghai / Beijing)", "zh", "zh-CN",
             (City("Shanghai", 31.23, 121.47, "法租界 (the Former French Concession)"),
              City("Beijing", 39.90, 116.40, "三里屯 (Sanlitun)")),
@@ -134,7 +136,7 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "polite curiosity before personal questions.",
             ("呀", "嘛", "吧", "哈哈", "挺", "超", "靠谱", "有意思", "微信", "真的假的",
              "厉害", "好玩", "随便"),
-            asr_language="auto", script="han", formal_marker="您"),
+            asr_language="auto", script="han", formal_marker="您", nickname="Mandarin"),
     Dialect("hi-IN", "Hinglish / Hindi (Mumbai / Delhi)", "hi", "hi-IN",
             (City("Mumbai", 19.08, 72.88, "Bandra"),
              City("Delhi", 28.61, 77.21, "Hauz Khas Village")),
@@ -143,14 +145,14 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "matlab, sahi hai, ekdum, chal.",
             ("yaar", "arre", "achha", "acha", "scene", "bas", "matlab", "sahi", "ekdum",
              "chal", "kya", "hai", "nahi", "bhai", "mast", "bilkul"),
-            asr_language="hi-IN", script="devanagari"),
+            asr_language="hi-IN", script="devanagari", nickname="Hinglish"),
     Dialect("ja-JP", "Japanese (Tokyo standard)", "ja", "ja-JP",
             (City("Tokyo", 35.68, 139.69, "下北沢 (Shimokitazawa)"),),
             "Tokyo standard Japanese: polite です/ます at first, sliding into casual speech as "
             "the date warms up; soft aizuchi (へえ, そうなんだ, なるほど), never blunt.",
             ("へえ", "そうなんだ", "なるほど", "すごい", "めっちゃ", "やばい", "マジ",
              "ね", "よね", "かな"),
-            asr_language="ja-JP", script="kana"),
+            asr_language="ja-JP", script="kana", nickname="Tokyo Japanese"),
     Dialect("ja-JP-kansai", "Japanese (Osaka Kansai-ben)", "ja", "ja-JP",
             (City("Osaka", 34.69, 135.50, "道頓堀 (Dōtonbori)"),),
             "Osaka Kansai-ben: quick banter and teasing, なんでやねん, めっちゃ, ほんま, "
@@ -158,7 +160,7 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "is appreciated.",
             ("なんでやねん", "ほんま", "めっちゃ", "あかん", "せや", "ちゃう", "おおきに",
              "へん", "やん", "ええやん"),
-            asr_language="ja-JP", script="kana"),
+            asr_language="ja-JP", script="kana", nickname="Kansai-ben"),
     Dialect("fr-FR", "French (Parisian)", "fr", "fr-FR",
             (City("Paris", 48.86, 2.35, "le Marais"),),
             "Parisian French: rapid, with liaison and dropped ne (j'sais pas), dry wit and "
@@ -166,8 +168,14 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             "bien, ouf, kiffer, genre, bref, carrément, du coup.",
             ("grave", "trop", "ouf", "kiffe", "kiffer", "genre", "bref", "carrément", "du coup",
              "chelou", "sympa", "mec", "meuf", "bah", "ouais"),
-            asr_language="fr-FR", formal_marker=r"\bvous\b"),
+            asr_language="fr-FR", formal_marker=r"\bvous\b", nickname="Parisian French"),
 )}
+
+
+# What a match unlocks next: a trip around the dialects, each a little further from home.
+NEXT_DIALECT = {"es-MX": "es-AR", "es-AR": "ja-JP-kansai", "ja-JP-kansai": "fr-FR",
+                "fr-FR": "zh-CN", "zh-CN": "es-ES", "es-ES": "hi-IN", "hi-IN": "ja-JP",
+                "ja-JP": "es-MX"}
 
 
 def dialect(code: str) -> Dialect:

@@ -506,6 +506,8 @@ when `NVIDIA_API_KEY` is set or `NEMOTRON_ASR_SERVER` points at a self-hosted NI
 | `GET /v1/date/runs/{run_id}` | The recorded transcript and the chemistry state of a run |
 | `POST /v1/date/report` | *Your date, decoded* for a run: `{"run_id","scenario_id"}` |
 | `GET /v1/date/report/{run_id}.html` | The same report as a self-contained page |
+| `GET /v1/date/receipt/{run_id}.svg` | The shareable receipt, 1080×1920 (9:16), from the saved verdict |
+| `GET /v1/date/share/{run_id}` | The share page: download, system share sheet, TikTok / Reels / Shorts |
 | `GET /v1/face/status` | Whether MediaPipe and its model are loaded |
 
 ### `POST /v1/matchmaker/generate`
@@ -632,6 +634,20 @@ The response is a `DateVerdict`:
 - **`metrics`:** turns, words, average response latency, pronunciation confidence, wingman hints and lines used, unassisted fluency, eye contact, smiles, look-away callouts, barge-ins, `help_requests`.
 - **`followup`:** a text from the date in the dialect, its translation, and one `correction` drawn from the learner's words. An authored date's own `followups` replace the dialect's.
 - **Also:** `overall`, `summary`, `chemistry_timeline` and `graded_by` (`model` or `rules`).
+- **`roast`:** one short, affectionate English line about how the date went (at most
+  160 characters). Claude writes it; any quote in it (in «», “” or "") must be the
+  learner's own words, checked against the transcript, or the line is replaced by an
+  offline one built from the metrics (wingman lines, translator peeks, English turns,
+  look-away callouts, the verdict).
+- **`next_date`:** `{kind, dialect, label, city, headline}`. A match is `unlocked`: the
+  next dialect on a fixed trip (`config.NEXT_DIALECT`: es-MX → es-AR → ja-JP-kansai →
+  fr-FR → zh-CN → es-ES → hi-IN → ja-JP → es-MX), e.g. *NEXT DATE UNLOCKED · KANSAI-BEN,
+  OSAKA*. Friendzone and ghosted are a `rematch` in the same dialect and city (*REMATCH ·
+  …*, *TRY AGAIN · …*).
+- **`share_path`:** `/v1/date/share/{run_id}`.
+
+Every graded verdict is saved as `VERDICT_DIR/{run_id}.json` (default `runs/verdicts`),
+so the receipt can be shared after the fact.
 
 A judged pillar graded C- or better must quote the learner's own words, checked against
 the transcript; otherwise it is capped at D+.
@@ -668,6 +684,27 @@ Ordering works like this:
 3. The client walks the host over (the `bring_order` move in `npcs_cancun.json`) and
    reports `scene_event: host_at_table`.
 4. The host serves with the serve line, after the date finishes their sentence.
+
+### Sharing the receipt
+
+`GET /v1/date/receipt/{run_id}.svg` draws the saved verdict as a 1080×1920 card: the
+receipt paper (chemistry, the four pillars with the learner's quotes, the unlock
+headline), the stamp across it, the roast, and the date's follow-up text when it fits.
+It is plain SVG (no external resources), so a browser can turn it into a PNG.
+
+`GET /v1/date/share/{run_id}` is the page around it:
+
+- **Share…** turns the card into a PNG and opens the system share sheet
+  (`navigator.share` with a file; on a phone, that is where TikTok, Instagram and
+  YouTube are). Without one, it saves the image and copies the caption.
+- **Download image** saves the PNG.
+- **TikTok / Reels / Shorts** save the image, copy the caption, and open
+  `tiktok.com/upload`, `instagram.com` or `youtube.com/upload`. Nothing is posted for
+  the learner; there are no platform accounts or API keys involved.
+- **Copy caption**: the verdict, the date's name and city, the chemistry, the roast and
+  hashtags.
+
+Both return 404 until the run has been graded and 422 for a malformed `run_id`.
 
 ### `POST /v1/date/report`
 
