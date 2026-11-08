@@ -83,12 +83,16 @@ public class NpcSchedule : MonoBehaviour
         }
     }
 
+    /// <summary>Fired when a move reaches the end of its path, with the move's id.</summary>
+    public event System.Action<string> MoveFinished;
+
     void OnArrived()
     {
         var done = running;
         running = null;
         if (done == null)
             return;
+        MoveFinished?.Invoke(done.id);
         if (!string.IsNullOrEmpty(done.sit))
             GetComponent<NpcSitter>()?.Sit(done.sit);
         Tell(done, NpcNote.WhenArrive);

@@ -129,5 +129,27 @@
     "match": "Che, me encantó charlar con vos 😊 ¿Un café en Palermo el sábado?",
     "friendzone": "Fue copado conocerte. Si vas a la feria del domingo, nos vemos ahí 🤝",
     "ghosted": "Hola, gracias por la charla. No sentí mucha onda, pero suerte 🙏"
-  }
+  },
+  "culture": [
+    {
+      "title": "Voseo is the default",
+      "note": "Porteños say vos, not tú: vos sos, vos tenés, decime, mirá, contame. Using tú sounds foreign; using usted on a date sounds cold."
+    },
+    {
+      "title": "Che",
+      "note": "A friendly 'hey' that also fills pauses: «Che, ¿y vos qué hacés?». Argentines use it so much that Che Guevara got his nickname from it."
+    },
+    {
+      "title": "Re = very",
+      "note": "«Re lindo», «re copado», «está re bueno»: re is the everyday intensifier, much more natural than muy on a date."
+    },
+    {
+      "title": "Medialunas and the merienda",
+      "note": "Late afternoon is merienda time: café con leche or mate with medialunas. Suggesting to share medialunas is a warm, very local move."
+    },
+    {
+      "title": "Mate is shared",
+      "note": "If someone offers you mate, you drink it all and give it back to the person who serves (el cebador). Saying «gracias» means you don't want more."
+    }
+  ]
 }

@@ -491,12 +491,15 @@ The speed date's routes sit beside the café's; the café contracts above are un
 | --- | --- |
 | `GET /v1/matchmaker/catalog` | Dialects (with cities), venues, personalities, appearances, levels, genders |
 | `POST /v1/matchmaker/generate` | Builds one date from the learner's choices |
+| `POST /v1/matchmaker/preset` | An authored date: `{"preset":"cafe_cancun_ar","learner_name","proficiency","date_gender"}` |
 | `GET /v1/matchmaker/{scenario_id}` | A date built earlier |
 | `POST /v1/avatar/from-selfie` | `image/jpeg` in; skin and hair colours sampled around the face landmarks out |
 | `WS /v1/stream` | The live date (below) |
 | `WS /v1/vision` | Face tracking alone (onboarding): `face_frame` in, `face_analysis` and `signal` out |
 | `POST /v1/grade` | With a `date_…` scenario id: the verdict receipt (also `POST /v1/date/grade`) |
 | `GET /v1/date/runs/{run_id}` | The recorded transcript and the chemistry state of a run |
+| `POST /v1/date/report` | *Your date, decoded* for a run: `{"run_id","scenario_id"}` |
+| `GET /v1/date/report/{run_id}.html` | The same report as a self-contained page |
 | `GET /v1/face/status` | Whether MediaPipe and its model are loaded |
 
 ### `POST /v1/matchmaker/generate`
@@ -524,7 +527,7 @@ The speed date's routes sit beside the café's; the café contracts above are un
 The response is a `DateScenario`:
 
 - **The date:** `scenario_id` (`date_…`), `city`, `language_code`, `dialect`, `venue`, `venue_scene` (the Unity scene), `lighting_preset`, `scene_description`.
-- **`date_character`:** name, age, occupation, interests, backstory, `avatar_config` (base model, skin and hair tint, resting smile), `voice_config` (Fish voice id, rate, temperature, latency), `opening_line`, the live `system_prompt`, `green_flags`, `red_flags`.
+- **`date_character`:** name, age, occupation, interests, backstory, `avatar_config` (base model, skin and hair tint, resting smile), `voice_config` (ElevenLabs voice id, stability, similarity, speed), `opening_line`, the live `system_prompt`, `green_flags`, `red_flags`.
 - **`host_character`:** with a `greeting`.
 - **`milestones`:** `break_ice`, `find_common_ground`, `cultural_vibe` and `close_the_date`, each with `evidence_required`.
 - **Timing:** `date_seconds` (180), `wingman_seconds`, `chemistry_start` (50).
@@ -554,6 +557,8 @@ character's voice as binary frames and sends JSON events.
 | `{"type":"barge_in","timestamp_ms"}` | The client's voice detector heard the learner over the date |
 | `{"type":"user_text","text"}` | Typed instead of spoken |
 | `{"type":"playback_done","npc_id"}` | The last frame of a line has played (starts the wingman's 4 s) |
+| `{"type":"help"}` | The translator: answered with a `help_card` |
+| `{"type":"scene_event","event":"host_at_table"}` | The host reached the table with the order |
 | `{"type":"end_date","reason":"timer"\|"quit"}` | The bell |
 
 **Server → client**
@@ -571,6 +576,8 @@ character's voice as binary frames and sends JSON events.
 | `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame |
 | `signal` `{kind, label, effect, during_npc}` | A smile, laugh, nod, head shake, puzzled or surprised look, look-away, look-back |
 | `user_speech` `{speaking}` | The recogniser heard speech start or end |
+| `help_card` `{said, meaning_en, suggestions:[{target, gloss}], tip}` | The translator's answer |
+| `scene_action` `{action:"order_placed", npc_id:"host", items}` | An order was placed: send the host to the table |
 | `date_started` `{seconds}` / `date_ended` `{verdict, chemistry_score, run_id, scenario_id}` | The clock |
 | `notice`, `error` `{detail, fatal}` | Human-readable problems |
 
@@ -608,3 +615,41 @@ The response is a `DateVerdict`:
 
 A judged pillar graded C- or better must quote the learner's own words, checked against
 the transcript; otherwise it is capped at D+.
+
+### Authored dates and the café
+
+`POST /v1/matchmaker/preset` builds a date from a hand-written file in
+`scenarios/speed_dating/presets/`. It goes through the same code as a generated date
+(voice, avatar, persona rules), plus the café:
+
+- `menu` (items with prices and the aliases a learner might say), `currency`, and
+  the host's `serve_line`;
+- its own `closings` and `followups`.
+
+Ordering works like this:
+
+1. The `order_together` milestone ticks (quoted, as always).
+2. The server matches the menu items in the quote and sends `scene_action`.
+3. The client walks the host over (the `bring_order` move in `npcs_cancun.json`) and
+   reports `scene_event: host_at_table`.
+4. The host serves with the serve line, after the date finishes their sentence.
+
+### `POST /v1/date/report`
+
+*Your date, decoded*. The `DateReport` contains:
+
+- `summary`;
+- `went_well` (a learner quote);
+- up to three `fixes` (`heard` → `better`, `why_en`);
+- three `useful_phrases` in the dialect;
+- `culture_notes`;
+- `practice_words` (words the recogniser doubted);
+- `pronunciation` (Gemini's impressions of up to three recorded clips, only naming words
+  that were said);
+- the `chemistry_timeline`, the full `transcript` and `counters`;
+- `next_date` and `html_path`.
+
+Every learner quote is checked against the transcript, and nothing built on a doubted word
+is shown as a mistake. Without Claude the dialect's authored lines write a plainer
+report. The learner's spoken lines are saved as WAV clips under `runs/audio/{run_id}/`
+for the pronunciation pass.

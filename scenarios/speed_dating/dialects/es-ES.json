@@ -3,14 +3,40 @@
     "name": "Lucía",
     "gender": "female",
     "greeting": "¡Buenas noches! Te damos la bienvenida. Tu cita te está esperando en la mesa del fondo, se llama {date_name}. Tienes tres minutos, ¿vale? ¡Mucha suerte!",
-    "chat": ["Es allí, la mesa del fondo. ¡Venga, que el tiempo vuela!", "Tranqui, sé tú y ya está. ¡Suerte!"]
+    "chat": [
+      "Es allí, la mesa del fondo. ¡Venga, que el tiempo vuela!",
+      "Tranqui, sé tú y ya está. ¡Suerte!"
+    ]
   },
   "names": {
-    "female": ["Carmen", "Irene", "Alba", "Paula", "Marta"],
-    "male": ["Pablo", "Álvaro", "Javi", "Hugo", "Sergio"],
-    "nonbinary": ["Ari", "Noa", "Cris"]
+    "female": [
+      "Carmen",
+      "Irene",
+      "Alba",
+      "Paula",
+      "Marta"
+    ],
+    "male": [
+      "Pablo",
+      "Álvaro",
+      "Javi",
+      "Hugo",
+      "Sergio"
+    ],
+    "nonbinary": [
+      "Ari",
+      "Noa",
+      "Cris"
+    ]
   },
-  "occupations": ["flamenco guitarist", "doctor", "food critic", "graphic designer", "civil engineer", "theatre actor"],
+  "occupations": [
+    "flamenco guitarist",
+    "doctor",
+    "food critic",
+    "graphic designer",
+    "civil engineer",
+    "theatre actor"
+  ],
   "openings": {
     "playful_sarcastic": "¡Hola! Vale, te aviso: el de antes me ha explicado su rutina de gimnasio entera. Sorpréndeme, anda.",
     "warm_romantic": "¡Hola! Qué ilusión. Oye, ¿qué es lo mejor que te ha pasado esta semana?",
@@ -18,27 +44,75 @@
     "high_energy_creative": "¡Hola, hola! Perdona, vengo de un concierto en Malasaña que ha sido una pasada. ¿Tú qué? ¿Qué te mola?"
   },
   "callouts": {
-    "female": ["Oye, ¿tan aburrida soy que miras para otro lado?", "¿Hola? Que estoy aquí, ¿eh? ¿Qué miras?"],
-    "male": ["Oye, ¿tan aburrido soy que miras para otro lado?", "¿Hola? Que estoy aquí, ¿eh? ¿Qué miras?"],
-    "nonbinary": ["Oye, ¿tanto aburro que miras para otro lado?", "¿Hola? Que estoy aquí, ¿eh? ¿Qué miras?"]
+    "female": [
+      "Oye, ¿tan aburrida soy que miras para otro lado?",
+      "¿Hola? Que estoy aquí, ¿eh? ¿Qué miras?"
+    ],
+    "male": [
+      "Oye, ¿tan aburrido soy que miras para otro lado?",
+      "¿Hola? Que estoy aquí, ¿eh? ¿Qué miras?"
+    ],
+    "nonbinary": [
+      "Oye, ¿tanto aburro que miras para otro lado?",
+      "¿Hola? Que estoy aquí, ¿eh? ¿Qué miras?"
+    ]
   },
   "offline": {
-    "reactions": ["¡Qué fuerte! ¿En serio?", "Jaja, qué guay.", "Hala, no me lo esperaba.", "Mola mucho, eh.", "Vale, vale, interesante."],
-    "questions": ["¿Y tú a qué te dedicas?", "¿Qué haces un domingo perfecto?", "¿Eres más de playa o de montaña?", "¿Has viajado mucho?", "¿Qué música escuchas ahora mismo?"],
-    "nudges": ["¿Y tú? Cuéntame algo.", "Venga, no te cortes. ¿Qué me dices?"],
+    "reactions": [
+      "¡Qué fuerte! ¿En serio?",
+      "Jaja, qué guay.",
+      "Hala, no me lo esperaba.",
+      "Mola mucho, eh.",
+      "Vale, vale, interesante."
+    ],
+    "questions": [
+      "¿Y tú a qué te dedicas?",
+      "¿Qué haces un domingo perfecto?",
+      "¿Eres más de playa o de montaña?",
+      "¿Has viajado mucho?",
+      "¿Qué música escuchas ahora mismo?"
+    ],
+    "nudges": [
+      "¿Y tú? Cuéntame algo.",
+      "Venga, no te cortes. ¿Qué me dices?"
+    ],
     "smile": "Esa sonrisa, eh. Me caes bien.",
     "puzzled": "¿Qué pasa? Has puesto una cara... ¿Te lo digo más despacio?"
   },
   "wingman": [
     [
-      {"tone": "Flirty 🔥", "target": "Mi único entrenamiento es venir a cenar con gente interesante.", "gloss": "My only workout is going to dinner with interesting people."},
-      {"tone": "Curious 💬", "target": "¿Y a ti qué te hace perder la noción del tiempo?", "gloss": "And what makes you lose track of time?"},
-      {"tone": "Playful 😂", "target": "Yo voy al gimnasio... a mirar la máquina de café.", "gloss": "I go to the gym... to look at the coffee machine."}
+      {
+        "tone": "Flirty 🔥",
+        "target": "Mi único entrenamiento es venir a cenar con gente interesante.",
+        "gloss": "My only workout is going to dinner with interesting people."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "¿Y a ti qué te hace perder la noción del tiempo?",
+        "gloss": "And what makes you lose track of time?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "Yo voy al gimnasio... a mirar la máquina de café.",
+        "gloss": "I go to the gym... to look at the coffee machine."
+      }
     ],
     [
-      {"tone": "Flirty 🔥", "target": "Un domingo perfecto es vermut, tapas y buena compañía... como hoy.", "gloss": "A perfect Sunday is vermouth, tapas and good company... like today."},
-      {"tone": "Curious 💬", "target": "¿Tienes algún bar secreto en Madrid que me puedas recomendar?", "gloss": "Do you have a secret bar in Madrid you can recommend?"},
-      {"tone": "Playful 😂", "target": "Perdona, me he quedado en blanco. Culpa tuya, que me distraes.", "gloss": "Sorry, my mind went blank. Your fault, you distract me."}
+      {
+        "tone": "Flirty 🔥",
+        "target": "Un domingo perfecto es vermut, tapas y buena compañía... como hoy.",
+        "gloss": "A perfect Sunday is vermouth, tapas and good company... like today."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "¿Tienes algún bar secreto en Madrid que me puedas recomendar?",
+        "gloss": "Do you have a secret bar in Madrid you can recommend?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "Perdona, me he quedado en blanco. Culpa tuya, que me distraes.",
+        "gloss": "Sorry, my mind went blank. Your fault, you distract me."
+      }
     ]
   ],
   "closings": {
@@ -46,10 +120,24 @@
     "friendzone": "Bueno, ha sonado la campana. Me has caído bien, ¿eh? A ver si coincidimos.",
     "ghosted": "Ah, bueno, se acabó el tiempo. Suerte con las demás citas."
   },
-  "stamps": {"match": "¡HAY MATCH!", "friendzone": "SOLO AMIGOS", "ghosted": "TE HA HECHO GHOSTING"},
+  "stamps": {
+    "match": "¡HAY MATCH!",
+    "friendzone": "SOLO AMIGOS",
+    "ghosted": "TE HA HECHO GHOSTING"
+  },
   "followups": {
     "match": "Oye, me ha encantado hablar contigo 😊 ¿Unas cañas el viernes?",
     "friendzone": "Ha sido guay conocerte. Si vas al Rastro el domingo, nos vemos 🤝",
     "ghosted": "Hola, gracias por la charla. No he sentido mucha chispa, pero suerte 🙏"
-  }
+  },
+  "culture": [
+    {
+      "title": "Vosotros",
+      "note": "Spain uses vosotros for 'you all': «¿Qué queréis tomar?»."
+    },
+    {
+      "title": "Vale",
+      "note": "Spain's all-purpose 'OK', and a good way to show you're following."
+    }
+  ]
 }

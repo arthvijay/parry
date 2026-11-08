@@ -132,7 +132,7 @@ def metrics_for(state: ChemistryState, transcript: Sequence[TranscriptTurn]) -> 
                        wingman_lines_used=state.wingman_lines_used,
                        unassisted_fluency_pct=unassisted, eye_contact_pct=state.eye_contact_pct,
                        smiles=state.smiles, look_away_callouts=state.look_away_callouts,
-                       barge_ins=state.barge_ins)
+                       barge_ins=state.barge_ins, help_requests=state.help_requests)
 
 
 def pacing_pillar(m: DateMetrics) -> Pillar:
@@ -152,6 +152,7 @@ def pacing_pillar(m: DateMetrics) -> Pillar:
         score += 0.3 if pct >= 90 else 0 if pct >= 80 else -0.5 if pct >= 65 else -1.0
         notes.append(f"the recogniser was {pct}% sure of your words")
     score -= 0.4 * m.wingman_lines_used + 0.15 * max(0, m.wingman_hints_used - m.wingman_lines_used)
+    score -= 0.1 * m.help_requests
     if m.wingman_hints_used:
         notes.append(f"the wingman stepped in {m.wingman_hints_used}×")
     else:
@@ -239,6 +240,7 @@ class DateGrader:
         kind = verdict_for(state.score)
         content = config.dialect_content(scenario.dialect)
         metrics = metrics_for(state, transcript)
+        authored_followup = scenario.followups.get(kind) or content["followups"][kind]
         wire, graded_by = None, "rules"
         if self.claude is not None and learner_lines(transcript):
             try:
@@ -250,8 +252,9 @@ class DateGrader:
             pillars = [checked(pid, getattr(wire, pid), transcript)
                        for pid in ("icebreaker", "dialect_authenticity", "active_listening")]
             summary = wire.summary.strip()[:1000] or "Good effort."
-            text = wire.followup_text.strip()[:600] or content["followups"][kind]
-            translation = wire.followup_translation_en.strip()[:600] or TRANSLATIONS[kind]
+            text = wire.followup_text.strip()[:600] or authored_followup
+            translation = wire.followup_translation_en.strip()[:600] or \
+                scenario.followups.get(f"{kind}_en") or TRANSLATIONS[kind]
             correction = None
             if wire.correction is not None and said_by_learner(wire.correction.heard, transcript):
                 correction = Correction(heard=wire.correction.heard.strip()[:300],
@@ -261,7 +264,8 @@ class DateGrader:
             raw, summary = rules_pillars(scenario, state, transcript)
             pillars = [checked(pid, w, transcript) for pid, w in
                        zip(("icebreaker", "dialect_authenticity", "active_listening"), raw, strict=True)]
-            text, translation, correction = content["followups"][kind], TRANSLATIONS[kind], None
+            translation = scenario.followups.get(f"{kind}_en") or TRANSLATIONS[kind]
+            text, correction = authored_followup, None
         if correction is None and state.mistakes:
             m = state.mistakes[0]
             if said_by_learner(m["heard"], transcript):

@@ -131,6 +131,19 @@ public class DateScenario
     public float wingman_seconds = 4f;
     public int chemistry_start = 50;
     public string generated_by;
+    // Authored dates (presets) carry their café.
+    public string preset_id;
+    public MenuItem[] menu = Array.Empty<MenuItem>();
+    public string currency;
+}
+
+[Serializable]
+public class MenuItem
+{
+    public string id;
+    public string name;
+    public int price;
+    public string description_en;
 }
 
 [Serializable]
@@ -188,11 +201,53 @@ public class Milestone
     public bool core;
 }
 
+// ---- the learning report (POST /v1/date/report) ----------------------------------------
+
+[Serializable]
+public class DateReport
+{
+    public string run_id;
+    public string summary;
+    public ReportQuote went_well;
+    public ReportFix[] fixes = Array.Empty<ReportFix>();
+    public ReportPhrase[] useful_phrases = Array.Empty<ReportPhrase>();
+    public ReportNote[] culture_notes = Array.Empty<ReportNote>();
+    public string[] practice_words = Array.Empty<string>();
+    public string next_date;
+    public string html_path;
+}
+
+[Serializable]
+public class ReportQuote { public string quote; public string note; }
+
+[Serializable]
+public class ReportFix { public string heard; public string better; public string why_en; }
+
+[Serializable]
+public class ReportPhrase { public string target; public string gloss; public string when; }
+
+[Serializable]
+public class ReportNote { public string title; public string note; }
+
 // ---- the matchmaker's menu (GET /v1/matchmaker/catalog) -----------------------------
+
+[Serializable]
+public class PresetInfo
+{
+    public string id;
+    public string label;
+    public string summary;
+    public string dialect;
+    public string city;
+    public float lat;
+    public float lon;
+    public string default_proficiency;
+}
 
 [Serializable]
 public class Catalog
 {
+    public PresetInfo[] presets = Array.Empty<PresetInfo>();
     public int date_seconds = 180;
     public DialectInfo[] dialects = Array.Empty<DialectInfo>();
     public Option[] venues = Array.Empty<Option>();
@@ -307,6 +362,7 @@ public class DateMetrics
     public int smiles;
     public int look_away_callouts;
     public int barge_ins;
+    public int help_requests;
 }
 
 [Serializable]

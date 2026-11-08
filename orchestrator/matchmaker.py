@@ -32,7 +32,8 @@ from pydantic import BaseModel, ConfigDict
 from . import config
 from .claude import Claude
 from .date_models import (AvatarConfig, DateCharacter, DateScenario, HostCharacter,
-                          MatchmakerRequest, Milestone, VenueInfo, VoiceConfig)
+                          MatchmakerRequest, MenuItem, Milestone, PresetRequest, VenueInfo,
+                          VoiceConfig)
 
 log = logging.getLogger("orchestrator")
 
@@ -123,7 +124,7 @@ def persona_prompt(*, name: str, gender: str, age: int, occupation: str, backsto
                    interests: list[str], green: list[str], red: list[str],
                    dialect: config.Dialect, city: config.City, venue_setting: str,
                    scene: str, archetype: config.Archetype, level: config.Level,
-                   learner_name: str) -> str:
+                   learner_name: str, place: str = "") -> str:
     """The live date's system prompt. Composed in code so the speaking style, the
     chemistry protocol and the safety rules are identical for every generated date."""
     learner = learner_name or "the person across the table"
@@ -145,7 +146,7 @@ def persona_prompt(*, name: str, gender: str, age: int, occupation: str, backsto
     return f"""You are {name}, {age}, a {occupation}. {backstory}
 You are on a three-minute speed date with {learner} at {venue_setting}, in {city.neighbourhood}, {city.name}. Right now: {scene}
 You love {", ".join(interests)}. Personality: {archetype.traits}
-
+{place}
 HOW YOU SPEAK
 - {language_rule}
 - This is a spoken conversation. One to three short sentences per turn. Contractions, reactions and small fillers are good; lists, emojis, stage directions, asterisks and narration are not.
@@ -189,10 +190,9 @@ def _avatar(gender: str, appearance_id: str, venue_id: str, smile: float) -> Ava
 def _voice(code: str, gender: str, archetype: config.Archetype, level: config.Level) -> VoiceConfig:
     choice = config.voice_for(code, gender)
     return VoiceConfig(provider=choice.provider, voice_id=choice.voice_id,
-                       speaking_rate=round(min(2.0, max(0.5, archetype.speaking_rate
-                                                        * level.tts_speed)), 2),
-                       temperature=archetype.voice_temperature,
-                       latency=config.providers().fish_latency)
+                       stability=archetype.voice_stability, similarity_boost=0.8,
+                       speaking_rate=round(min(1.2, max(0.7, archetype.speaking_rate
+                                                        * level.tts_speed)), 2))
 
 
 NOTE_DISLIKE = re.compile(r"\b(?:hates?|dislikes?|can'?t stand|no|not into)\s+([^,.;]+)", re.I)
@@ -325,6 +325,95 @@ def build_scenario(request: MatchmakerRequest, draft: _Draft, generated_by: str,
         date_character=character, host_character=host, milestones=milestones,
         date_seconds=config.DATE_SECONDS, wingman_seconds=level.wingman_seconds,
         chemistry_start=config.START_CHEMISTRY, generated_by=generated_by)
+
+
+# --------------------------------------------------------------------------- presets
+
+def place_notes(venue_context: str, menu: list[MenuItem], currency: str) -> str:
+    """The café as the date knows it: who runs it, and what is on the menu."""
+    if not venue_context and not menu:
+        return ""
+    lines = ["", "THE PLACE", venue_context.strip()] if venue_context else ["", "THE PLACE"]
+    if menu:
+        items = "; ".join(f"{m.name} ({m.price} {currency})" for m in menu)
+        lines.append(f"The menu: {items}. Recommend things from it, react to what the learner "
+                     f"orders, and suggest sharing something; never invent items or prices. "
+                     f"The host takes the order and brings it to the table.")
+    return "\n".join(line for line in lines if line is not None) + "\n"
+
+
+def build_preset(request: PresetRequest) -> DateScenario:
+    """An authored date: the same scenario shape as a generated one, written by hand, so
+    a demo is identical every time and still uses the same voice, avatar and prompt rules."""
+    data = config.preset(request.preset)
+    code = data["dialect"]
+    dialect = config.dialect(code)
+    level = config.level(request.proficiency or data.get("default_proficiency", "B1"))
+    archetype = config.archetype(data.get("personality_archetype", "playful_sarcastic"))
+    variant = data["variants"][request.date_gender]
+    c = data["city"]
+    city = config.City(c["name"], c["lat"], c["lon"], c["neighbourhood"])
+    v = data["venue"]
+    venue = VenueInfo(id=v["id"], label=v["label"], setting=v["setting"],
+                      ambience=list(v.get("ambience", [])), lighting_preset=v["lighting"])
+    menu = [MenuItem(**item) for item in data.get("menu", [])]
+    currency = data.get("currency", "")
+    scene = data.get("scene_description") or v["setting"]
+    name = variant["display_name"]
+    character = DateCharacter(
+        display_name=name, gender=request.date_gender, age=variant["age"],
+        occupation=variant["occupation"], interests=variant["interests"],
+        backstory=variant["backstory"],
+        avatar_config=_avatar(request.date_gender, variant.get("appearance", "mixed"), v["id"],
+                              archetype.resting_smile),
+        voice_config=_voice(code, request.date_gender, archetype, level),
+        opening_line=variant["opening_line"],
+        system_prompt=persona_prompt(
+            name=name, gender=request.date_gender, age=variant["age"],
+            occupation=variant["occupation"], backstory=variant["backstory"],
+            interests=variant["interests"], green=variant["green_flags"],
+            red=variant["red_flags"], dialect=dialect, city=city,
+            venue_setting=v["label"], scene=scene, archetype=archetype, level=level,
+            learner_name=request.learner_name,
+            place=place_notes(data.get("venue_context", ""), menu, currency)),
+        green_flags=variant["green_flags"], red_flags=variant["red_flags"])
+    h = data["host"]
+    host = HostCharacter(
+        display_name=h["name"], gender=h.get("gender", "female"),
+        greeting=h["greeting"].format(date_name=name), chat_lines=h.get("chat", []),
+        avatar_config=_avatar(h.get("gender", "female"), h.get("appearance", "mixed"), v["id"], 0.3),
+        voice_config=_voice(code, h.get("gender", "female"), config.archetype("warm_romantic"), level))
+    milestones = [Milestone(**m) for m in data["milestones"]]
+    return DateScenario(
+        scenario_id=f"date_{slug(city.name)}_{slug(name)}_{uuid4().hex[:6]}",
+        city=city.name, language_code=dialect.locale, dialect=code,
+        dialect_label=dialect.label, proficiency=level.cefr,
+        learner_name=request.learner_name, venue_scene=v["scene"],
+        lighting_preset=v["lighting"], venue=venue, scene_description=scene[:1000],
+        personality_archetype=archetype.id, date_character=character, host_character=host,
+        milestones=milestones, date_seconds=config.DATE_SECONDS,
+        wingman_seconds=level.wingman_seconds, chemistry_start=config.START_CHEMISTRY,
+        generated_by="authored", preset_id=data["id"], menu=menu, currency=currency,
+        serve_line=h.get("serve_line", ""), closings=data.get("closings", {}),
+        followups=data.get("followups", {}))
+
+
+def ordered_items(text: str, menu: list[MenuItem]) -> list[MenuItem]:
+    """Menu items a learner's line mentions, longest alias first so "café con leche" is
+    not also read as a plain coffee."""
+    plain = unicodedata.normalize("NFKD", text.casefold()).encode("ascii", "ignore").decode()
+    found, taken = [], []
+    pairs = sorted(((unicodedata.normalize("NFKD", a.casefold()).encode("ascii", "ignore").decode(), m)
+                    for m in menu for a in (m.aliases or [m.name])), key=lambda p: -len(p[0]))
+    for alias, item in pairs:
+        for match in re.finditer(rf"\b{re.escape(alias)}\b", plain):
+            span = range(match.start(), match.end())
+            if any(set(span) & set(t) for t in taken):
+                continue
+            taken.append(span)
+            if item not in found:
+                found.append(item)
+    return found
 
 
 # --------------------------------------------------------------------------- providers

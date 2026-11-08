@@ -6,10 +6,10 @@ else is JSON (see docs/api.md, "Speed date stream").
 
 One learner turn, end to end:
 
-    mic frames ─▶ Deepgram (live) ─▶ final utterance
+    mic frames ─▶ Nemotron ASR (live) ─▶ final utterance
                                           ├─▶ chemistry director (background)
                                           └─▶ Gemini Flash (stream) ─▶ sentence chunks
-                                                 ─▶ Fish Audio (stream) ─▶ PCM frames ─▶ client
+                                                 ─▶ ElevenLabs (stream) ─▶ PCM frames ─▶ client
 
 Alongside it: telemetry every 250 ms (gaze, seated, smiling), webcam frames for the face
 tracker, barge-in from the client's own voice detector (the date stops mid-word and the
@@ -89,6 +89,9 @@ class StreamSession:
         # The learner.
         self.user_speaking = False
         self.user_started_at: float | None = None
+        # When the utterance now being recognised began; survives the voice detector's
+        # "speech ended", which can arrive before the recogniser's final words.
+        self.utterance_started: float | None = None
         # The date itself.
         self.running = False
         self.ended = False
@@ -101,6 +104,13 @@ class StreamSession:
         self.tasks: list[asyncio.Task] = []
         self.face_task: asyncio.Task | None = None
         self.end_task: asyncio.Task | None = None
+        # The café: an order the host is bringing, waiting for them to reach the table.
+        self.pending_order: list[str] = []
+        self.order_placed = False
+        # The learner's voice, kept for the report's pronunciation pass.
+        self.mic = bytearray()
+        self.mic_started = time.monotonic()
+        self.clips = 0
         self.notified_no_stt = False
 
     # ---- sending ----------------------------------------------------------------
@@ -161,8 +171,8 @@ class StreamSession:
         self.voice = Voice()
         self.brain = create_brain()
         self.director = ChemistryDirector(self.scenario, run_id, self.app.chemistry_judge,
-                                          self.app.chemistry_store, emit=self.send)
-        await self.voice.prewarm()
+                                          self.app.chemistry_store, emit=self._director_event)
+        await self.voice.prewarm(self.scenario.date_character.voice_config)
         if message.get("resume") and not self.director.state.ended:
             # The client lost its connection mid-date: pick the clock up where it was.
             elapsed = max(0.0, min(float(message.get("elapsed_sec") or 0.0),
@@ -186,7 +196,7 @@ class StreamSession:
         })
         if not self.recognizer.transcribes:
             await self.send({"type": "notice", "text": "No speech recogniser configured "
-                                                       "(DEEPGRAM_API_KEY); send user_text."})
+                                                       "(NVIDIA_API_KEY / NEMOTRON_ASR_SERVER); send user_text."})
         return True
 
     def _restore_history(self) -> list[Turn]:
@@ -221,6 +231,7 @@ class StreamSession:
                 raise WebSocketDisconnect(message.get("code", 1000))
             data = message.get("bytes")
             if data is not None:
+                self._keep_mic(data)
                 await self.recognizer.feed(data)
                 continue
             text = message.get("text")
@@ -256,6 +267,11 @@ class StreamSession:
                 self._schedule_wingman()
         elif kind == "ping":
             await self.send({"type": "pong", "t": msg.get("t")})
+        elif kind == "help":
+            asyncio.create_task(self._help())
+        elif kind == "scene_event":
+            if msg.get("event") == "host_at_table" and self.pending_order:
+                asyncio.create_task(self._serve())
 
     async def _focus(self, npc_id: str):
         self.focus = HOST if npc_id == HOST else DATE
@@ -272,8 +288,10 @@ class StreamSession:
                 if not self.user_speaking:
                     self.user_speaking = True
                     self.user_started_at = now
+                    if self.utterance_started is None:
+                        self.utterance_started = now
                 self.wingman_due = None
-                await self.voice.prewarm()
+                await self.voice.prewarm(self.scenario.date_character.voice_config)
                 await self.send({"type": "user_speech", "speaking": True})
             elif event.kind == "speech_ended":
                 if self.user_speaking:
@@ -286,6 +304,7 @@ class StreamSession:
                 await self.send({"type": "transcript", "speaker": "user", "text": event.text,
                                  "is_final": False})
             elif event.kind == "final":
+                self._save_clip(event.text, event.confidence, event.unsure)
                 await self._learner(event.text, event.confidence, event.unsure)
             elif event.kind == "error":
                 await self.send({"type": "notice", "text": event.text})
@@ -296,8 +315,8 @@ class StreamSession:
         if not text or self.ended:
             return
         now = time.monotonic()
-        started = self.user_started_at or now
-        self.user_speaking, self.user_started_at = False, None
+        started = self.utterance_started or self.user_started_at or now
+        self.user_speaking, self.user_started_at, self.utterance_started = False, None, None
         self.learner_final_at = now
         npc = self.focus
         if self.turn_task is not None and not self.turn_task.done():
@@ -551,7 +570,8 @@ class StreamSession:
 
     async def _closing_line(self, verdict: str) -> str:
         """A goodbye that remembers the conversation, or the authored one."""
-        template = config.dialect_content(self.scenario.dialect)["closings"][verdict]
+        template = (self.scenario.closings.get(verdict)
+                    or config.dialect_content(self.scenario.dialect)["closings"][verdict])
         if isinstance(self.brain, ScriptedBrain):
             return template
         notes = [f"[SCENE] The bell just rang: the date is over. Say goodbye in one or two short "
@@ -667,6 +687,84 @@ class StreamSession:
         self.director.note(signal.note)
         await self.send({"type": "signal", "kind": signal.kind, "label": signal.label,
                          "effect": effect, "during_npc": signal.during_npc})
+
+    # ---- the café -----------------------------------------------------------------
+
+    async def _director_event(self, message: dict):
+        """Chemistry updates go to the client; an order milestone also sends the host."""
+        await self.send(message)
+        if (self.scenario.menu and not self.order_placed
+                and "order_together" in message.get("completed_milestones", [])):
+            from .matchmaker import ordered_items
+            quote = message.get("evidence_quotes", {}).get("order_together", "")
+            items = [m.name for m in ordered_items(quote, self.scenario.menu)]
+            if not items:
+                # The quote may not name the dish; take what the learner said this run.
+                said = " ".join(t.text for t in self.transcript if t.role == "learner")
+                items = [m.name for m in ordered_items(said, self.scenario.menu)][:3]
+            self.order_placed = True
+            self.pending_order = items or [self.scenario.menu[0].name]
+            event = TranscriptTurn(role="event", npc_id=HOST,
+                                   text=f"order placed: {', '.join(self.pending_order)}")
+            self.transcript.append(event)
+            await self._record([event])
+            await self.send({"type": "scene_action", "action": "order_placed", "npc_id": HOST,
+                             "items": self.pending_order})
+
+    async def _serve(self):
+        """The host reaches the table: wait for the date to finish, then serve."""
+        items, self.pending_order = self.pending_order, []
+        names = " y ".join([", ".join(items[:-1]), items[-1]] if len(items) > 1 else items)
+        line = (self.scenario.serve_line or "{items}").format(items=names)
+        for _ in range(100):
+            if self.speaking is None and not self.user_speaking:
+                break
+            await asyncio.sleep(0.1)
+        if self.turn_task is None or self.turn_task.done():
+            self.turn_task = asyncio.create_task(self._speak(HOST, text=line, kind="serve"))
+
+    async def _help(self):
+        card = await self.director.help(list(self.transcript))
+        event = TranscriptTurn(role="event", npc_id=DATE, text="learner asked the translator for help")
+        self.transcript.append(event)
+        await self._record([event])
+        await self.send(card.model_dump())
+
+    # ---- the learner's voice, for the report ---------------------------------------
+
+    def _keep_mic(self, data: bytes):
+        """The last 30 seconds of microphone audio, enough to cut out any one line."""
+        self.mic.extend(data)
+        limit = 16000 * 2 * 30
+        if len(self.mic) > limit:
+            drop = len(self.mic) - limit
+            drop -= drop % 2
+            del self.mic[:drop]
+            self.mic_started += drop / 32000
+
+    def _save_clip(self, text: str, confidence: float | None, unsure: list[str]):
+        """Cut the line the learner just said out of the buffer and keep it with what we
+        heard, so the report can listen to the ones the recogniser struggled with."""
+        if self.clips >= 60 or not text.strip() or not RUN_ID.match(self.run_id):
+            return
+        now = time.monotonic()
+        start = (self.utterance_started or self.user_started_at or now - 4.0) - 0.4
+        begin = max(0, int((start - self.mic_started) * 32000))
+        begin -= begin % 2
+        pcm = bytes(self.mic[begin:])
+        if len(pcm) < 16000:  # under half a second: nothing to listen to
+            return
+        try:
+            from .audio import wav_bytes
+            folder = self.app.audio_dir / self.run_id
+            folder.mkdir(parents=True, exist_ok=True)
+            self.clips += 1
+            (folder / f"turn_{self.clips:03d}.wav").write_bytes(wav_bytes(pcm, 16000))
+            (folder / f"turn_{self.clips:03d}.json").write_text(json.dumps(
+                {"text": text, "confidence": confidence, "low_confidence_words": unsure},
+                ensure_ascii=False), encoding="utf-8")
+        except OSError as error:
+            log.warning("Clip not saved: %s", type(error).__name__)
 
     async def _record(self, turns: list[TranscriptTurn]):
         with contextlib.suppress(Exception):

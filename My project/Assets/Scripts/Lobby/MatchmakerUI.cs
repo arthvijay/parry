@@ -153,6 +153,32 @@ public class MatchmakerUI : MonoBehaviour
             ChooseDialect(dialect);
     }
 
+    /// <summary>The authored demo date: same café, same person, every time.</summary>
+    IEnumerator GeneratePreset(PresetInfo preset)
+    {
+        step = Step.Matching;
+        stepStart = Time.time;
+        matchError = "";
+        city = preset.city;
+        Pin(preset.lat, preset.lon, preset.city);
+        DateSession.LearnerName = learnerName;
+        string body = Json.Write(new Dictionary<string, object>
+        {
+            ["preset"] = preset.id, ["learner_name"] = learnerName, ["proficiency"] = level,
+            ["date_gender"] = dateGender == "male" ? "male" : "female",
+        });
+        using var req = new UnityWebRequest($"{DateSession.Base}/v1/matchmaker/preset", "POST")
+        {
+            uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body)) { contentType = "application/json" },
+            downloadHandler = new DownloadHandlerBuffer(),
+            timeout = 30,
+        };
+        yield return req.SendWebRequest();
+        while (Since < 2.2f)
+            yield return null;
+        yield return Matched(req);
+    }
+
     IEnumerator Generate()
     {
         step = Step.Matching;
@@ -176,6 +202,11 @@ public class MatchmakerUI : MonoBehaviour
         // Let the matchmaking moment breathe even when the templates answer instantly.
         while (Since < 2.2f)
             yield return null;
+        yield return Matched(req);
+    }
+
+    IEnumerator Matched(UnityWebRequest req)
+    {
         if (req.result != UnityWebRequest.Result.Success || !DateSession.SetScenario(req.downloadHandler.text))
         {
             matchError = FullDuplexStreamClient.Describe(req);
@@ -422,6 +453,11 @@ public class MatchmakerUI : MonoBehaviour
             GlassUI.Label(new Rect(60f, 22f, 400f, 56f), Brand.Name, 46, Brand.Ink, FontStyle.Bold);
             GlassUI.Label(new Rect(62f, 72f, 600f, 22f), Brand.Tagline, 15, new Color(Brand.Ink.r, Brand.Ink.g, Brand.Ink.b, 0.65f));
         }
+        // The demo: one click to the authored café date.
+        var demo = catalog?.presets != null && catalog.presets.Length > 0 ? catalog.presets[0] : null;
+        if (demo != null && step <= Step.Date
+            && GlassUI.Button(new Rect(400f, 34f, 280f, 40f), $"▶  Demo date · {demo.label.Split('·')[0].Trim()}", true))
+            StartCoroutine(GeneratePreset(demo));
         PinLabel();
         switch (step)
         {

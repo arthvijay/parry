@@ -129,5 +129,15 @@
     "match": "今日めっちゃ楽しかったわ😊 今度お好み焼き行かへん？",
     "friendzone": "会えてよかったわ！また飲み行こな🤝",
     "ghosted": "今日はおおきに。ご縁なかったみたいやけど、頑張ってな🙏"
-  }
+  },
+  "culture": [
+    {
+      "title": "Tsukkomi",
+      "note": "Answering a joke with a quick なんでやねん ('why would you!') is the Osaka way to play along."
+    },
+    {
+      "title": "ほんま",
+      "note": "Kansai for 'really', instead of Tokyo's 本当."
+    }
+  ]
 }

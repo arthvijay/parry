@@ -5,7 +5,11 @@
       "role": "host",
       "displayName": "Host",
       "avatar": "Avatars/Female_Adult_08/Export/Female_Adult_08_facial",
-      "position": { "x": 3.3, "y": -1.5, "z": 0.8 },
+      "position": {
+        "x": 3.3,
+        "y": -1.5,
+        "z": 0.8
+      },
       "yaw": 90,
       "scale": 0.9,
       "walkSpeed": 0.75,
@@ -16,10 +20,26 @@
           "trigger": "greet",
           "delay": 1.0,
           "path": [
-            { "x": 2.7, "y": -1.5, "z": 2.0 },
-            { "x": 2.7, "y": -1.5, "z": 6.8 },
-            { "x": 3.7, "y": -1.5, "z": 8.4 },
-            { "x": 4.1, "y": -1.5, "z": 9.9 }
+            {
+              "x": 2.7,
+              "y": -1.5,
+              "z": 2.0
+            },
+            {
+              "x": 2.7,
+              "y": -1.5,
+              "z": 6.8
+            },
+            {
+              "x": 3.7,
+              "y": -1.5,
+              "z": 8.4
+            },
+            {
+              "x": 4.1,
+              "y": -1.5,
+              "z": 9.9
+            }
           ],
           "endYaw": 270
         },
@@ -29,9 +49,59 @@
           "after": "show_table",
           "delay": 4,
           "path": [
-            { "x": 3.6, "y": -1.5, "z": 10.4 },
-            { "x": 0.0, "y": -1.5, "z": 10.5 },
-            { "x": -0.2, "y": -1.5, "z": 13.8 }
+            {
+              "x": 3.6,
+              "y": -1.5,
+              "z": 10.4
+            },
+            {
+              "x": 0.0,
+              "y": -1.5,
+              "z": 10.5
+            },
+            {
+              "x": -0.2,
+              "y": -1.5,
+              "z": 13.8
+            }
+          ],
+          "endYaw": 180
+        },
+        {
+          "id": "bring_order",
+          "trigger": "action",
+          "after": "order_placed",
+          "delay": 2.5,
+          "path": [
+            {
+              "x": 0.0,
+              "y": -1.5,
+              "z": 10.5
+            },
+            {
+              "x": 1.6,
+              "y": -1.5,
+              "z": 10.35
+            }
+          ],
+          "endYaw": 130
+        },
+        {
+          "id": "back_after_serving",
+          "trigger": "move",
+          "after": "bring_order",
+          "delay": 6,
+          "path": [
+            {
+              "x": 0.0,
+              "y": -1.5,
+              "z": 10.5
+            },
+            {
+              "x": -0.2,
+              "y": -1.5,
+              "z": 13.8
+            }
           ],
           "endYaw": 180
         }
@@ -42,7 +112,11 @@
       "role": "date",
       "displayName": "Your date",
       "avatar": "Avatars/Female_Adult_08/Export/Female_Adult_08_facial",
-      "position": { "x": 1.0, "y": -1.5, "z": 8.7 },
+      "position": {
+        "x": 1.0,
+        "y": -1.5,
+        "z": 8.7
+      },
       "yaw": 90,
       "scale": 0.9,
       "walkSpeed": 0.8,

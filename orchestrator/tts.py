@@ -1,21 +1,22 @@
-"""The date's voice: Fish Audio's live text-to-speech, fed sentence by sentence.
+"""The date's voice: ElevenLabs' streaming text-to-speech, fed sentence by sentence.
 
 The language model's reply is cut at sentence (and long-clause) boundaries and each
-piece is sent to Fish and flushed at once, so the first words are being spoken while
-the rest of the reply is still being written. Audio comes back as 24 kHz PCM16 mono,
-ready for the client's ring buffer.
+piece is sent to ElevenLabs and flushed at once, so the first words are being spoken
+while the rest of the reply is still being written. Audio comes back as 24 kHz PCM16
+mono, ready for the client's ring buffer.
 
 One socket is opened ahead of time and kept warm, so a turn does not pay the TLS
-handshake. If Fish fails before any audio has gone out, the turn is voiced with the
-bundled sample instead; a date never goes silent.
+handshake. If ElevenLabs fails before any audio has gone out, the turn is voiced with
+the bundled sample instead; a date never goes silent.
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
+import json
 import logging
-import os
 import re
 from collections.abc import AsyncIterator
 
@@ -25,7 +26,7 @@ from .date_models import VoiceConfig
 
 log = logging.getLogger("orchestrator")
 
-FISH_URL = "wss://api.fish.audio/v1/tts/live"
+ELEVENLABS_URL = "wss://api.elevenlabs.io/v1/text-to-speech"
 FRAME_BYTES = int(VOICE_RATE * 0.04) * 2   # 40 ms of PCM16
 SENTENCE_END = re.compile(r"(?<=[.!?…。！？])[\"'»”）)]*\s+|(?<=[。！？])")
 CLAUSE_BREAK = re.compile(r"(?<=[,;:，、；])\s+")
@@ -82,82 +83,91 @@ class SampleVoice:
             for frame in frames(sample_speech(sentence)):
                 yield frame
 
-    async def prewarm(self):
+    async def prewarm(self, voice: VoiceConfig | None = None):
         return None
 
     async def aclose(self):
         return None
 
 
-class FishVoice:
-    name = "fish"
+class ElevenLabsVoice:
+    """ElevenLabs text-to-speech over its input-streaming WebSocket.
+
+    The voice is part of the URL, so a socket opened ahead of time only serves the voice
+    it was opened for; the date's voice is the one kept warm, since it speaks most."""
+
+    name = "elevenlabs"
 
     def __init__(self, key: str, model: str):
         self.key = key
         self.model = model
-        self.sample_rate = int(os.getenv("FISH_AUDIO_SAMPLE_RATE") or VOICE_RATE)
-        self.warm: asyncio.Task | None = None
+        self.warm: tuple[str, asyncio.Task] | None = None
 
-    async def _connect(self):
+    def url(self, voice_id: str) -> str:
+        return (f"{ELEVENLABS_URL}/{voice_id}/stream-input?model_id={self.model}"
+                f"&output_format=pcm_{VOICE_RATE}&inactivity_timeout=60")
+
+    async def _connect(self, voice_id: str):
         from websockets.asyncio.client import connect
-        return await connect(FISH_URL, additional_headers={"Authorization": f"Bearer {self.key}",
-                                                           "model": self.model},
+        return await connect(self.url(voice_id), additional_headers={"xi-api-key": self.key},
                              max_size=16 * 1024 * 1024, open_timeout=6)
 
-    async def prewarm(self):
+    async def prewarm(self, voice: VoiceConfig | None = None):
         """Open the next turn's socket now, while the learner is talking."""
-        stale = self.warm is not None and self.warm.done() and (
-            self.warm.cancelled() or self.warm.exception() is not None)
-        if self.warm is None or stale:
-            self.warm = asyncio.create_task(self._connect())
-            self.warm.add_done_callback(lambda t: t.cancelled() or t.exception())
-
-    async def _socket(self):
+        if voice is None or not voice.voice_id:
+            return
         if self.warm is not None:
-            task, self.warm = self.warm, None
+            warm_voice, task = self.warm
+            stale = task.done() and (task.cancelled() or task.exception() is not None)
+            if warm_voice == voice.voice_id and not stale:
+                return
+            if not task.done():
+                task.cancel()
+        task = asyncio.create_task(self._connect(voice.voice_id))
+        task.add_done_callback(lambda t: t.cancelled() or t.exception())
+        self.warm = (voice.voice_id, task)
+
+    async def _socket(self, voice_id: str):
+        if self.warm is not None and self.warm[0] == voice_id:
+            task, self.warm = self.warm[1], None
             with contextlib.suppress(Exception):
                 ws = await task
                 if ws.state.name == "OPEN":
                     return ws
                 await ws.close()
-        return await self._connect()
+        return await self._connect(voice_id)
 
     async def speak(self, sentences: AsyncIterator[str], voice: VoiceConfig,
                     language: str) -> AsyncIterator[bytes]:
-        import ormsgpack
-        ws = await self._socket()
-        start = {"event": "start", "request": {
-            "text": "", "format": "pcm", "sample_rate": self.sample_rate,
-            "latency": voice.latency, "reference_id": voice.voice_id or None,
-            "prosody": {"speed": voice.speaking_rate, "volume": 0},
-            "temperature": voice.temperature, "top_p": 0.7, "normalize": True,
-            "language": language, "chunk_length": 100, "min_chunk_length": 0,
-            "condition_on_previous_chunks": True}}
+        ws = await self._socket(voice.voice_id)
+        start = {"text": " ",
+                 "voice_settings": {"stability": voice.stability,
+                                    "similarity_boost": voice.similarity_boost,
+                                    "speed": voice.speaking_rate},
+                 # Small first chunks: the first words are spoken sooner.
+                 "generation_config": {"chunk_length_schedule": [50, 90, 120, 150]}}
 
         async def send():
-            await ws.send(ormsgpack.packb(start))
+            await ws.send(json.dumps(start))
             async for sentence in sentences:
-                await ws.send(ormsgpack.packb({"event": "text", "text": sentence + " "}))
-                await ws.send(ormsgpack.packb({"event": "flush"}))
-            await ws.send(ormsgpack.packb({"event": "stop"}))
+                await ws.send(json.dumps({"text": sentence + " ", "flush": True}))
+            await ws.send(json.dumps({"text": ""}))
 
         sender = asyncio.create_task(send())
         remainder = b""
         try:
             async for raw in ws:
-                if isinstance(raw, str):
-                    continue
-                message = ormsgpack.unpackb(raw)
-                event = message.get("event")
-                if event == "audio" and message.get("audio"):
-                    data = remainder + bytes(message["audio"])
+                message = json.loads(raw)
+                if message.get("audio"):
+                    data = remainder + base64.b64decode(message["audio"])
                     usable = len(data) - len(data) % 2
                     remainder = data[usable:]
                     for frame in frames(data[:usable]):
                         yield frame
-                elif event == "finish":
-                    if message.get("reason") == "error":
-                        raise RuntimeError("Fish Audio reported an error")
+                elif message.get("error") or (message.get("message") and not message.get("isFinal")):
+                    # A bad voice id, quota or key: ElevenLabs says why, then closes.
+                    raise RuntimeError(str(message.get("message") or message.get("error"))[:200])
+                if message.get("isFinal"):
                     break
             if sender.done() and sender.exception() is not None:
                 raise sender.exception()
@@ -166,39 +176,40 @@ class FishVoice:
             with contextlib.suppress(Exception):
                 await ws.close()
             # The next turn's socket opens while this one is being heard.
-            await self.prewarm()
+            await self.prewarm(voice)
 
     async def aclose(self):
         if self.warm is not None:
             with contextlib.suppress(Exception):
-                ws = await self.warm
+                ws = await self.warm[1]
                 await ws.close()
 
 
 class Voice:
-    """The session's voice: Fish when configured, the sample otherwise, and the sample
-    for any turn Fish fails before a single frame has been sent."""
+    """The session's voice: ElevenLabs when configured, the sample otherwise, and the
+    sample for any turn ElevenLabs fails before a single frame has been sent."""
 
     def __init__(self):
         p = config.providers()
-        self.primary = FishVoice(p.fish_key, p.fish_model) if p.fish_key else None
+        self.primary = ElevenLabsVoice(p.elevenlabs_key, p.elevenlabs_model) \
+            if p.elevenlabs_key else None
         self.fallback = SampleVoice()
 
     @property
     def name(self) -> str:
         return self.primary.name if self.primary else self.fallback.name
 
-    async def prewarm(self):
-        if self.primary is not None:
-            await self.primary.prewarm()
+    async def prewarm(self, voice: VoiceConfig | None = None):
+        if self.primary is not None and voice is not None and voice.provider == "elevenlabs":
+            await self.primary.prewarm(voice)
 
     async def speak(self, sentences: AsyncIterator[str], voice: VoiceConfig,
                     language: str) -> AsyncIterator[bytes]:
-        if self.primary is None or voice.provider != "fish":
+        if self.primary is None or voice.provider != "elevenlabs":
             async for frame in self.fallback.speak(sentences, voice, language):
                 yield frame
             return
-        # Keep every sentence so the sample can voice them if Fish fails early.
+        # Keep every sentence so the sample can voice them if ElevenLabs fails early.
         spoken: list[str] = []
         queue: asyncio.Queue[str | None] = asyncio.Queue()
 
@@ -221,7 +232,7 @@ class Voice:
         except asyncio.CancelledError:
             raise
         except Exception as error:  # noqa: BLE001
-            log.warning("Fish Audio failed (%s)%s", type(error).__name__,
+            log.warning("ElevenLabs failed (%s: %s)%s", type(error).__name__, error,
                         "" if sent_any else "; sample voice used for this turn")
             if sent_any:
                 return

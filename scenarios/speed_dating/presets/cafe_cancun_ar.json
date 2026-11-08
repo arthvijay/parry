@@ -1,0 +1,236 @@
+{
+  "id": "cafe_cancun_ar",
+  "label": "Café Rayuela · Cancún",
+  "summary": "A porteño speed date at an Argentine café two blocks from the beach in Cancún.",
+  "dialect": "es-AR",
+  "default_proficiency": "B1",
+  "personality_archetype": "playful_sarcastic",
+  "currency": "MXN",
+  "city": {
+    "name": "Cancún",
+    "lat": 21.16,
+    "lon": -86.85,
+    "neighbourhood": "el centro de Cancún, a dos cuadras de la playa"
+  },
+  "venue": {
+    "id": "cafe_rayuela",
+    "label": "Café Rayuela",
+    "scene": "CancunCafe",
+    "lighting": "warm_sunset_lounge",
+    "ambience": [
+      "ocean_loop",
+      "cafe_murmur_loop"
+    ],
+    "setting": "Café Rayuela, a small Argentine-owned café in downtown Cancún, two blocks from the beach: a wooden counter, a shelf of Cortázar paperbacks, a fan turning, the sea audible through the open side"
+  },
+  "scene_description": "Six in the evening at Café Rayuela, downtown Cancún: golden light through the open side, the sea a block away, an old tango playing low, the smell of fresh medialunas and coffee.",
+  "venue_context": "Café Rayuela is run by Don Julio, a porteño who moved to Cancún twenty years ago; everyone here talks like Buenos Aires. You come here often for the medialunas. Don Julio takes the order at the table and brings it himself.",
+  "host": {
+    "name": "Don Julio",
+    "gender": "male",
+    "appearance": "white",
+    "greeting": "¡Buenas tardes! Bienvenidos a Café Rayuela. Tu cita ya te está esperando en la mesa de la ventana, se llama {date_name}. Tenés tres minutos, ¿eh? ¡Mucha suerte!",
+    "chat": [
+      "Es por acá, la mesa de la ventana. ¡Dale, que el tiempo corre!",
+      "Tranqui, que la gente acá es buena onda. Disfrutá."
+    ],
+    "serve_line": "Acá tienen: {items}. ¡Que lo disfruten, chicos!"
+  },
+  "variants": {
+    "female": {
+      "display_name": "Valeria",
+      "age": 27,
+      "appearance": "white",
+      "occupation": "editorial photographer",
+      "interests": [
+        "underwater photography",
+        "indie rock (Soda Stereo forever)",
+        "medialunas and good coffee",
+        "Sunday asados with friends"
+      ],
+      "backstory": "Porteña from Palermo who moved to Cancún two years ago to shoot the reefs for a travel magazine. Misses her friends, mate in the park and real asado, loves the sea, and is tired of people who only talk about money.",
+      "opening_line": "¡Hola! Menos mal que te sentaste, el de antes me habló diez minutos seguidos de su portafolio de acciones. Decime que vos tenés mejores temas... ¿Ya probaste las medialunas de acá? Son las únicas decentes de Cancún, posta.",
+      "green_flags": [
+        "Asks about her photography or the reefs",
+        "Uses porteño expressions or voseo naturally",
+        "Suggests sharing something from the menu",
+        "Playful banter and quick comebacks"
+      ],
+      "red_flags": [
+        "Bragging about money, stocks or crypto",
+        "Stiff textbook Spanish with usted",
+        "One-word answers or staring away from the table"
+      ]
+    },
+    "male": {
+      "display_name": "Tomás",
+      "age": 29,
+      "appearance": "white",
+      "occupation": "editorial photographer",
+      "interests": [
+        "underwater photography",
+        "indie rock (Soda Stereo forever)",
+        "medialunas and good coffee",
+        "Sunday asados with friends"
+      ],
+      "backstory": "Porteño from Palermo who moved to Cancún two years ago to shoot the reefs for a travel magazine. Misses his friends, mate in the park and real asado, loves the sea, and is tired of people who only talk about money.",
+      "opening_line": "¡Hola! Menos mal que te sentaste, la de antes me habló diez minutos seguidos de su portafolio de acciones. Decime que vos tenés mejores temas... ¿Ya probaste las medialunas de acá? Son las únicas decentes de Cancún, posta.",
+      "green_flags": [
+        "Asks about his photography or the reefs",
+        "Uses porteño expressions or voseo naturally",
+        "Suggests sharing something from the menu",
+        "Playful banter and quick comebacks"
+      ],
+      "red_flags": [
+        "Bragging about money, stocks or crypto",
+        "Stiff textbook Spanish with usted",
+        "One-word answers or staring away from the table"
+      ]
+    }
+  },
+  "menu": [
+    {
+      "id": "cortado",
+      "name": "Cortado",
+      "price": 45,
+      "description_en": "Espresso with a splash of milk",
+      "aliases": [
+        "cortado",
+        "cortadito"
+      ]
+    },
+    {
+      "id": "cafe_con_leche",
+      "name": "Café con leche",
+      "price": 50,
+      "description_en": "Big milky coffee",
+      "aliases": [
+        "café con leche",
+        "cafe con leche"
+      ]
+    },
+    {
+      "id": "submarino",
+      "name": "Submarino",
+      "price": 60,
+      "description_en": "Hot milk with a chocolate bar sunk in it",
+      "aliases": [
+        "submarino"
+      ]
+    },
+    {
+      "id": "mate",
+      "name": "Mate cocido",
+      "price": 40,
+      "description_en": "Yerba mate tea",
+      "aliases": [
+        "mate cocido",
+        "mate"
+      ]
+    },
+    {
+      "id": "licuado",
+      "name": "Licuado de banana",
+      "price": 55,
+      "description_en": "Banana milkshake",
+      "aliases": [
+        "licuado",
+        "licuado de banana"
+      ]
+    },
+    {
+      "id": "medialunas",
+      "name": "Medialunas",
+      "price": 35,
+      "description_en": "Sweet Argentine croissants (two)",
+      "aliases": [
+        "medialunas",
+        "medialuna",
+        "medias lunas"
+      ]
+    },
+    {
+      "id": "alfajor",
+      "name": "Alfajor de maicena",
+      "price": 40,
+      "description_en": "Shortbread sandwich with dulce de leche and coconut",
+      "aliases": [
+        "alfajor",
+        "alfajores"
+      ]
+    },
+    {
+      "id": "tostado",
+      "name": "Tostado de jamón y queso",
+      "price": 75,
+      "description_en": "Toasted ham and cheese sandwich",
+      "aliases": [
+        "tostado",
+        "tostados"
+      ]
+    },
+    {
+      "id": "chocotorta",
+      "name": "Chocotorta",
+      "price": 70,
+      "description_en": "Chocolate biscuit and dulce de leche cake",
+      "aliases": [
+        "chocotorta"
+      ]
+    },
+    {
+      "id": "flan",
+      "name": "Flan con dulce de leche",
+      "price": 60,
+      "description_en": "Caramel custard with dulce de leche",
+      "aliases": [
+        "flan"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "break_ice",
+      "text": "Survive the opener and introduce yourself",
+      "core": true,
+      "evidence_required": "The learner, in Spanish, answers the date's opening and says something about who they are (their name, where they are from, what they do). A bare greeting alone does not count."
+    },
+    {
+      "id": "order_together",
+      "text": "Order something to share (medialunas, cortado…)",
+      "core": true,
+      "evidence_required": "The learner, in Spanish, orders or proposes ordering at least one item from the café's menu (for example 'pedimos unas medialunas', 'yo quiero un cortado'), to the date or to Don Julio. Only asking what an item is does not count."
+    },
+    {
+      "id": "find_common_ground",
+      "text": "Ask about their photography or Buenos Aires, and share one of your passions",
+      "core": true,
+      "evidence_required": "The learner, in Spanish, asks the date about their work, photography, the reefs or Buenos Aires AND shares one of their own interests. Both halves are needed, in any order, across the conversation."
+    },
+    {
+      "id": "cultural_vibe",
+      "text": "Talk like a porteño: voseo or an Argentine expression (che, dale, posta, re…)",
+      "core": false,
+      "evidence_required": "The learner uses voseo (vos sos, tenés, decime, mirá) or an Argentine expression (che, dale, posta, re, bárbaro, buenísimo, qué copado) naturally in context."
+    },
+    {
+      "id": "close_the_date",
+      "text": "Ask for their WhatsApp or a second date before the bell",
+      "core": true,
+      "evidence_required": "The learner, in Spanish, asks to see the date again or for a way to contact them (number, WhatsApp, Instagram)."
+    }
+  ],
+  "closings": {
+    "match": "¡Uh, ya sonó la campana! La pasé re bien, posta. ¿Me pasás tu WhatsApp y el sábado volvemos por más medialunas?",
+    "friendzone": "Bueno, se terminó el tiempo. Me caíste re bien, eh. Si pasás por Rayuela, te invito un cortado.",
+    "ghosted": "Ah, bueno, se terminó el tiempo. Suerte con las otras citas, che."
+  },
+  "followups": {
+    "match": "Che, me encantó charlar con vos 😊 ¿El sábado medialunas en Rayuela y después vamos a la playa?",
+    "friendzone": "¡Fue re copado conocerte! Si pasás por Rayuela, el cortado corre por mi cuenta 🤝",
+    "ghosted": "Gracias por la charla. No sentí mucha onda, pero suerte en Cancún 🙏",
+    "match_en": "Hey, I loved talking with you 😊 Medialunas at Rayuela on Saturday and then the beach?",
+    "friendzone_en": "It was really cool to meet you! If you stop by Rayuela, the cortado's on me 🤝",
+    "ghosted_en": "Thanks for the chat. I didn't feel much of a vibe, but good luck in Cancún 🙏"
+  }
+}

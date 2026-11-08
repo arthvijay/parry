@@ -19,6 +19,8 @@ public class DateVerdictReceipt : MonoBehaviour
 
     public Key retryKey = Key.R;
     public Key nextKey = Key.N;
+    public Key learnKey = Key.Tab;
+    public Key reportKey = Key.L;
     public string frontScene = "Assets/Scenes/Wish.unity";
 
     /// <summary>True from the bell until a new date starts.</summary>
@@ -30,6 +32,10 @@ public class DateVerdictReceipt : MonoBehaviour
     string problem = "";
     float shownAt = -10f;
     FullDuplexStreamClient client;
+    DateReport report;
+    bool learning;
+    bool reportRequested;
+    string reportStatus = "";
 
     void Awake()
     {
@@ -54,6 +60,10 @@ public class DateVerdictReceipt : MonoBehaviour
         var kb = Keyboard.current;
         if (kb == null || !Printed)
             return;
+        if (kb[learnKey].wasPressedThisFrame && Verdict != null)
+            learning = !learning;
+        if (kb[reportKey].wasPressedThisFrame && report != null)
+            Application.OpenURL($"{client.Base}/v1/date/report/{client.RunId}.html");
         if (kb[retryKey].wasPressedThisFrame)
             Load(SceneManager.GetActiveScene().path);
         else if (kb[nextKey].wasPressedThisFrame)
@@ -94,7 +104,35 @@ public class DateVerdictReceipt : MonoBehaviour
             player.enabled = false;
         if (Verdict != null)
             Debug.Log($"DateVerdictReceipt: {Verdict.verdict} at {Verdict.final_chemistry}, overall {Verdict.overall} ({Verdict.graded_by})");
+        if (Verdict != null && !reportRequested)
+        {
+            reportRequested = true;
+            StartCoroutine(FetchReport());
+        }
         Finished?.Invoke();
+    }
+
+    /// <summary>"Your date, decoded": fetched while the learner reads the verdict.</summary>
+    System.Collections.IEnumerator FetchReport()
+    {
+        reportStatus = "Writing your report…";
+        string body = Json.Write(new System.Collections.Generic.Dictionary<string, object>
+        {
+            ["run_id"] = client.RunId, ["scenario_id"] = client.scenarioId,
+        });
+        using var req = new UnityEngine.Networking.UnityWebRequest($"{client.Base}/v1/date/report", "POST")
+        {
+            uploadHandler = new UnityEngine.Networking.UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(body)) { contentType = "application/json" },
+            downloadHandler = new UnityEngine.Networking.DownloadHandlerBuffer(),
+            timeout = 120,
+        };
+        yield return req.SendWebRequest();
+        if (req.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
+        {
+            try { report = JsonUtility.FromJson<DateReport>(req.downloadHandler.text); }
+            catch (Exception) { report = null; }
+        }
+        reportStatus = report != null ? "" : $"Report unavailable ({FullDuplexStreamClient.Describe(req)})";
     }
 
     void Load(string scenePath)
@@ -145,12 +183,19 @@ public class DateVerdictReceipt : MonoBehaviour
         var card = new Rect((W - 780f) / 2f - 120f, 40f + (1f - appear) * 30f, 780f, H - 80f);
         GlassUI.Panel(card, appear);
         Header(card);
-        Stamp(card);
-        Pillars(card);
-        Metrics(card);
+        if (learning)
+            Learn(card);
+        else
+        {
+            Stamp(card);
+            Pillars(card);
+            Metrics(card);
+        }
         Phone(W, H);
+        string learnHint = report != null ? (learning ? "<b>Tab</b>  verdict      <b>L</b>  full report in browser      " : "<b>Tab</b>  learn from it      ")
+            : string.IsNullOrEmpty(reportStatus) ? "" : reportStatus + "      ";
         GlassUI.Label(new Rect(card.x + 24f, card.yMax - 36f, card.width - 48f, 24f),
-                      "<b>R</b>  try again with " + Verdict.date_name + "      <b>N</b>  next table / new speed date",
+                      learnHint + "<b>R</b>  try again with " + Verdict.date_name + "      <b>N</b>  next table",
                       13, new Color(1f, 1f, 1f, 0.75f));
         GlassUI.End(m);
     }
@@ -278,6 +323,56 @@ public class DateVerdictReceipt : MonoBehaviour
             GlassUI.Rounded(tip, new Color(1f, 1f, 1f, 0.08f), 12);
             GlassUI.Label(new Rect(tip.x + 10f, tip.y + 6f, bw - 20f, 14f), "💡 ONE THING TO FIX", 9, Brand.Warn, FontStyle.Bold);
             GlassUI.Label(new Rect(tip.x + 10f, tip.y + 22f, bw - 20f, ch), body, 11, Color.white, FontStyle.Normal, TextAnchor.UpperLeft, true);
+        }
+    }
+
+    /// <summary>The learning page: what landed, what to say differently, what to keep.</summary>
+    void Learn(Rect c)
+    {
+        float x = c.x + 24f, w = c.width - 48f, y = c.y + 96f;
+        float Block(string title, float at)
+        {
+            GlassUI.Label(new Rect(x, at, w, 16f), title, 10, new Color(1f, 1f, 1f, 0.5f), FontStyle.Bold);
+            return at + 18f;
+        }
+        float Text(string text, float at, int size, Color color, FontStyle style = FontStyle.Normal)
+        {
+            float h = GlassUI.TextHeight(text ?? "", size, w, style);
+            GlassUI.Label(new Rect(x, at, w, h), text, size, color, style, TextAnchor.UpperLeft, true);
+            return at + h + 4f;
+        }
+        y = Text(report.summary, y, 13, Color.white);
+        if (report.went_well != null && !string.IsNullOrEmpty(report.went_well.quote))
+        {
+            y = Block("THIS LANDED", y + 6f);
+            y = Text($"«{report.went_well.quote}»  <color=#{ColorUtility.ToHtmlStringRGB(Brand.AccentSoft)}>{report.went_well.note}</color>", y, 12, Color.white);
+        }
+        if (report.fixes != null && report.fixes.Length > 0)
+        {
+            y = Block("NEXT TIME, SAY IT LIKE THIS", y + 6f);
+            foreach (var f in report.fixes)
+                y = Text($"<color=#999999><s>{f.heard}</s></color>  →  <b><color=#{ColorUtility.ToHtmlStringRGB(Brand.Good)}>{f.better}</color></b>   <size=10>{f.why_en}</size>", y, 12, Color.white);
+        }
+        if (report.useful_phrases != null && report.useful_phrases.Length > 0)
+        {
+            y = Block("PHRASES TO KEEP IN YOUR POCKET", y + 6f);
+            foreach (var p in report.useful_phrases)
+                y = Text($"<b>{p.target}</b>  <color=#aaaaaa>{p.gloss} · {p.when}</color>", y, 12, Color.white);
+        }
+        if (report.culture_notes != null && report.culture_notes.Length > 0)
+        {
+            y = Block("HOW THEY REALLY TALK", y + 6f);
+            foreach (var n in report.culture_notes)
+            {
+                if (y > c.yMax - 90f)
+                    break;
+                y = Text($"<b>{n.title}</b>  <color=#bbbbbb>{n.note}</color>", y, 11, Color.white);
+            }
+        }
+        if (report.practice_words != null && report.practice_words.Length > 0 && y < c.yMax - 70f)
+        {
+            y = Block("PRACTISE SAYING", y + 6f);
+            Text(string.Join("   ·   ", report.practice_words), y, 12, Brand.AccentSoft, FontStyle.Bold);
         }
     }
 
