@@ -174,6 +174,16 @@ public class MatchmakerUI : MonoBehaviour
         }
     }
 
+    /// <summary>Starts an authored demo date (by preset id; empty = the first), as its card does.</summary>
+    public void StartDemo(string presetId = "")
+    {
+        var demo = catalog?.presets == null ? null
+            : string.IsNullOrEmpty(presetId) ? (catalog.presets.Length > 0 ? catalog.presets[0] : null)
+            : Array.Find(catalog.presets, p => p.id == presetId);
+        if (demo != null && step <= Step.Date)
+            StartCoroutine(GeneratePreset(demo));
+    }
+
     /// <summary>The authored demo date: same café, same person, every time.</summary>
     IEnumerator GeneratePreset(PresetInfo preset)
     {
@@ -677,9 +687,10 @@ public class MatchmakerUI : MonoBehaviour
                      GlassUI.Face.Mono, FontStyle.Bold);
         string who = dateGender == "male" ? p.dates?.male : p.dates?.female;
         string venueName = string.IsNullOrEmpty(p.venue) ? (p.label ?? "").Split('·')[0].Trim() : p.venue;
-        GlassUI.Headline(new Rect(r.x + 18f, r.y + 32f, r.width - 36f, 36f),
-                         string.IsNullOrEmpty(who) ? venueName : $"{who} <i>at</i> {venueName}", 23, Brand.Cream);
-        GlassUI.Label(new Rect(r.x + 18f, r.y + 68f, r.width - 36f, 18f), p.city, 12, Brand.Muted);
+        GlassUI.Headline(new Rect(r.x + 18f, r.y + 30f, r.width - 36f, 38f),
+                         string.IsNullOrEmpty(who) ? venueName : who, 28, Brand.Cream);
+        string where = string.IsNullOrEmpty(who) ? p.city : $"at {venueName} · {p.city}";
+        GlassUI.Label(new Rect(r.x + 18f, r.y + 68f, r.width - 36f, 18f), where, 12, Brand.Muted);
         GlassUI.Label(new Rect(r.x + 18f, r.yMax - 32f, r.width - 36f, 20f), "▶  Play this date", 13,
                       hover ? Brand.Cream : Brand.Accent, FontStyle.Bold);
         return GUI.Button(r, GUIContent.none, GUIStyle.none);
@@ -785,6 +796,7 @@ public class MatchmakerUI : MonoBehaviour
         var looks = catalog?.appearances ?? Array.Empty<Option>();
         Row(r, ref y, "APPEARANCE (their 3D look only)", Array.ConvertAll(looks, o => o.id), id => Array.Find(looks, o => o.id == id)?.label ?? id,
             id => appearance == id, id => appearance = id, 4, 11);
+        // (The authored demo dates are on the start screen.)
         var types = catalog?.archetypes ?? Array.Empty<Option>();
         Row(r, ref y, "PERSONALITY", Array.ConvertAll(types, o => o.id), id => Array.Find(types, o => o.id == id)?.label ?? id,
             id => personality == id, id => personality = id, 2);

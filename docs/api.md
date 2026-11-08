@@ -579,6 +579,7 @@ character's voice as binary frames and sends JSON events.
 | `{"type":"user_text","text"}` | Typed instead of spoken |
 | `{"type":"playback_done","npc_id"}` | The last frame of a line has played (starts the wingman's 4 s) |
 | `{"type":"help"}` | The translator: answered with a `help_card` |
+| `{"type":"wingman"}` | Asked for (W): a `wingman_hint` now, with no silence penalty |
 | `{"type":"scene_event","event":"host_at_table"}` | The host reached the table with the order |
 | `{"type":"end_date","reason":"timer"\|"quit"}` | The bell |
 
@@ -590,9 +591,9 @@ character's voice as binary frames and sends JSON events.
 | `session_ready` | Joined; `providers` says which are live: `stt` (`nemotron` / `none`), `tts` (`elevenlabs` / `sample`), `brain` (`gemini` / `claude` / `scripted`), `judge` (`claude` / `rules`), `face` (`mediapipe` / `off`) |
 | `audio_start` `{npc_id, turn_id, kind, first_audio_ms}` | Voice frames for this NPC follow (`kind`: greeting, opening, reply, callout, closing, serve) |
 | `audio_end` `{npc_id, turn_id, duration_ms}` | Last frame of the line sent |
-| `transcript` `{speaker, text, is_final, confidence}` | Subtitles: the learner's line filling in, the date's line sentence by sentence |
+| `transcript` `{speaker, text, is_final, confidence, unheard?}` | Subtitles: the learner's line filling in, the date's line sentence by sentence. `unheard: true` = said before sitting down, so the date did not hear it (a one-time `notice` says so) |
 | `chemistry_update` `{chemistry_score, delta, mood_label, reason, npc_posture, completed_milestones, evidence_quotes, green_flags_hit, red_flags_hit, source}` | After every learner turn, and on non-verbal events |
-| `wingman_hint` `{whisper_context, options:[{tone, target, gloss}×3]}` | 4 s of silence after the date finished |
+| `wingman_hint` `{whisper_context, options:[{tone, target, gloss}×3]}` | 4 s of silence after the date finished, or asked for with `wingman` |
 | `clear_audio` `{npc_id}` | Acknowledges a barge-in: drop everything buffered |
 | `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame |
 | `signal` `{kind, label, effect, during_npc}` | A smile, laugh, nod, head shake, head wobble (only where it means yes: hi-IN), puzzled or surprised look, look-away, look-back |
@@ -601,6 +602,10 @@ character's voice as binary frames and sends JSON events.
 | `scene_action` `{action:"order_placed", npc_id:"host", items}` | An order was placed (once per date): send the host to the table |
 | `date_started` `{seconds}` / `date_ended` `{verdict, chemistry_score, run_id, scenario_id}` | The clock |
 | `notice`, `error` `{detail, fatal}` | Human-readable problems |
+
+**Echo.** A recognised line made only of words from the line a character just spoke,
+heard while it plays or within 3 s of its end, is the speakers leaking into the mic and is
+dropped.
 
 **Barge-in.** Voice is sent at most ~0.8 s ahead of playback, so on `barge_in` the server
 knows roughly what was heard. It stops generating, sends `clear_audio`, and records the date's line cut to
@@ -683,7 +688,10 @@ when the date had a `learner_name`, and records its cost.
 {"preset": "cafe_cancun_ar", "learner_name": "Arth", "proficiency": "B1", "date_gender": "female"}
 ```
 
-- `preset`: a file in `scenarios/speed_dating/presets/` (default `cafe_cancun_ar`). The
+- `preset`: a file in `scenarios/speed_dating/presets/`: `cafe_cancun_ar` (Valeria,
+  Argentine Spanish; the default) or `cafe_cancun_south` (Savannah, Southern American
+  English), both at Café Rayuela. A variant may set `outfit` (e.g. `black_dress`, which
+  the client dyes into the body texture). The
   catalog's `presets` lists them with `label`, `summary`, `dialect`, `city`, `lat`, `lon`
   and `default_proficiency`. An unknown id is a 404.
 - `proficiency`: optional; the preset's `default_proficiency` otherwise.

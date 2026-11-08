@@ -67,7 +67,7 @@ def test_every_dialect_builds_a_complete_date(code):
     assert [m.id for m in s.milestones] == ["break_ice", "find_common_ground", "cultural_vibe",
                                            "close_the_date"]
     assert c.voice_config.provider == "sample"  # no ElevenLabs key in tests
-    assert c.avatar_config.base_model == "Female_Adult_08"
+    assert c.avatar_config.base_model == "Female_Party_02"
 
 
 def test_scene_prompt_picks_the_venue_and_notes_shape_the_persona():
@@ -458,7 +458,7 @@ def until(ws, kind, frames=None, limit=4000):
 def test_matchmaker_routes(tmp_path):
     with TestClient(app(tmp_path)) as client:
         catalog = client.get("/v1/matchmaker/catalog").json()
-        assert catalog["brand"]["name"] == "Parry" and len(catalog["dialects"]) == 8
+        assert catalog["brand"]["name"] == "Parry" and len(catalog["dialects"]) == len(config.DIALECTS)
         date = generate(client, language="ja-JP-kansai")
         assert client.get(f"/v1/matchmaker/{date['scenario_id']}").json() == date
         assert client.post("/v1/matchmaker/generate", json={"language": "xx"}).status_code == 422
@@ -842,3 +842,147 @@ def test_card_text_wraps_wide_glyphs_and_escapes():
     assert len(lines) == 3 and lines[-1].endswith("…")
     assert wrap("short line", 24, 480, 2) == ["short line"]
     assert esc('<b> & "x"') == "&lt;b&gt; &amp; &quot;x&quot;"
+
+
+def test_the_date_cannot_hear_you_before_the_date_starts(tmp_path):
+    with TestClient(app(tmp_path)) as client:
+        sid = generate(client)["scenario_id"]
+        with client.websocket_connect("/v1/stream") as ws:
+            ws.send_text(json.dumps({"type": "init", "run_id": "run_far", "scenario_id": sid,
+                                     "npc_id": "date_npc"}))
+            until(ws, "session_ready")
+            ws.send_text(json.dumps({"type": "user_text", "text": "how do I move"}))
+            line = until(ws, "transcript")
+            assert line["speaker"] == "user" and line["unheard"]
+            # The host still answers when faced.
+            ws.send_text(json.dumps({"type": "focus", "npc_id": "host"}))
+            assert until(ws, "audio_start")["kind"] == "greeting"
+            until(ws, "audio_end")
+            ws.send_text(json.dumps({"type": "user_text", "text": "Muchas gracias."}))
+            assert until(ws, "audio_start")["npc_id"] == "host"
+        run = client.get("/v1/date/runs/run_far").json()
+        assert all(t["npc_id"] != "date_npc" for t in run["transcript"] if t["role"] == "learner")
+
+
+class _FailingBrain:
+    def __init__(self, name, error):
+        self.name, self.error, self.calls = name, error, 0
+
+    async def reply(self, system, history, notes, ctx):
+        self.calls += 1
+        raise self.error
+        yield ""  # pragma: no cover
+
+    async def aclose(self):
+        return None
+
+
+class _EchoBrain:
+    name = "claude"
+
+    async def reply(self, system, history, notes, ctx):
+        yield "Hola, "
+        yield "¿qué tal?"
+
+    async def aclose(self):
+        return None
+
+
+def test_an_out_of_quota_brain_hands_over_and_rests(monkeypatch):
+    from orchestrator import date_brain
+    monkeypatch.setattr(date_brain, "_resting", {})
+    gemini = _FailingBrain("gemini", RuntimeError("429 RESOURCE_EXHAUSTED quota exceeded"))
+    chain = date_brain.ChainBrain([gemini, _EchoBrain(), date_brain.ScriptedBrain()])
+    ctx = date_brain.BrainContext(dialect="es-AR", chemistry=50, nonverbal=[], interests=[])
+
+    async def say():
+        return "".join([d async for d in chain.reply("sys", [Turn("learner", "Hola")], [], ctx)])
+
+    assert asyncio.run(say()) == "Hola, ¿qué tal?"
+    # Resting: the next turn goes straight to Claude, without asking Gemini again.
+    assert chain.name == "claude"
+    assert asyncio.run(say()) == "Hola, ¿qué tal?" and gemini.calls == 1
+
+
+def test_a_failing_brain_without_quota_trouble_is_tried_again(monkeypatch):
+    from orchestrator import date_brain
+    monkeypatch.setattr(date_brain, "_resting", {})
+    gemini = _FailingBrain("gemini", ConnectionError("reset"))
+    chain = date_brain.ChainBrain([gemini, date_brain.ScriptedBrain()])
+    ctx = date_brain.BrainContext(dialect="es-AR", chemistry=50, nonverbal=[], interests=[])
+
+    async def say():
+        return "".join([d async for d in chain.reply("sys", [Turn("learner", "Hola")], [], ctx)])
+
+    assert asyncio.run(say()).strip()
+    assert asyncio.run(say()).strip() and gemini.calls == 2 and chain.name == "gemini"
+
+
+class _HangingBrain:
+    name = "gemini"
+
+    async def reply(self, system, history, notes, ctx):
+        await asyncio.sleep(60)
+        yield "too late"
+
+    async def aclose(self):
+        return None
+
+
+def test_a_hanging_brain_hands_over_after_the_first_word_deadline(monkeypatch):
+    from orchestrator import date_brain
+    monkeypatch.setattr(date_brain, "_resting", {})
+    monkeypatch.setattr(date_brain, "FIRST_WORD_SECONDS", 0.05)
+    chain = date_brain.ChainBrain([_HangingBrain(), _EchoBrain()])
+    ctx = date_brain.BrainContext(dialect="es-AR", chemistry=50, nonverbal=[], interests=[])
+
+    async def say():
+        return "".join([d async for d in chain.reply("sys", [Turn("learner", "Hola")], [], ctx)])
+
+    assert asyncio.run(say()) == "Hola, ¿qué tal?" and chain.name == "claude"
+
+
+def test_the_microphone_hearing_the_date_is_not_the_learner():
+    session = stream_gateway.StreamSession.__new__(stream_gateway.StreamSession)
+    session.transcript = [TranscriptTurn(role="npc", npc_id="date_npc",
+                                         text="Che, ¿tan aburrida soy que mirás para otro lado?")]
+    session.spoken, session.speaking, session.playback_end = [], None, 100.0
+    assert session._echo("otro lado", 101.0)                 # just after her line: echo
+    assert not session._echo("otro lado", 110.0)             # long after: the learner
+    assert not session._echo("Perdón, me distraje", 101.0)   # new words: the learner
+
+
+def test_asking_the_wingman_brings_three_options_without_a_penalty(tmp_path):
+    with TestClient(app(tmp_path)) as client:
+        sid = generate(client)["scenario_id"]
+        path = tmp_path / "dates" / f"{sid}.json"
+        data = json.loads(path.read_text())
+        data["wingman_seconds"] = 60  # the silence timer must not be what answers
+        path.write_text(json.dumps(data))
+        with client.websocket_connect("/v1/stream") as ws:
+            ws.send_text(json.dumps({"type": "init", "run_id": "run_w", "scenario_id": sid,
+                                     "npc_id": "date_npc"}))
+            until(ws, "session_ready")
+            ws.send_text(json.dumps({"type": "start_date"}))
+            until(ws, "date_started")
+            until(ws, "audio_end")
+            ws.send_text(json.dumps({"type": "wingman"}))
+            hint = until(ws, "wingman_hint")
+            assert len(hint["options"]) == 3
+            ws.send_text(json.dumps({"type": "end_date", "reason": "quit"}))
+            ended = until(ws, "date_ended")
+            # Asking is not an awkward silence: chemistry is where the opening left it.
+            assert ended["chemistry_score"] >= 50
+
+
+def test_claude_speaks_as_the_date_by_default(monkeypatch):
+    from orchestrator import date_brain
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.delenv("DATE_BRAIN", raising=False)
+    brain = date_brain.create_brain()
+    assert isinstance(brain, date_brain.ChainBrain)
+    assert [b.name for b in brain.brains] == ["claude", "scripted"]
+    assert brain.rest_when_slow is False  # a slow Claude is waited for, not benched
+    monkeypatch.setenv("DATE_BRAIN", "gemini")
+    assert [b.name for b in date_brain.create_brain().brains][0] == "gemini"

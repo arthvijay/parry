@@ -113,14 +113,90 @@
       "displayName": "Your date",
       "avatar": "Avatars/Female_Adult_08/Export/Female_Adult_08_facial",
       "position": {
-        "x": 1.0,
+        "x": 0.9,
         "y": -1.5,
-        "z": 8.7
+        "z": 9.7
       },
-      "yaw": 90,
+      "yaw": 110,
       "scale": 0.9,
       "walkSpeed": 0.8,
       "seat": "table_a",
+      "greeting": "",
+      "moves": []
+    },
+    {
+      "id": "patron_1",
+      "role": "patron",
+      "displayName": "",
+      "avatar": "Avatars/Male_Adult_08/Export/Male_Adult_08_facial",
+      "position": {
+        "x": -0.8,
+        "y": -1.5,
+        "z": 5.93
+      },
+      "yaw": 90,
+      "scale": 0.9,
+      "seat": "patron_1",
+      "skinTint": "#B98A69",
+      "hairTint": "#1C1411",
+      "outfit": "",
+      "greeting": "",
+      "moves": []
+    },
+    {
+      "id": "patron_2",
+      "role": "patron",
+      "displayName": "",
+      "avatar": "Avatars/Female_Adult_08/Export/Female_Adult_08_facial",
+      "position": {
+        "x": 0.62,
+        "y": -1.5,
+        "z": 5.93
+      },
+      "yaw": 270,
+      "scale": 0.9,
+      "seat": "patron_2",
+      "skinTint": "#E3C3A3",
+      "hairTint": "#3A2619",
+      "outfit": "",
+      "greeting": "",
+      "moves": []
+    },
+    {
+      "id": "patron_3",
+      "role": "patron",
+      "displayName": "",
+      "avatar": "Avatars/Female_Party_02/Export/Female_Party_02_facial",
+      "position": {
+        "x": 1.57,
+        "y": -1.5,
+        "z": 12.5
+      },
+      "yaw": 180,
+      "scale": 0.9,
+      "seat": "patron_3",
+      "skinTint": "#C99A78",
+      "hairTint": "#2B1D16",
+      "outfit": "",
+      "greeting": "",
+      "moves": []
+    },
+    {
+      "id": "patron_4",
+      "role": "patron",
+      "displayName": "",
+      "avatar": "Avatars/Male_Adult_08/Export/Male_Adult_08_facial",
+      "position": {
+        "x": 1.47,
+        "y": -1.5,
+        "z": 1.8
+      },
+      "yaw": 0,
+      "scale": 0.9,
+      "seat": "patron_4",
+      "skinTint": "#6E4A35",
+      "hairTint": "#110D0B",
+      "outfit": "",
       "greeting": "",
       "moves": []
     }

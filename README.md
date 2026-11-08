@@ -57,7 +57,7 @@ Every key is optional. Without one, that part falls back, so the whole flow runs
 | Final receipt and follow-up text | Claude | same | a rules grader |
 | Translator card (T), *Your date, decoded* | Claude | same | wingman lines; a plainer report from the dialect's authored lines |
 | Pronunciation notes in the report | Gemini, listening to the learner's clips | same as the date's replies | left out |
-| The date's live replies | Gemini `gemini-3.8-flash` | `GEMINI_API_KEY` or Vertex (`GOOGLE_CLOUD_PROJECT`) | Claude, then a scripted date |
+| The date's live replies | Claude (`DATE_CLAUDE_MODEL`, default Sonnet); Gemini Flash with `DATE_BRAIN=gemini` | `ANTHROPIC_API_KEY` | A scripted date |
 | Hearing the learner | NVIDIA Nemotron ASR Streaming over Riva gRPC (locale per dialect: `es-US` for Mexican and Argentine Spanish, `es-ES`, `fr-FR`, `ja-JP`, `hi-IN`, auto for Mandarin) | `NVIDIA_API_KEY`. Hosted Nemotron is English only, so other languages go to NVIDIA's hosted multilingual model (Parakeet 1.1B RNNT Multilingual) on the same key; override with `NVIDIA_ASR_MULTILINGUAL_FUNCTION_ID`, or point `NEMOTRON_ASR_SERVER` at a self-hosted multilingual Nemotron NIM | voice detection only; type with Enter |
 | The date's voice | ElevenLabs streaming TTS (`eleven_flash_v2_5`) | `ELEVENLABS_API_KEY` | a bundled sample voice |
 | Face, smiles, nods, head pose | MediaPipe Face Landmarker (local) | none (`uv sync --group face`) | no face; the date carries on |
@@ -81,8 +81,18 @@ All in `orchestrator/.env` (see `.env.example`); every one is optional.
 
 ## The demo date: Café Rayuela, Cancún
 
-Click **▶ Demo date** in the matchmaker (or press Play straight in `CancunCafe.unity`) for
-the authored date, the same every time: `scenarios/speed_dating/presets/cafe_cancun_ar.json`.
+The matchmaker has two demo buttons, also the first row of the personality section. Both
+play at the same café, the same every time:
+
+- **▶ Argentine latina (Spanish):** Valeria, `scenarios/speed_dating/presets/cafe_cancun_ar.json`.
+- **▶ Southern belle (English):** Savannah from Savannah, Georgia, in Southern American
+  English (`en-US-south`), `scenarios/speed_dating/presets/cafe_cancun_south.json`.
+
+Pressing Play straight in `CancunCafe.unity` replays the last demo (fetched fresh). Custom
+dates still choose their venue from the prompt.
+
+**Controls.** WASD or arrows to walk, the mouse to look (or hold the right button when the
+cursor is free), F to sit, then: W wingman, T translate, M menu, Enter type, V camera, Q end.
 
 - **The place.** Café Rayuela, an Argentine-owned café two blocks from the beach in Cancún.
 - **The people.** Don Julio, the porteño owner, greets you at the door and walks you to
@@ -220,7 +230,7 @@ FullDuplexStreamClient ═══ WS /v1/stream ═══▶ stream_gateway.py
   telemetry 250 ms, webcam frames ──────────▶   nonverbal.py, face_tracker.py
   barge_in / start_date / end_date / help ──▶   chemistry_director.py ─▶ Claude
   scene_event host_at_table ────────────────▶   (the host serves the order)
-  ◀───────── 24 kHz PCM16 voice frames ─────    date_brain.py (Gemini) ─▶ tts.py (ElevenLabs)
+  ◀───────── 24 kHz PCM16 voice frames ─────    date_brain.py (Claude) ─▶ tts.py (ElevenLabs)
   ◀── transcript, chemistry_update, wingman_hint, help_card, scene_action,
       face_analysis, signal, clear_audio
 DateVerdictReceipt ── POST /v1/grade ───────▶ date_grader.py ─▶ Claude
@@ -313,13 +323,16 @@ The Claude request shape is tested against a mock transport.
 
 ## Limits worth knowing
 
-- **Avatars.** Two Rocketbox bodies, tinted. Ready Player Me shut down on 31 January 2026,
-  so a selfie colours an avatar rather than reshaping its face.
+- **Avatars.** Rocketbox bodies, tinted (the date is `Female_Party_02`, from the
+  [Microsoft Rocketbox](https://github.com/microsoft/Microsoft-Rocketbox) library, MIT
+  licence). Ready Player Me shut down on 31 January 2026, so a selfie colours an avatar
+  rather than reshaping its face.
 - **Worlds.** The scene prompt chooses between the scanned worlds and re-lights them; it
   doesn't generate new 3D geometry live.
 - **Voices.** Set ElevenLabs voices per dialect and gender with
   `ELEVENLABS_VOICE_<DIALECT>_<GENDER>` (for the demo, porteño voices from the Voice Library
-  added to My Voices); otherwise a premade multilingual voice speaks every dialect.
+  added to My Voices); otherwise a premade voice speaks (Jessica and Will for the Southern
+  demo). Library voices only work through the API on a paid ElevenLabs plan.
 - **Server-only extras.** The verdict's `cost`, `progress` and filler and register
   measures are in the JSON, the readable receipt page and the report; the in-game receipt
   doesn't draw them yet.

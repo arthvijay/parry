@@ -196,6 +196,12 @@ class NemotronRecognizer(SpeechRecognizer):
             # counts towards giving up.
             restarts = 0 if time.monotonic() - started > 30 else restarts + 1
             time.sleep(min(5.0, 0.5 * (restarts + 1)))
+            # Reopen on a fresh channel: the hosted service can reject a new stream on the
+            # old one ("must specify the START flag on the first request of the sequence").
+            try:
+                self._connect()
+            except Exception as error:  # noqa: BLE001
+                log.warning("Nemotron ASR reconnect failed: %s", type(error).__name__)
         if not self.closed.is_set():
             self.failed = True
             log.warning("Nemotron ASR unavailable; speech detection only")

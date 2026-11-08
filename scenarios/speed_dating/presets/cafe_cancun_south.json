@@ -1,0 +1,254 @@
+{
+  "id": "cafe_cancun_south",
+  "label": "Café Rayuela · Southern belle (English)",
+  "summary": "A Southern-charm speed date in English at the same beachfront café in Cancún.",
+  "dialect": "en-US-south",
+  "default_proficiency": "B2",
+  "personality_archetype": "playful_sarcastic",
+  "currency": "MXN",
+  "city": {
+    "name": "Cancún",
+    "lat": 21.16,
+    "lon": -86.85,
+    "neighbourhood": "downtown Cancún, two blocks from the beach"
+  },
+  "venue": {
+    "id": "cafe_rayuela",
+    "label": "Café Rayuela",
+    "scene": "CancunCafe",
+    "lighting": "warm_sunset_lounge",
+    "ambience": [
+      "ocean_loop",
+      "cafe_murmur_loop"
+    ],
+    "setting": "Café Rayuela, a small Argentine-owned café in downtown Cancún, two blocks from the beach: a wooden counter, a shelf of Cortázar paperbacks, a fan turning, the sea audible through the open side"
+  },
+  "scene_description": "Six in the evening at Café Rayuela, downtown Cancún: golden light through the open side, the sea a block away, soft music playing low, the smell of fresh medialunas and coffee.",
+  "venue_context": "Café Rayuela is run by Don Julio, an Argentine who moved to Cancún twenty years ago; he speaks warm, easy English with his guests. Its medialunas (Argentine croissants) are famous. Don Julio takes the order at the table and brings it himself.",
+  "host": {
+    "name": "Don Julio",
+    "gender": "male",
+    "appearance": "white",
+    "greeting": "Good evening, welcome to Café Rayuela! Your date is already waiting for you at the table by the window, her name is {date_name}. You have three minutes, okay? Good luck!",
+    "chat": [
+      "Right this way, the table by the window. Go on, the clock is ticking!",
+      "Relax, people here are friendly. Enjoy it."
+    ],
+    "serve_line": "Here you go: {items}. Enjoy, you two!"
+  },
+  "variants": {
+    "female": {
+      "display_name": "Savannah",
+      "age": 27,
+      "appearance": "white",
+      "outfit": "black_dress",
+      "occupation": "travel photographer",
+      "interests": [
+        "underwater photography",
+        "country music and old soul records",
+        "sweet tea and good coffee",
+        "Sunday crawfish boils with friends"
+      ],
+      "backstory": "Grew up in Savannah, Georgia, and moved to Cancún two years ago to shoot the reefs for a travel magazine. Misses her mama's peach cobbler and front-porch evenings, loves the sea, and is tired of men who only talk about money.",
+      "opening_line": "Well thank the Lord, you sat down. The last fella spent ten whole minutes tellin' me about his crypto. Please tell me you've got better stories than that, sugar... Have you tried the medialunas here? Best thing in all of Cancún, I swear.",
+      "green_flags": [
+        "Asks about her photography or the reefs",
+        "Picks up a Southern expression or matches her teasing",
+        "Suggests sharing something from the menu",
+        "Playful banter and quick comebacks"
+      ],
+      "red_flags": [
+        "Bragging about money, stocks or crypto",
+        "Stiff, formal small talk",
+        "One-word answers or staring away from the table"
+      ]
+    },
+    "male": {
+      "display_name": "Beau",
+      "age": 27,
+      "appearance": "white",
+      "outfit": "smart_evening",
+      "occupation": "travel photographer",
+      "interests": [
+        "underwater photography",
+        "country music and old soul records",
+        "sweet tea and good coffee",
+        "Sunday crawfish boils with friends"
+      ],
+      "backstory": "Grew up in Savannah, Georgia, and moved to Cancún two years ago to shoot the reefs for a travel magazine. Misses his mama's peach cobbler and front-porch evenings, loves the sea, and is tired of people who only talk about money.",
+      "opening_line": "Well thank the Lord, you sat down. The last person spent ten whole minutes tellin' me about their crypto. Please tell me you've got better stories than that... Have you tried the medialunas here? Best thing in all of Cancún, I swear.",
+      "green_flags": [
+        "Asks about his photography or the reefs",
+        "Picks up a Southern expression or matches his teasing",
+        "Suggests sharing something from the menu",
+        "Playful banter and quick comebacks"
+      ],
+      "red_flags": [
+        "Bragging about money, stocks or crypto",
+        "Stiff, formal small talk",
+        "One-word answers or staring away from the table"
+      ]
+    }
+  },
+  "menu": [
+    {
+      "id": "cortado",
+      "name": "Cortado",
+      "price": 45,
+      "description_en": "Espresso with a splash of milk",
+      "aliases": [
+        "cortadito",
+        "cortado",
+        "espresso with milk"
+      ]
+    },
+    {
+      "id": "cafe_con_leche",
+      "name": "Café con leche",
+      "price": 50,
+      "description_en": "Big milky coffee",
+      "aliases": [
+        "cafe con leche",
+        "café con leche",
+        "coffee",
+        "coffee with milk",
+        "latte"
+      ]
+    },
+    {
+      "id": "submarino",
+      "name": "Submarino",
+      "price": 60,
+      "description_en": "Hot milk with a chocolate bar sunk in it",
+      "aliases": [
+        "hot chocolate",
+        "submarino"
+      ]
+    },
+    {
+      "id": "mate",
+      "name": "Mate cocido",
+      "price": 40,
+      "description_en": "Yerba mate tea",
+      "aliases": [
+        "mate",
+        "mate cocido",
+        "tea"
+      ]
+    },
+    {
+      "id": "licuado",
+      "name": "Licuado de banana",
+      "price": 55,
+      "description_en": "Banana milkshake",
+      "aliases": [
+        "banana smoothie",
+        "licuado",
+        "licuado de banana",
+        "smoothie"
+      ]
+    },
+    {
+      "id": "medialunas",
+      "name": "Medialunas",
+      "price": 35,
+      "description_en": "Sweet Argentine croissants (two)",
+      "aliases": [
+        "croissant",
+        "croissants",
+        "medialuna",
+        "medialunas",
+        "medias lunas"
+      ]
+    },
+    {
+      "id": "alfajor",
+      "name": "Alfajor de maicena",
+      "price": 40,
+      "description_en": "Shortbread sandwich with dulce de leche and coconut",
+      "aliases": [
+        "alfajor",
+        "alfajores",
+        "cookie"
+      ]
+    },
+    {
+      "id": "tostado",
+      "name": "Tostado de jamón y queso",
+      "price": 75,
+      "description_en": "Toasted ham and cheese sandwich",
+      "aliases": [
+        "grilled cheese",
+        "ham and cheese",
+        "toastie",
+        "tostado",
+        "tostados"
+      ]
+    },
+    {
+      "id": "chocotorta",
+      "name": "Chocotorta",
+      "price": 70,
+      "description_en": "Chocolate biscuit and dulce de leche cake",
+      "aliases": [
+        "chocolate cake",
+        "chocotorta"
+      ]
+    },
+    {
+      "id": "flan",
+      "name": "Flan con dulce de leche",
+      "price": 60,
+      "description_en": "Caramel custard with dulce de leche",
+      "aliases": [
+        "caramel custard",
+        "flan"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "break_ice",
+      "text": "Survive the opener and introduce yourself",
+      "core": true,
+      "evidence_required": "The learner, in English, answers the date's opening and says something about who they are (their name, where they are from, what they do). A bare greeting alone does not count."
+    },
+    {
+      "id": "order_together",
+      "text": "Order something to share (medialunas, a latte…)",
+      "core": true,
+      "evidence_required": "The learner orders or proposes ordering at least one item from the café's menu (for example 'let's get some medialunas', 'I'll have a latte'), to the date or to Don Julio. Only asking what an item is does not count."
+    },
+    {
+      "id": "find_common_ground",
+      "text": "Ask about her photography or Georgia, and share one of your passions",
+      "core": true,
+      "evidence_required": "The learner asks the date about their work, photography, the reefs or Georgia AND shares one of their own interests. Both halves are needed, in any order, across the conversation."
+    },
+    {
+      "id": "cultural_vibe",
+      "text": "Match the Southern charm: y'all, fixin' to, darlin', or her teasing",
+      "core": false,
+      "evidence_required": "The learner uses a Southern expression (y'all, fixin' to, reckon, darlin', sugar, bless your heart) naturally in context, or answers her teasing with a playful comeback."
+    },
+    {
+      "id": "close_the_date",
+      "text": "Ask for her number or a second date before the bell",
+      "core": true,
+      "evidence_required": "The learner asks to see the date again or for a way to contact them (number, Instagram, WhatsApp)."
+    }
+  ],
+  "closings": {
+    "match": "Well shoot, there's the bell! I had the best time, sugar. You'd better give me your number, and Saturday we're comin' back for more medialunas.",
+    "friendzone": "Well, that's time. You're real sweet, y'know. If you swing by Rayuela, the coffee's on me.",
+    "ghosted": "Well, that's time. Good luck with the rest of your dates, hon."
+  },
+  "followups": {
+    "match": "Hey you 😊 I had a real good time. Medialunas at Rayuela Saturday, then the beach?",
+    "friendzone": "It was real sweet meetin' you! Swing by Rayuela sometime, coffee's on me 🤝",
+    "ghosted": "Thanks for the chat. Didn't feel the spark, but good luck in Cancún 🙏",
+    "match_en": "Hey you 😊 I had a real good time. Medialunas at Rayuela Saturday, then the beach?",
+    "friendzone_en": "It was real sweet meetin' you! Swing by Rayuela sometime, coffee's on me 🤝",
+    "ghosted_en": "Thanks for the chat. Didn't feel the spark, but good luck in Cancún 🙏"
+  }
+}

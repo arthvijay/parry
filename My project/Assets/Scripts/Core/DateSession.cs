@@ -18,13 +18,42 @@ public static class DateSession
     static DateScenario scenario;
     static PlayerLook look;
 
+    /// <summary>True once a date has been chosen in this play session (not just restored from disk).</summary>
+    public static bool ChosenThisSession { get; private set; }
+
+    // Fast enter-play mode keeps statics between sessions; start each one clean.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics()
+    {
+        scenario = null;
+        look = null;
+        ChosenThisSession = false;
+    }
+
     public static string ServerUrl
     {
-        get => PlayerPrefs.GetString(ServerPref, DefaultServer);
+        // "-server http://host:port" on the command line wins (a second server, a demo box).
+        get => CommandLineServer() ?? PlayerPrefs.GetString(ServerPref, DefaultServer);
         set { PlayerPrefs.SetString(ServerPref, string.IsNullOrWhiteSpace(value) ? DefaultServer : value.Trim()); PlayerPrefs.Save(); }
     }
 
     public static string Base => ServerUrl.TrimEnd('/');
+
+    static string commandLineServer;
+    static bool commandLineRead;
+
+    static string CommandLineServer()
+    {
+        if (!commandLineRead)
+        {
+            commandLineRead = true;
+            var args = Environment.GetCommandLineArgs();
+            int i = Array.IndexOf(args, "-server");
+            if (i >= 0 && i + 1 < args.Length && args[i + 1].StartsWith("http"))
+                commandLineServer = args[i + 1];
+        }
+        return commandLineServer;
+    }
 
     public static string WebSocketBase =>
         Base.StartsWith("https://") ? "wss://" + Base.Substring(8)
@@ -72,6 +101,7 @@ public static class DateSession
         if (parsed == null)
             return false;
         scenario = parsed;
+        ChosenThisSession = true;
         PlayerPrefs.SetString(ScenarioPref, json);
         PlayerPrefs.Save();
         return true;

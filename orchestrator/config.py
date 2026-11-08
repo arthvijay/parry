@@ -169,13 +169,24 @@ DIALECTS: dict[str, Dialect] = {d.code: d for d in (
             ("grave", "trop", "ouf", "kiffe", "kiffer", "genre", "bref", "carrément", "du coup",
              "chelou", "sympa", "mec", "meuf", "bah", "ouais"),
             asr_language="fr-FR", formal_marker=r"\bvous\b", nickname="Parisian French"),
+    Dialect("en-US-south", "Southern American English (Georgia / Texas)", "en", "en-US",
+            (City("Cancún", 21.16, -86.85, "the hotel zone, right on the beach"),
+             City("Savannah", 32.08, -81.09, "the Historic District"),
+             City("Austin", 30.27, -97.74, "South Congress")),
+            "Warm Southern American English with a slow, playful drawl, written the way it is "
+            "spoken: y'all, fixin' to, reckon, might could, ain't (casually), darlin', sugar, "
+            "hon, bless your heart (warmly), well I'll be, over yonder, dropped g's (talkin', "
+            "goin').",
+            ("y'all", "yall", "fixin", "reckon", "darlin", "sugar", "hon", "bless your heart",
+             "ain't", "yonder", "might could", "howdy", "i'll be", "sweet tea"),
+            asr_language="en-US", nickname="Southern American English"),
 )}
 
 
 # What a match unlocks next: a trip around the dialects, each a little further from home.
 NEXT_DIALECT = {"es-MX": "es-AR", "es-AR": "ja-JP-kansai", "ja-JP-kansai": "fr-FR",
                 "fr-FR": "zh-CN", "zh-CN": "es-ES", "es-ES": "hi-IN", "hi-IN": "ja-JP",
-                "ja-JP": "es-MX"}
+                "ja-JP": "en-US-south", "en-US-south": "es-MX"}
 
 
 def dialect(code: str) -> Dialect:
@@ -384,7 +395,7 @@ APPEARANCES: dict[str, Appearance] = {a.id: a for a in (
 )}
 
 GENDERS = ("female", "male", "nonbinary")
-BASE_MODELS = {"female": "Female_Adult_08", "male": "Male_Adult_08", "nonbinary": "Female_Adult_08"}
+BASE_MODELS = {"female": "Female_Party_02", "male": "Male_Adult_08", "nonbinary": "Female_Adult_08"}
 
 
 @dataclass(frozen=True)
@@ -419,9 +430,9 @@ def level(cefr: str) -> Level:
 
 @dataclass(frozen=True)
 class Models:
-    """Who does which job. Claude does the thinking between rounds (building the date,
-    judging chemistry, writing the receipt); Gemini Flash speaks during the date, where
-    time to first token is what the learner feels."""
+    """Who does which job. Claude does it all by default: building the date, speaking as
+    the date, judging chemistry, writing the receipt. Gemini Flash can speak as the date
+    instead (DATE_BRAIN=gemini), with Claude behind it."""
 
     anthropic_ready: bool
     matchmaker: str
@@ -438,6 +449,8 @@ class Models:
     gemini_location: str
     date_brain: str
     date_brain_thinking: str
+    date_brain_provider: str     # claude | gemini: who speaks as the date
+    date_claude_model: str
 
 
 def models() -> Models:
@@ -460,7 +473,9 @@ def models() -> Models:
         gemini_key=key, gemini_project=project,
         gemini_location=env("GOOGLE_CLOUD_LOCATION") or "global",
         date_brain=env("DATE_MODEL") or "gemini-3.8-flash",
-        date_brain_thinking=env("DATE_THINKING_LEVEL") or "MINIMAL",
+        date_brain_thinking=env("DATE_THINKING_LEVEL") or "LOW",
+        date_brain_provider=(env("DATE_BRAIN") or "claude").strip().lower(),
+        date_claude_model=env("DATE_CLAUDE_MODEL") or sonnet,
     )
 
 
@@ -525,6 +540,15 @@ ELEVENLABS_DEFAULT_VOICES = {"female": "EXAVITQu4vr4xnSDxMaL", "male": "JBFqnCBs
                              "nonbinary": "EXAVITQu4vr4xnSDxMaL"}
 
 
+# Premade voices (usable on every ElevenLabs plan) that suit a dialect better than the
+# general default. Library voices with a real accent need a paid plan; set them with
+# ELEVENLABS_VOICE_<DIALECT>_<GENDER>.
+DIALECT_DEFAULT_VOICES = {
+    ("en-US-south", "female"): "cgSgspJ2msm6clMCkdW9",   # Jessica: playful, bright, warm
+    ("en-US-south", "male"): "bIHbv24MWmeRgasZH58o",     # Will: relaxed, young
+}
+
+
 def voice_for(code: str, gender: str) -> VoiceChoice:
     """An ElevenLabs voice for this dialect and gender, configured as
     ELEVENLABS_VOICE_<DIALECT>_<GENDER> (e.g. ELEVENLABS_VOICE_ES_AR_FEMALE), else
@@ -532,6 +556,7 @@ def voice_for(code: str, gender: str) -> VoiceChoice:
     if not providers().elevenlabs_key:
         return VoiceChoice("sample", "sample")
     voice = (os.getenv(_env_key("ELEVENLABS_VOICE", code, gender))
+             or DIALECT_DEFAULT_VOICES.get((code, gender))
              or os.getenv(_env_key("ELEVENLABS_VOICE", gender))
              or ELEVENLABS_DEFAULT_VOICES.get(gender, ELEVENLABS_DEFAULT_VOICES["female"]))
     return VoiceChoice("elevenlabs", voice)

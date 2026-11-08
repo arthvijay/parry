@@ -1,6 +1,6 @@
 {
   "id": "cafe_cancun_ar",
-  "label": "Café Rayuela · Cancún",
+  "label": "Café Rayuela · Argentine latina (Spanish)",
   "summary": "A porteño speed date at an Argentine café two blocks from the beach in Cancún.",
   "dialect": "es-AR",
   "default_proficiency": "B1",
@@ -40,7 +40,7 @@
     "female": {
       "display_name": "Valeria",
       "age": 27,
-      "appearance": "white",
+      "appearance": "latina",
       "occupation": "editorial photographer",
       "interests": [
         "underwater photography",
@@ -60,12 +60,13 @@
         "Bragging about money, stocks or crypto",
         "Stiff textbook Spanish with usted",
         "One-word answers or staring away from the table"
-      ]
+      ],
+      "outfit": "black_dress"
     },
     "male": {
       "display_name": "Tomás",
       "age": 29,
-      "appearance": "white",
+      "appearance": "latina",
       "occupation": "editorial photographer",
       "interests": [
         "underwater photography",
@@ -85,7 +86,8 @@
         "Bragging about money, stocks or crypto",
         "Stiff textbook Spanish with usted",
         "One-word answers or staring away from the table"
-      ]
+      ],
+      "outfit": "smart_evening"
     }
   },
   "menu": [

@@ -39,6 +39,7 @@ public static class DateBootstrap
         Need<SpatialTelemetryBroadcaster>();
         Need<PlayerAvatar>();
         Need<VisionPanel>();
+        Need<VenueLook>();
         var quests = Object.FindFirstObjectByType<QuestManager>();
         if (quests == null)
             quests = root.AddComponent<QuestManager>();

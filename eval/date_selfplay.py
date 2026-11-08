@@ -62,7 +62,7 @@ PROVIDER_KEYS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "GEMINI_API_KEY", 
                  "OPENAI_API_KEY", "ELEVENLABS_API_KEY")
 BEHAVIOURS = ("engaged", "wrong_region", "one_word", "english", "echo")
 ADVERSARIAL = ("one_word", "english", "echo")
-ONE_WORD = {"es": "sí", "fr": "oui", "zh": "嗯", "hi": "haan", "ja": "うん"}
+ONE_WORD = {"es": "sí", "fr": "oui", "zh": "嗯", "hi": "haan", "ja": "うん", "en": "yeah"}
 ENGLISH = ["Hi, I'm Sam. I like music and travelling. What about you?",
            "Yeah, that sounds cool. I work in marketing.",
            "Can I have your number? I'd like to see you again."]
@@ -73,7 +73,8 @@ CLOSE = {"es-AR": "¿Me pasás tu número? Me encantaría volver a vernos.",
          "zh-CN": "我们加个微信吧？下次再见面！",
          "hi-IN": "Tumhara number mil sakta hai? Phir milte hain!",
          "ja-JP": "LINE交換しない？また会いたいな。",
-         "ja-JP-kansai": "LINE交換せえへん？また会いたいわ。"}
+         "ja-JP-kansai": "LINE交換せえへん？また会いたいわ。",
+         "en-US-south": "Can I get your number, darlin'? I'd sure love to see you again."}
 
 LEARNER_PROMPT = """You play a language learner on a three-minute speed date in a practice
 app, to test the app. Write the learner's next line only: one or two short spoken
@@ -299,8 +300,10 @@ def start_server(offline: bool, runs: Path) -> tuple[subprocess.Popen, str]:
 
 
 async def run_all(args, url: str) -> list[dict]:
+    # Answering in English is the adversary only where English isn't the target language.
     jobs = [(b, code, args.level, seed)
-            for code in args.dialects for b in args.behaviours for seed in range(args.dates)]
+            for code in args.dialects for b in args.behaviours for seed in range(args.dates)
+            if not (b == "english" and config.dialect(code).language == "en")]
     gate = asyncio.Semaphore(args.concurrency)
     model = (os.getenv("CLAUDE_MODEL") or "claude-sonnet-5-5") if args.learner == "model" else None
 

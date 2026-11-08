@@ -72,6 +72,8 @@ listed in other_region_slang_used belong to another region and never count as lo
 used_english: the latest line is mostly English (for Hinglish: plain full English).
 Read non-verbal signals by the body-language norms of this place: a glance away is not
 the same thing in Tokyo as in Buenos Aires.
+When the dialect itself is English, English is the goal: set used_english false and
+never penalise English.
 mistake: the single most useful error in the latest learner line, or null: quote is the
 learner's exact words, better is how a local would say it, why_en one friendly
 sentence. Ignore punctuation and accents (speech recognition). Never invent one."""
@@ -598,7 +600,9 @@ class ChemistryDirector:
         state = self.state
         state.learner_turns += 1
         state.slang_turns += int(j.used_local_slang)
-        state.english_turns += int(j.used_english)
+        # English only counts against the learner when it is not the language being learned.
+        english_target = config.dialect(self.scenario.dialect).language == "en"
+        state.english_turns += int(j.used_english and not english_target)
         if j.mistake is not None and j.mistake.quote.strip() and \
                 normalise(j.mistake.quote) in normalise(text):
             state.mistakes.append({"heard": j.mistake.quote.strip()[:300],

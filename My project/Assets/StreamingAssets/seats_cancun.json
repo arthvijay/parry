@@ -1,6 +1,64 @@
 {
   "seats": [
-    { "id": "table_a", "position": { "x": 1.1, "y": -0.9, "z": 8.7 }, "yaw": 90, "playerCanSit": false },
-    { "id": "table_b", "position": { "x": 3.4, "y": -0.85, "z": 9.0 }, "yaw": 270, "playerCanSit": true }
+    {
+      "id": "table_a",
+      "position": {
+        "x": 1.0,
+        "y": -0.9,
+        "z": 9.7
+      },
+      "yaw": 110,
+      "playerCanSit": false
+    },
+    {
+      "id": "table_b",
+      "position": {
+        "x": 3.05,
+        "y": -0.85,
+        "z": 8.95
+      },
+      "yaw": 290,
+      "playerCanSit": true
+    },
+    {
+      "id": "patron_1",
+      "position": {
+        "x": -0.8,
+        "y": -0.8,
+        "z": 5.93
+      },
+      "yaw": 90,
+      "playerCanSit": false
+    },
+    {
+      "id": "patron_2",
+      "position": {
+        "x": 0.62,
+        "y": -0.8,
+        "z": 5.93
+      },
+      "yaw": 270,
+      "playerCanSit": false
+    },
+    {
+      "id": "patron_3",
+      "position": {
+        "x": 1.57,
+        "y": -0.95,
+        "z": 12.5
+      },
+      "yaw": 180,
+      "playerCanSit": false
+    },
+    {
+      "id": "patron_4",
+      "position": {
+        "x": 1.47,
+        "y": -0.85,
+        "z": 1.8
+      },
+      "yaw": 0,
+      "playerCanSit": false
+    }
   ]
 }

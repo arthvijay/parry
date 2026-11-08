@@ -22,7 +22,9 @@ public class FirstPersonController : MonoBehaviour
 
     [Header("Look")]
     [Tooltip("Degrees per pixel of mouse movement. Start around 0.1.")]
-    public float mouseSensitivity = 0.1f;
+    public float mouseSensitivity = 0.12f;
+    [Tooltip("Look smoothing time constant in seconds; 0 = raw.")]
+    public float lookSmoothing = 0.04f;
     public float pitchMin = -85f;
     public float pitchMax = 85f;
 
@@ -43,6 +45,7 @@ public class FirstPersonController : MonoBehaviour
     CharacterController controller;
     float pitch;
     float verticalVelocity;
+    Vector2 smoothedDelta;
 
     void Awake()
     {
@@ -126,18 +129,24 @@ public class FirstPersonController : MonoBehaviour
         else if (mouse.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked)
             LockCursor(true);
 
-        if (Cursor.lockState != CursorLockMode.Locked)
-            return;
-
-        Look(mouse);
-        if (CanMove)
+        // Looking: with the cursor captured, or by holding the right mouse button when it is
+        // free (after Esc, or while clicking the HUD).
+        bool locked = Cursor.lockState == CursorLockMode.Locked;
+        if (locked || mouse.rightButton.isPressed)
+            Look(mouse);
+        else
+            smoothedDelta = Vector2.zero;
+        if (CanMove && ChemistryAndWingmanHUD.KeysFree)
             Move(keyboard);
     }
 
     void Look(Mouse mouse)
     {
         // delta is raw pixels moved this frame, not a normalised axis.
-        Vector2 delta = mouse.delta.ReadValue();
+        Vector2 raw = mouse.delta.ReadValue();
+        float k = lookSmoothing <= 0f ? 1f : 1f - Mathf.Exp(-Time.unscaledDeltaTime / lookSmoothing);
+        smoothedDelta = Vector2.Lerp(smoothedDelta, raw, k);
+        Vector2 delta = smoothedDelta;
 
         if (logInput)
             Debug.Log($"mouse delta = {delta}");
@@ -158,10 +167,10 @@ public class FirstPersonController : MonoBehaviour
         float x = 0f;
         float z = 0f;
 
-        if (keyboard.aKey.isPressed) x -= 1f;
-        if (keyboard.dKey.isPressed) x += 1f;
-        if (keyboard.sKey.isPressed) z -= 1f;
-        if (keyboard.wKey.isPressed) z += 1f;
+        if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) x -= 1f;
+        if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) x += 1f;
+        if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) z -= 1f;
+        if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) z += 1f;
 
         if (logInput && (x != 0f || z != 0f))
             Debug.Log($"move input = ({x}, {z})");

@@ -13,8 +13,10 @@ learner and date turns, and the silent notes for this turn ([CHEMISTRY], [NONVER
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import random
+import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 
@@ -110,7 +112,7 @@ class ClaudeBrain:
     def __init__(self, m: config.Models):
         import anthropic
         self.client = anthropic.AsyncAnthropic(timeout=20.0, max_retries=1)
-        self.model = m.chemistry
+        self.model = m.date_claude_model
 
     async def reply(self, system: str, history: list[Turn], notes: list[str],
                     ctx: BrainContext) -> AsyncIterator[str]:
@@ -164,14 +166,97 @@ class ScriptedBrain:
         return None
 
 
+# A provider out of quota is skipped for a while, across sessions, so a turn does not
+# wait on a request that is bound to fail.
+QUOTA_COOLDOWN = 600.0
+FIRST_WORD_SECONDS = 5.0
+_resting: dict[str, float] = {}
+
+
+def out_of_quota(error: Exception) -> bool:
+    text = f"{type(error).__name__} {error}"
+    return any(mark in text for mark in ("429", "RESOURCE_EXHAUSTED", "RateLimit", "quota"))
+
+
+class ChainBrain:
+    """Tries each brain in order; the first to produce words answers the turn. A brain
+    that fails before its first word hands the turn to the next one."""
+
+    def __init__(self, brains: list, first_word_seconds: float | None = None,
+                 rest_when_slow: bool = True):
+        self.brains = brains
+        self.first_word_seconds = first_word_seconds
+        self.rest_when_slow = rest_when_slow
+
+    def _ready(self) -> list:
+        now = time.monotonic()
+        ready = [b for b in self.brains if _resting.get(b.name, 0.0) <= now]
+        return ready or self.brains[-1:]
+
+    @property
+    def name(self) -> str:
+        return self._ready()[0].name
+
+    async def reply(self, system: str, history: list[Turn], notes: list[str],
+                    ctx: BrainContext) -> AsyncIterator[str]:
+        ready = self._ready()
+        for i, brain in enumerate(ready):
+            produced = False
+            stream = brain.reply(system, history, notes, ctx).__aiter__()
+            try:
+                # A brain that has not started within FIRST_WORD_SECONDS (a hung request,
+                # an SDK quietly retrying) hands over, unless it is the last one left.
+                last = i == len(ready) - 1
+                limit = self.first_word_seconds or FIRST_WORD_SECONDS
+                first = await (stream.__anext__() if last else
+                               asyncio.wait_for(stream.__anext__(), limit))
+                produced = True
+                yield first
+                async for delta in stream:
+                    yield delta
+                return
+            except StopAsyncIteration:
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:  # noqa: BLE001
+                if produced or i == len(ready) - 1:
+                    raise
+                with contextlib.suppress(Exception):
+                    await stream.aclose()
+                slow = isinstance(error, asyncio.TimeoutError)
+                if out_of_quota(error) or (slow and self.rest_when_slow):
+                    _resting[brain.name] = time.monotonic() + QUOTA_COOLDOWN
+                    log.warning("Date brain %s is %s; %s answers for the next %d min", brain.name,
+                                "too slow" if isinstance(error, asyncio.TimeoutError) else "out of quota",
+                                ready[i + 1].name, QUOTA_COOLDOWN // 60)
+                else:
+                    log.warning("Date brain %s failed (%s: %s); %s answers", brain.name,
+                                type(error).__name__, str(error)[:160], ready[i + 1].name)
+
+    async def aclose(self):
+        for brain in self.brains:
+            await brain.aclose()
+
+
 def create_brain():
-    """Gemini when configured, then Claude, then the scripted brain."""
+    """Who speaks as the date. Claude by default, with the scripted brain behind it for a
+    turn Claude cannot answer. DATE_BRAIN=gemini puts Gemini Flash in front of Claude."""
     m = config.models()
+    if m.date_brain_provider != "gemini":
+        if not m.anthropic_ready:
+            return ScriptedBrain()
+        # Claude is the one real brain here: a slow first word is waited for (up to 12 s)
+        # and never benched; only a failure falls to the scripted lines for that turn.
+        return ChainBrain([ClaudeBrain(m), ScriptedBrain()], first_word_seconds=12.0,
+                          rest_when_slow=False)
+    brains: list = []
     if m.gemini_ready:
         try:
-            return GeminiBrain(m)
+            brains.append(GeminiBrain(m))
         except Exception as error:  # noqa: BLE001
             log.warning("Gemini unavailable (%s)", type(error).__name__)
     if m.anthropic_ready:
-        return ClaudeBrain(m)
-    return ScriptedBrain()
+        brains.append(ClaudeBrain(m))
+    brains.append(ScriptedBrain())
+    return brains[0] if len(brains) == 1 else ChainBrain(brains)

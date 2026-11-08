@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -17,6 +18,8 @@ public class AvatarTinter : MonoBehaviour
     public string hair = "";
     [Tooltip("Resting smile, 0-1, held on mouthSmileLeft/Right.")]
     public float restingSmile;
+    [Tooltip("Outfit style from the matchmaker; any style with \"black\" in it (black_dress) dresses the clothes in black.")]
+    public string outfit = "";
 
     // Average skin tone of the Rocketbox body textures, the reference the tint is measured from.
     static readonly Color BaseSkin = new(0.80f, 0.62f, 0.52f);
@@ -26,6 +29,9 @@ public class AvatarTinter : MonoBehaviour
     {
         GetComponent<NpcAvatarLoader>().Loaded += root =>
         {
+            Polish(root);
+            Debug.Log($"AvatarTinter: {name} loaded, outfit '{outfit}'");
+            Dress(root, outfit);
             Apply(root, skin, hair);
             if (restingSmile > 0f)
                 SetShape(root, "mouthsmileleft", restingSmile * 100f);
@@ -58,6 +64,80 @@ public class AvatarTinter : MonoBehaviour
                     SetColor(m, Ratio(hairColor, BaseHair, 0.25f, 1.8f));
                 else if (isSkin && hasSkin)
                     SetColor(m, Ratio(skinColor, BaseSkin, 0.45f, 1.5f));
+            }
+            renderer.materials = materials;
+        }
+    }
+
+    /// <summary>
+    /// Materials that read well in the venue: no sky reflections (the scene's sky probe is
+    /// a blue default that tints hair and skin), soft skin, matte hair.
+    /// </summary>
+    public static void Polish(Transform root)
+    {
+        if (root == null)
+            return;
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            var materials = renderer.materials;
+            foreach (var m in materials)
+            {
+                if (m == null)
+                    continue;
+                string n = m.name.ToLowerInvariant();
+                bool isHair = n.Contains("opacity") || n.Contains("hair") || n.Contains("lash") || n.Contains("brow");
+                if (m.HasProperty("_EnvironmentReflections"))
+                    m.SetFloat("_EnvironmentReflections", 0f);
+                m.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+                if (m.HasProperty("_Smoothness"))
+                    m.SetFloat("_Smoothness", isHair ? 0.08f : 0.32f);
+                if (m.HasProperty("_Metallic"))
+                    m.SetFloat("_Metallic", 0f);
+            }
+            renderer.materials = materials;
+        }
+    }
+
+    static readonly Dictionary<Texture, RenderTexture> blackOutfits = new();
+
+    /// <summary>
+    /// Re-dye the clothing painted into the body texture. Rocketbox bodies carry their
+    /// clothes in one texture with the skin, so a small shader keeps the skin and turns
+    /// the fabric black with its folds; the result is cached per texture.
+    /// </summary>
+    public static void Dress(Transform root, string style)
+    {
+        if (root == null || string.IsNullOrEmpty(style) || style.IndexOf("black", StringComparison.OrdinalIgnoreCase) < 0)
+            return;
+        var shader = Resources.Load<Shader>("Shaders/OutfitRecolor");
+        if (shader == null || !shader.isSupported)
+        {
+            Debug.LogWarning("AvatarTinter: outfit shader unavailable; clothes left as modelled");
+            return;
+        }
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            var materials = renderer.materials;
+            foreach (var m in materials)
+            {
+                if (m == null || !m.name.ToLowerInvariant().Contains("body") || !m.HasProperty("_BaseMap"))
+                    continue;
+                var source = m.GetTexture("_BaseMap");
+                if (source == null)
+                    continue;
+                if (!blackOutfits.TryGetValue(source, out var dyed) || dyed == null)
+                {
+                    dyed = new RenderTexture(source.width, source.height, 0, RenderTextureFormat.ARGB32,
+                                             RenderTextureReadWrite.sRGB) { name = source.name + "_black", useMipMap = true, autoGenerateMips = true };
+                    var mat = new Material(shader);
+                    Graphics.Blit(source, dyed, mat);
+                    Destroy(mat);
+                    blackOutfits[source] = dyed;
+                }
+                m.SetTexture("_BaseMap", dyed);
+                Debug.Log($"AvatarTinter: {root.name} dressed in {style} ({source.name})");
+                if (m.HasProperty("_Smoothness"))
+                    m.SetFloat("_Smoothness", 0.45f); // a satin sheen on the fabric
             }
             renderer.materials = materials;
         }

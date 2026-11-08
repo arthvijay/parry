@@ -74,14 +74,24 @@ public class ScenarioClient : MonoBehaviour
             known = DateSession.Scenario;
         }
 
+        // An authored date restored from an earlier session is fetched again, so what plays
+        // is always the current version of the demo (outfit, menu, lines).
+        string preset = defaultPreset, gender = "female";
+        if (known != null && !DateSession.ChosenThisSession && !string.IsNullOrEmpty(known.preset_id))
+        {
+            preset = known.preset_id;
+            gender = known.date_character?.gender == "male" ? "male" : "female";
+            known = null;
+        }
+
         if (known == null)
         {
             // Play pressed straight in the venue: the authored demo date.
             Status = "Setting the table…";
             string body = Json.Write(new Dictionary<string, object>
             {
-                ["preset"] = defaultPreset, ["learner_name"] = DateSession.LearnerName,
-                ["proficiency"] = defaultLevel, ["date_gender"] = "female",
+                ["preset"] = preset, ["learner_name"] = DateSession.LearnerName,
+                ["proficiency"] = defaultLevel, ["date_gender"] = gender,
             });
             using var post = new UnityWebRequest($"{Base}/v1/matchmaker/preset", "POST")
             {

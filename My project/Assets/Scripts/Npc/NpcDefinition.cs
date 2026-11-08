@@ -66,6 +66,8 @@ public class NpcDefinition
     public string hairTint = "";
     [Tooltip("Resting smile, 0-1, held on the mouthSmile blendshapes.")]
     public float restingSmile;
+    [Tooltip("Outfit style (e.g. black_dress). Empty = as modelled.")]
+    public string outfit = "";
 
     [Header("Conversation")]
     [Tooltip("Spoken (placeholder voice) the first time the player walks up. A loaded scenario's opening_line overrides it.")]

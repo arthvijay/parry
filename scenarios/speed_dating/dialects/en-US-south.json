@@ -1,0 +1,223 @@
+{
+  "host": {
+    "name": "Darlene",
+    "gender": "female",
+    "greeting": "Well hey there, welcome in! Your date's already waitin' on you at the table by the window, name's {date_name}. You've got three minutes, so don't dawdle, y'hear? Good luck, sugar!",
+    "chat": [
+      "Right over yonder, the table by the window. Go on now, the clock's tickin'!",
+      "Just be yourself, hon. You'll do fine."
+    ]
+  },
+  "names": {
+    "female": [
+      "Savannah",
+      "Magnolia",
+      "Loretta",
+      "Charlotte",
+      "Dixie"
+    ],
+    "male": [
+      "Beau",
+      "Wyatt",
+      "Colton",
+      "Rhett",
+      "Jackson"
+    ],
+    "nonbinary": [
+      "Jesse",
+      "Rory",
+      "Sky"
+    ]
+  },
+  "occupations": [
+    "country music songwriter",
+    "large-animal vet",
+    "pastry chef",
+    "boat captain",
+    "interior designer",
+    "high-school history teacher"
+  ],
+  "openings": {
+    "playful_sarcastic": "Well thank the Lord, you sat down. The last fella spent ten whole minutes tellin' me about his truck's horsepower. Please tell me you've got better stories than that, sugar.",
+    "warm_romantic": "Well hey there! Aren't you a sight. So tell me, how'd you end up at a speed date on a Thursday night?",
+    "reserved_intellectual": "Hey. One rule, darlin': no talkin' about the weather. What are you readin' these days?",
+    "high_energy_creative": "Hey y'all, well, hey you! Sorry, I just came from the best little gig down the road and I'm all fired up. What gets you goin'?"
+  },
+  "callouts": {
+    "female": [
+      "Well bless your heart, am I that boring you're starin' off into space?",
+      "Hey now, eyes up here, sugar. What's so interestin' over there?"
+    ],
+    "male": [
+      "Well bless your heart, am I that boring you're starin' off into space?",
+      "Hey now, eyes up here, darlin'. What's so interestin' over there?"
+    ],
+    "nonbinary": [
+      "Well bless your heart, am I that boring you're starin' off into space?",
+      "Hey now, eyes up here. What's so interestin' over there?"
+    ]
+  },
+  "offline": {
+    "reactions": [
+      "Well I'll be! Is that right?",
+      "Oh, I love that, honey.",
+      "Well ain't that somethin'.",
+      "Now that's just darlin'.",
+      "Shut the front door, really?"
+    ],
+    "questions": [
+      "So what do you do for a livin'?",
+      "What's your idea of a perfect Sunday?",
+      "Are you more of a sweet tea or a coffee kind of person?",
+      "Have you traveled much?",
+      "What music have you got on repeat right now?"
+    ],
+    "nudges": [
+      "Well go on, tell me somethin' about you.",
+      "Don't leave me hangin' now, sugar. What do you say?"
+    ],
+    "smile": "Well look at that smile. You're trouble, aren't you?",
+    "puzzled": "Uh oh, you're makin' a face. Want me to slow it down a little?"
+  },
+  "wingman": [
+    [
+      {
+        "tone": "Flirty 🔥",
+        "target": "No trucks here. The only horsepower I care about is the company I keep.",
+        "gloss": "Turns her complaint into a compliment."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "So what do you get up to when you're not speed dating?",
+        "gloss": "An open question that hands her the floor."
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "My best story involves a goat, a wedding and a very confused pastor.",
+        "gloss": "Teases a story she'll want to hear."
+      }
+    ],
+    [
+      {
+        "tone": "Flirty 🔥",
+        "target": "Gettin' lost somewhere new, but it's better with good company.",
+        "gloss": "Answers and flirts in one line."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "I'm a sucker for a quiet café. What's your favorite spot around here?",
+        "gloss": "Shares a little, then asks about her."
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "Sleepin' in and pretendin' I know how to cook.",
+        "gloss": "Self-deprecating, easy to laugh at."
+      }
+    ]
+  ],
+  "closings": {
+    "match": "Well shoot, time's up already! I had the best time, sugar. You'd better give me your number.",
+    "friendzone": "Well, there's the bell. You're real sweet, y'know. Maybe I'll see you around.",
+    "ghosted": "Well, that's time. Good luck with the rest of your dates, hon."
+  },
+  "stamps": {
+    "match": "IT'S A MATCH, Y'ALL!",
+    "friendzone": "JUST FRIENDS, SUGAR",
+    "ghosted": "LEFT ON READ"
+  },
+  "followups": {
+    "match": "Hey you 😊 I had a real good time. Sunset drinks on the beach Saturday?",
+    "friendzone": "It was sweet meetin' you! If you're at the beach bonfire Sunday, come say hey 🤝",
+    "ghosted": "Hey, thanks for the chat. Didn't feel the spark, but good luck out there 🙏"
+  },
+  "culture": [
+    {
+      "title": "Y'all is singular-friendly",
+      "note": "Y'all means 'you all', and all y'all means everybody. In the South it's the natural plural, never sloppy grammar."
+    },
+    {
+      "title": "Bless your heart",
+      "note": "It can be genuine sympathy, or a polite way to call someone a fool. Tone tells you which. Use it warmly on a date."
+    },
+    {
+      "title": "Fixin' to",
+      "note": "'I'm fixin' to order' means 'I'm about to order'. It's the most Southern way to talk about the near future."
+    },
+    {
+      "title": "Terms of endearment",
+      "note": "Sugar, hon, darlin' and sweetie are everyday friendliness in the South, even from strangers. They signal warmth, not necessarily romance."
+    },
+    {
+      "title": "Manners matter",
+      "note": "Ma'am and sir are respectful, not old-fashioned. A little courtesy and a story told slow go a long way."
+    }
+  ],
+  "nonverbal": {
+    "look_away_seconds": 5.0,
+    "look_away_penalty": 5,
+    "eye_contact": "warm",
+    "head_wobble": false,
+    "norms": "Southern warmth: easy smiles, soft but steady eye contact and plenty of nodding along; looking off for long while someone talks reads as rude, not shy."
+  },
+  "fillers": {
+    "local": [
+      "well",
+      "lemme see",
+      "I mean",
+      "y'know",
+      "now"
+    ],
+    "foreign": [
+      "este",
+      "o sea",
+      "eh",
+      "euh",
+      "bah",
+      "ano",
+      "eto",
+      "matlab"
+    ],
+    "tip": "When you need a second, buy it like a Southerner: «Well…» or «Lemme see…»."
+  },
+  "register": {
+    "expected": "casual",
+    "casual": [
+      "y'all",
+      "yall",
+      "ya",
+      "gonna",
+      "fixin"
+    ],
+    "formal": [],
+    "other": [],
+    "mixing_ok": true,
+    "tips": {
+      "formal": "Down South, «ma'am» and «sir» sound warm, not stiff: use them freely.",
+      "other": "",
+      "mixed": ""
+    }
+  },
+  "other_region_slang": {
+    "hella": "Northern California",
+    "wicked": "New England",
+    "youse": "Philadelphia",
+    "innit": "London",
+    "bloody": "the UK",
+    "mate": "the UK or Australia"
+  },
+  "cultural_moments": [
+    {
+      "id": "sweet_tea",
+      "milestone": "Sweet tea moment: answer the sweet-or-unsweet question like a Southerner",
+      "evidence": "The learner, in English, answers the date's sweet tea question (sweet or unsweet, or asks what it is with curiosity), or plays along with the Southern teasing.",
+      "cue": "Ask them, like a proud Southerner, whether they take their tea sweet or unsweet, and tease that unsweet tea is basically a crime back home. One short line.",
+      "keywords": [
+        "sweet tea",
+        "sweet",
+        "unsweet",
+        "tea",
+        "sugar"
+      ]
+    }
+  ]
+}

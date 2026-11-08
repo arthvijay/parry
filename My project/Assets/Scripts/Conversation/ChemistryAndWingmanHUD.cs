@@ -22,14 +22,22 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
     public Key endKey = Key.Q;
     public Key typeKey = Key.Enter;
     public Key helpKey = Key.T;
+    [Tooltip("Asks the wingman for three ways to answer (seated, during the date: W does not walk then).")]
+    public Key wingmanKey = Key.W;
     public Key menuKey = Key.M;
     [Tooltip("Seat the learner must sit in to start the date; empty = any seat the player may take.")]
     public string playerSeat = "table_b";
     public float subtitleSeconds = 9f;
+    [Tooltip("Seconds the translator and wingman cards stay up, even while the learner talks.")]
+    public float cardSeconds = 12f;
 
     public int Chemistry { get; private set; } = 50;
     public float SecondsLeft { get; private set; }
     public bool DateRunning => client != null && client.DateRunning;
+
+    /// <summary>True when game keys may act: no line is being typed. (The Input System itself
+    /// only delivers the keyboard while the game window has focus.)</summary>
+    public static bool KeysFree => Instance == null || !Instance.typing;
 
     FullDuplexStreamClient client;
     PlayerSeating seating;
@@ -58,6 +66,7 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
 
     Dictionary<string, object> hint;
     float hintAt = -10f;
+    float wingmanAskedAt = -10f;
     float hintSlide;
 
     bool typing;
@@ -134,7 +143,7 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
         var kb = Keyboard.current;
         if (kb == null)
             return;
-        if (!typing && client.DateRunning && kb[endKey].wasPressedThisFrame && Cursor.lockState == CursorLockMode.Locked)
+        if (!typing && client.DateRunning && kb[endKey].wasPressedThisFrame)
             End("quit");
         if (!typing && kb[helpKey].wasPressedThisFrame && client.DateRunning && !helpPending)
         {
@@ -142,9 +151,16 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
             helpAt = Time.time;
             client.Send(new Dictionary<string, object> { ["type"] = "help" });
         }
+        if (!typing && kb[wingmanKey].wasPressedThisFrame && client.DateRunning && SeatedAtTable()
+            && Time.time - wingmanAskedAt > 2f)
+        {
+            wingmanAskedAt = Time.time;
+            client.Send(new Dictionary<string, object> { ["type"] = "wingman" });
+        }
         if (!typing && kb[menuKey].wasPressedThisFrame && (scenario?.menu?.Length ?? 0) > 0)
             menuOpen = !menuOpen;
-        if (helpCard != null && client.UserSpeaking && Time.time - helpAt > 2f)
+        // The cards stay up while the learner reads them out; they go after cardSeconds.
+        if (helpCard != null && !helpPending && Time.time - helpAt > cardSeconds && !client.UserSpeaking)
             helpCard = null;
         // The host was sent with the order; if the walk is blocked, serve anyway.
         if (orderSentAt > 0f && !hostArrived && Time.time - orderSentAt > 12f)
@@ -157,7 +173,7 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
         }
 
         // A spoken answer clears the wingman card.
-        if (hint != null && client.UserSpeaking && Time.time - hintAt > 0.8f)
+        if (hint != null && Time.time - hintAt > cardSeconds && !client.UserSpeaking)
             hint = null;
     }
 
@@ -553,7 +569,7 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
         if (!client.DateRunning)
             return;
         bool hasMenu = (scenario?.menu?.Length ?? 0) > 0;
-        string keys = (hasMenu ? "M  carta     " : "") + "T  translate     Enter  type     V  camera     Q  end";
+        string keys = (hasMenu ? "M  carta     " : "") + "W  wingman     T  translate     Enter  type     V  camera     Q  end";
         GlassUI.Label(new Rect((W - 520f) / 2f, BarTop + BarHeight + 4f, 520f, 16f), keys, 10, new Color(1f, 1f, 1f, 0.55f), FontStyle.Normal, TextAnchor.MiddleCenter);
         if (served != null && Time.time - servedAt < 8f)
         {

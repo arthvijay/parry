@@ -40,6 +40,7 @@ from .chemistry_director import ChemistryDirector, mood_label, other_region_word
 from .date_brain import BrainContext, ScriptedBrain, Turn, create_brain
 from .date_grader import verdict_for
 from .date_models import DateScenario
+from .director import words
 from .models import TranscriptTurn
 from .nonverbal import NonverbalTracker, Signal
 from .run_records import records
@@ -51,6 +52,7 @@ log = logging.getLogger("orchestrator")
 RUN_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 MAX_TEXT_MESSAGE = 512 * 1024
 MAX_JPEG = 400 * 1024
+ECHO_SECONDS = 3.0
 AHEAD_SECONDS = 0.8
 BYTES_PER_SECOND = VOICE_RATE * 2
 DATE, HOST = "date_npc", "host"
@@ -99,6 +101,7 @@ class StreamSession:
         self.running = False
         self.ended = False
         self.started_at = 0.0
+        self.told_far = False
         self.host_greeted = False
         self.pending_callout = False
         self.callouts_said = 0
@@ -286,6 +289,15 @@ class StreamSession:
             await self.send({"type": "pong", "t": msg.get("t")})
         elif kind == "help":
             asyncio.create_task(self._help())
+        elif kind == "wingman" and self.running:
+            # Asked for (W): three ways to answer, now, without the silence penalty.
+            self.wingman_due = None
+            prep = self.wingman_prep
+            failed = prep is not None and prep.done() and (prep.cancelled() or prep.exception() is not None)
+            if prep is None or failed:
+                self.wingman_prep = asyncio.create_task(self.director.wingman(list(self.transcript)))
+                self.wingman_prep.add_done_callback(lambda t: t.cancelled() or t.exception())
+            asyncio.create_task(self._show_wingman(asked=True))
         elif kind == "scene_event":
             if msg.get("event") == "host_at_table" and self.pending_order:
                 asyncio.create_task(self._serve())
@@ -336,6 +348,21 @@ class StreamSession:
         self.user_speaking, self.user_started_at, self.utterance_started = False, None, None
         self.learner_final_at = now
         npc = self.focus
+        if not typed and self._echo(text, now):
+            # The microphone heard the character's own voice from the speakers.
+            log.info("Ignored an echo of the last line: %r", text[:80])
+            return
+        if npc == DATE and not self.running:
+            # Not at the table yet: the date cannot hear across the room. Only the host,
+            # when the learner is facing them, answers before the date starts.
+            await self.send({"type": "transcript", "speaker": "user", "text": text,
+                             "is_final": True, "typed": typed, "unheard": True})
+            if not self.told_far:
+                self.told_far = True
+                name = self.scenario.date_character.display_name
+                await self.send({"type": "notice", "text": f"{name} can't hear you yet: walk to "
+                                 f"the table and press F to sit down"})
+            return
         if self.turn_task is not None and not self.turn_task.done():
             await self._interrupt()
         await self.send({"type": "transcript", "speaker": "user", "text": text, "is_final": True,
@@ -371,6 +398,21 @@ class StreamSession:
                 f"[SCENE] They just used {heard}, not how people talk here. If it fits, react "
                 f"the way a local would: amused, maybe tease them about it, once. Never lecture.")
         return found
+
+    def _echo(self, text: str, now: float) -> bool:
+        """True when a heard line is only words from the line a character just spoke:
+        speakers leaking into the microphone, not the learner. Judged while the line is
+        playing or within ECHO_SECONDS of it ending."""
+        heard = words(text)
+        if not heard:
+            return False
+        playing = self.speaking is not None or (self.playback_end or 0.0) > now
+        recent = playing or now - (self.playback_end or 0.0) < ECHO_SECONDS
+        if not recent:
+            return False
+        last = next((t.text for t in reversed(self.transcript) if t.role == "npc"), "")
+        spoken = words(last + " " + " ".join(self.spoken or []))
+        return bool(spoken) and heard <= spoken
 
     # ---- speaking ---------------------------------------------------------------
 
@@ -657,17 +699,18 @@ class StreamSession:
                 self.wingman_due = None
                 await self._show_wingman()
 
-    async def _show_wingman(self):
+    async def _show_wingman(self, asked: bool = False):
         task, self.wingman_prep = self.wingman_prep, None
         hint = None
         if task is not None:
             with contextlib.suppress(Exception):
-                hint = await asyncio.wait_for(task, timeout=2.5)
+                hint = await asyncio.wait_for(task, timeout=6.0 if asked else 2.5)
         if hint is None:
             hint = await self.director.fallback.wingman(self.scenario, self.transcript)
             self.director.offered = list(hint.options)
         await self.send(hint.model_dump())
-        await self.director.nudge(-2, "awkward silence", source="timer")
+        if not asked:
+            await self.director.nudge(-2, "awkward silence", source="timer")
 
     # ---- what the date can see -----------------------------------------------------
 

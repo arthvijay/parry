@@ -190,10 +190,12 @@ def slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", plain.lower()).strip("_")[:24]
 
 
-def _avatar(gender: str, appearance_id: str, venue_id: str, smile: float) -> AvatarConfig:
+def _avatar(gender: str, appearance_id: str, venue_id: str, smile: float,
+            outfit: str | None = None) -> AvatarConfig:
     look = config.APPEARANCES[appearance_id]
     return AvatarConfig(base_model=config.BASE_MODELS[gender], skin_tint=look.skin,
-                        hair_tint=look.hair, outfit_style=OUTFITS.get(venue_id, "evening_casual"),
+                        hair_tint=look.hair,
+                        outfit_style=outfit or OUTFITS.get(venue_id, "evening_casual"),
                         resting_smile_weight=round(smile, 2))
 
 
@@ -394,7 +396,7 @@ def build_preset(request: PresetRequest) -> DateScenario:
         occupation=variant["occupation"], interests=variant["interests"],
         backstory=variant["backstory"],
         avatar_config=_avatar(request.date_gender, variant.get("appearance", "mixed"), v["id"],
-                              archetype.resting_smile),
+                              archetype.resting_smile, variant.get("outfit")),
         voice_config=_voice(code, request.date_gender, archetype, level),
         opening_line=variant["opening_line"],
         system_prompt=persona_prompt(
