@@ -976,6 +976,7 @@ A self-contained animated HTML pitch deck (16 slides).
 | [`README.md`](README.md) | Everyone | Vision, startup, architecture, file map | Current |
 | [`docs/speed-date.md`](docs/speed-date.md) | Developers | Speed-date design: the latency chain, personas, face signals, no quote no tick, fallbacks, the match bar, receipt, roast, unlocks and sharing, teaching, the demo café | Current |
 | [`docs/api.md`](docs/api.md) | Unity developers | The HTTP/WebSocket contract. The **Speed date** section is the live one; the earlier sections are the café | Current |
+| [`docs/latency.md`](docs/latency.md) | Developers | Measured latency per stage for both demo dates, with method and caveats | Current |
 | [`AGENTS.md`](AGENTS.md) | Coding agents | Repo rules | Current |
 | [`demo-pitch/README.md`](demo-pitch/README.md) | Presenters | Running the pitch deck | Current |
 | [`eval/README.md`](eval/README.md) | Developers | The café director evaluation | Café |
@@ -1001,6 +1002,24 @@ uv run python eval/date_selfplay.py --offline        # simulated learners on who
 - Claude's request shape is tested against a mock transport.
 - Face tracking tests run on synthetic readings. The two MediaPipe round-trip tests
   skip themselves if the model isn't available.
+
+### Measured latency
+
+Measured with `tools/date_latency_bench.py` on the live stack (full tables, method and
+caveats in [docs/latency.md](docs/latency.md)):
+
+| The learner… | waits for | p50 |
+| --- | --- | ---: |
+| speaks a line | the date's first word | ~2.45 s |
+| types a line | the date's first word | ~1.2 s |
+| interrupts | the date to stop | local, + 2 ms server ack |
+| presses W / T | wingman / translator card | 3.7–5.1 s / 3.4 s |
+| ends the date | the verdict receipt | 6.0 s |
+
+Per stage: speech recogniser final transcript 1.15–1.25 s after the last word, Claude's
+first sentence ~1.0 s, ElevenLabs first audio 0.16 s on a pre-warmed socket, MediaPipe
+face analysis 20 ms per frame. The café renders at 25–33 FPS in the editor on integrated
+graphics.
 
 ---
 
@@ -1030,8 +1049,8 @@ uv run python eval/date_selfplay.py --offline        # simulated learners on who
   receipt doesn't draw them yet.
 - **Culture data is a first draft.** Body-language norms, fillers, register notes and
   cultural moments are tendencies, to be reviewed and tuned by native speakers.
-- **Latency.** The target is under 400 ms from the end of your turn to the date's
-  first audio; measure yours with `tools/date_latency_bench.py`.
+- **Latency.** Measured, the date starts answering about 2.4 s after you stop talking (1.2 s typed);
+  see [Measured latency](#measured-latency) and `docs/latency.md`.
 
 ---
 

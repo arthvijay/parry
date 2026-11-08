@@ -30,6 +30,20 @@ The chemistry judge, the wingman line and the transcript store all run after the
 has started, off the path the learner feels. `audio_start.first_audio_ms` reports the
 measured gap.
 
+**Measured** (`tools/date_latency_bench.py`, full tables in [latency.md](latency.md)):
+
+| Stage | p50 |
+| --- | ---: |
+| End of speech → final transcript (Nemotron/Parakeet) | 1.15–1.25 s |
+| Transcript → first sentence (Claude) | 1.0–1.1 s |
+| First sentence → first voice frame (ElevenLabs, warm socket) | 0.16 s |
+| **Spoken line → the date's first word** | **~2.45 s** |
+| Typed line → the date's first word | ~1.2 s |
+| Barge-in → `clear_audio` | 2 ms |
+
+The recogniser's endpointing is the largest stage; the local voice detector already
+closes the turn at ~0.7 s, so finalising on it would save about half a second.
+
 ## Feeling like a person
 
 - **The persona prompt is written by code, not the model.** Every date gets the same
