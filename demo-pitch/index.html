@@ -977,7 +977,7 @@ body.edit .slot{cursor:copy}
   data-notes="Under the hood: Unity 6 renders Gaussian-splat venues and catches barge-in locally. One WebSocket carries mic audio, webcam frames and gaze telemetry up, and voice, chemistry, face signals and wingman hints down. The FastAPI orchestrator fans out to NVIDIA Nemotron for streaming speech-to-text, ElevenLabs for the voice, and Claude for everything that thinks: the date's live replies, their persona, the chemistry judge, the wingman, the grade and the report. MediaPipe reads your face locally: smiles, nods, puzzled looks and where you're looking. Every provider has an offline fallback, so the whole date runs with zero keys. Our target is under 400 milliseconds to first audio.">
   <div class="stack-head">
     <div><p class="eyebrow a" style="--d:.1">Under the hood</p><h2 class="title sm a" style="--d:.2">Engineered for <em style="white-space:nowrap">sub-400 ms</em> banter.</h2></div>
-    <p class="lede a" style="--d:.35">Speech, Claude's replies and voice stream through cloud APIs. MediaPipe reads your face locally, and Unity renders the splat venues and catches barge-in.</p>
+    <p class="lede a" style="--d:.35">Speech, Claude's replies and voice stream through cloud APIs. MediaPipe reads your face locally, and Unity renders the splat venues and catches barge-in. No camera image reaches a cloud AI.</p>
   </div>
   <svg class="arch-svg a fade" style="--d:.6" viewBox="0 0 1920 1080" aria-hidden="true">
     <path class="flow-up" id="pUp" d="M560 480 L790 480"/>

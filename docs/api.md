@@ -513,7 +513,7 @@ when `NVIDIA_API_KEY` is set or `NEMOTRON_ASR_SERVER` points at a self-hosted NI
 | `GET /v1/learners/{name}` | One learner's profile: their dates and their practice list |
 | `GET /v1/reports/class` | Every learner at a glance (HTML; `?format=json` for data, `?learners=a,b` to filter) |
 | `GET /v1/costs` | Usage and dollars by provider since the server started, and the `plan` |
-| `GET /v1/face/status` | Whether MediaPipe and its model are loaded |
+| `GET /v1/face/status` | `{available, reason}`: whether MediaPipe and its model (stock Face Landmarker, loaded on first call) are ready |
 
 ### `POST /v1/matchmaker/generate`
 
@@ -574,7 +574,7 @@ character's voice as binary frames and sends JSON events.
 | `{"type":"focus","npc_id":"host"}` | Walked up to the host: the host greets |
 | `{"type":"start_date"}` | Seated at the table: opening line, clock starts |
 | `{"type":"telemetry","is_looking_at_date","gaze_target","look_away_duration_sec","player_smiling","distance_m","is_seated"}` | Every 250 ms |
-| `{"type":"face_frame","jpeg_base64"}` | ~8 per second, ~320 px wide |
+| `{"type":"face_frame","jpeg_base64"}` | ~8 per second, ~320 px wide. Analysed in memory and never stored. A frame that arrives while the last is still being read is dropped, so send the newest and don't queue |
 | `{"type":"barge_in","timestamp_ms"}` | The client's voice detector heard the learner over the date |
 | `{"type":"user_text","text"}` | Typed instead of spoken |
 | `{"type":"playback_done","npc_id"}` | The last frame of a line has played (starts the wingman's 4 s) |
