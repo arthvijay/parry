@@ -508,7 +508,9 @@ body.edit .slot{cursor:copy}
 .mk-tag{font-family:var(--f-mono);font-size:13px;font-weight:400;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);vertical-align:middle;margin-left:10px}
 #mk-chart .mk-line.lang{stroke:var(--amber);filter:drop-shadow(0 0 8px rgba(255,180,84,.55))}
 #mk-chart .dot.lang{stroke:var(--amber)}
-#mk-chart .val.small{font-size:14px;font-weight:400;fill:var(--muted)}
+#mk-chart .tick.lang,#mk-chart .axis.lang{fill:var(--amber)}
+#mk-chart .tick.dating,#mk-chart .axis.dating,#mk-chart .val.dating{fill:var(--rose)}
+#mk-chart .axis{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em}
 .big{font-family:var(--f-display);font-size:190px;font-weight:600;line-height:.9;letter-spacing:-.04em;margin:24px 0 0;font-variant-numeric:tabular-nums}
 .big small{font-size:90px;color:var(--rose)}
 .big-sub{font-size:26px;color:var(--muted);margin:16px 0 0}
@@ -1071,18 +1073,18 @@ body.edit .slot{cursor:copy}
      SLIDE 12: MARKET
      ================================================================= -->
 <section class="slide s-market" data-id="market" data-title="Market"
-  data-notes="Parry is dating first and language learning second, so it sits where two big markets meet. Online dating is a 12 billion dollar market growing 7.4% a year (Grand View Research). Language learning is 84 billion, growing 17.7% a year (Mordor Intelligence). We show them side by side, not added together. The overlap is already paying: 13.8 million people pay for Match Group's dating apps and 13.1 million pay for Duolingo. People already date across borders: Tinder Passport is used 145,000 times a day, and 304 million people live outside the country they were born in.">
+  data-notes="Parry is dating first and language learning second, so it sits where two big markets meet. By 2030, online dating is projected at about 17 billion dollars, up from 12 billion in 2025, growing 7.4% a year (Grand View Research). Language learning reaches 189 billion, up from 84 billion, growing 17.7% a year (Mordor Intelligence). The chart uses two scales so both curves are readable. We show them side by side, not added together. The overlap is already paying: 13.8 million people pay for Match Group's dating apps and 13.1 million pay for Duolingo. People already date across borders: Tinder Passport is used 145,000 times a day, and 304 million people live outside the country they were born in.">
   <div class="mk-left">
     <p class="eyebrow a" style="--d:.1">The market</p>
     <h2 class="title xs a" style="--d:.2">Dating first. <em>Language second.</em></h2>
     <div class="mk-pair a" style="--d:.35">
-      <div class="mk-num rose"><b><small>$</small><span id="mkDate">12.1</span><small>B</small></b><span>Online dating, 2025<br>→ $21.4B by 2033 · 7.4% CAGR</span></div>
+      <div class="mk-num rose"><b><small>$</small><span id="mkDate">17.3</span><small>B</small></b><span>Online dating, 2030 (projected at 7.4% CAGR)<br>$12.1B in 2025</span></div>
       <div class="mk-plus">&amp;</div>
-      <div class="mk-num amber"><b><small>$</small><span id="mkLang">83.7</span><small>B</small></b><span>Language learning, 2025<br>→ $188.7B by 2030 · 17.7% CAGR</span></div>
+      <div class="mk-num amber"><b><small>$</small><span id="mkLang">188.7</span><small>B</small></b><span>Language learning, 2030 (17.7% CAGR)<br>$83.7B in 2025</span></div>
     </div>
     <p class="mk-note a fade" style="--d:.5">Two markets, one product. Shown side by side, not added: Parry starts where they overlap.</p>
     <div class="chart-wrap a fade" style="--d:.55">
-      <svg id="mk-chart" viewBox="0 0 880 280" role="img" aria-label="2025 to 2030: online dating grows from 12.1 to about 17 billion dollars, language learning from 83.7 to 188.7 billion dollars"></svg>
+      <svg id="mk-chart" viewBox="0 0 880 280" role="img" aria-label="2025 to 2030, on two scales: online dating grows from 12.1 to about 17.3 billion dollars (right axis), language learning from 83.7 to 188.7 billion dollars (left axis)"></svg>
       <div class="tip" id="mkTip"></div>
     </div>
     <div class="mk-tiles">
@@ -1616,20 +1618,23 @@ const Market = (() => {
   const years = [2025, 2026, 2027, 2028, 2029, 2030];
   const lang = [83.7, 98.4, 115.8, 136.3, 160.4, 188.7];
   const dating = [12.1, 13.0, 14.0, 15.0, 16.1, 17.3];
-  const svg = $("#mk-chart"), W = 880, H = 280, L = 64, Rm = 24, T = 18, B = 40;
+  const svg = $("#mk-chart"), W = 880, H = 280, L = 64, Rm = 64, T = 36, B = 40;
   const x = i => L + i * (W - L - Rm) / (years.length - 1);
-  const y = v => T + (H - T - B) * (1 - v / 200);
+  const y = v => T + (H - T - B) * (1 - v / 200);      // language learning, left axis
+  const yd = v => T + (H - T - B) * (1 - v / 25);      // online dating, right axis
   let h = `<defs><linearGradient id="mkFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb454" stop-opacity=".28"/><stop offset="1" stop-color="#ffb454" stop-opacity="0"/></linearGradient></defs>`;
-  [0, 50, 100, 150, 200].forEach(v => { h += `<line class="grid" x1="${L}" x2="${W - Rm}" y1="${y(v)}" y2="${y(v)}"/><text class="tick" x="${L - 14}" y="${y(v) + 5}" text-anchor="end">$${v}B</text>`; });
+  [0, 50, 100, 150, 200].forEach(v => { h += `<line class="grid" x1="${L}" x2="${W - Rm}" y1="${y(v)}" y2="${y(v)}"/><text class="tick lang" x="${L - 14}" y="${y(v) + 5}" text-anchor="end">$${v}B</text>`; });
+  [0, 5, 10, 15, 20, 25].forEach(v => { h += `<text class="tick dating" x="${W - Rm + 14}" y="${yd(v) + 5}">$${v}B</text>`; });
   years.forEach((yr, i) => { h += `<text class="tick" x="${x(i)}" y="${H - 10}" text-anchor="middle">${yr}</text>`; });
-  const path = series => series.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  const path = (series, f = y) => series.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${f(v).toFixed(1)}`).join(" ");
   h += `<path class="area" d="${path(lang)} L${x(5)} ${y(0)} L${x(0)} ${y(0)}Z"/>`;
-  h += `<path class="mk-line lang" d="${path(lang)}"/><path class="mk-line" d="${path(dating)}"/>`;
+  h += `<path class="mk-line lang" d="${path(lang)}"/><path class="mk-line" d="${path(dating, yd)}"/>`;
   h += `<line class="cross" id="mkCross" y1="${T}" y2="${y(0)}"/>`;
   h += `<circle class="dot lang" cx="${x(0)}" cy="${y(lang[0])}" r="6"/><circle class="dot lang" cx="${x(5)}" cy="${y(lang[5])}" r="7"/>`;
-  h += `<circle class="dot" cx="${x(0)}" cy="${y(dating[0])}" r="6"/>`;
+  h += `<circle class="dot" cx="${x(0)}" cy="${yd(dating[0])}" r="6"/><circle class="dot" cx="${x(5)}" cy="${yd(dating[5])}" r="7"/>`;
   h += `<text class="val" x="${x(5) - 12}" y="${y(lang[5]) - 14}" text-anchor="end">$188.7B language learning</text>`;
-  h += `<text class="val small" x="${x(5) - 12}" y="${y(dating[5]) - 12}" text-anchor="end">online dating</text>`;
+  h += `<text class="val dating" x="${x(5) - 14}" y="${yd(dating[5]) + 40}" text-anchor="end">$17.3B online dating</text>`;
+  h += `<text class="axis lang" x="${L - 14}" y="${T - 22}" text-anchor="end">LANGUAGE</text><text class="axis dating" x="${W - Rm + 14}" y="${T - 22}">DATING</text>`;
   years.forEach((_, i) => { h += `<rect class="hit" data-i="${i}" x="${x(i) - 60}" y="${T}" width="120" height="${H - T - B}"/>`; });
   svg.innerHTML = h;
   $$(".mk-line", svg).forEach(p => { const len = p.getTotalLength ? p.getTotalLength() : 1200; p.style.strokeDasharray = len; p.style.strokeDashoffset = len; });
@@ -1644,20 +1649,22 @@ const Market = (() => {
     });
     r.addEventListener("mouseleave", () => { tip.style.opacity = 0; cross.style.opacity = 0; });
   });
-  let raf = 0, tm = 0;
-  const count = (el, to, t, s0) => { const k = Math.max(0, Math.min(1, (t - s0) / 1600)); el.textContent = (to * (1 - Math.pow(1 - k, 3))).toFixed(1); return k < 1; };
+  let raf = 0, tm = 0, tmEnd = 0;
+  const count = (el, from, to, t, s0) => { const k = Math.max(0, Math.min(1, (t - s0) / 1800)); el.textContent = (from + (to - from) * (1 - Math.pow(1 - k, 3))).toFixed(1); return k < 1; };
   return {
     enter() {
       const d = $("#mkDate"), l = $("#mkLang"), s0 = performance.now() + 400;
       cancelAnimationFrame(raf);
-      if (reduced) { d.textContent = "12.1"; l.textContent = "83.7"; } else {
-      const tick = t => { const a = count(d, 12.1, t, s0), b = count(l, 83.7, t, s0); if (a || b) raf = requestAnimationFrame(tick); };
-      d.textContent = "0.0"; l.textContent = "0.0"; raf = requestAnimationFrame(tick);
+      if (reduced) { d.textContent = "17.3"; l.textContent = "188.7"; } else {
+      const tick = t => { const a = count(d, 12.1, 17.3, t, s0), b = count(l, 83.7, 188.7, t, s0); if (a || b) raf = requestAnimationFrame(tick); };
+      d.textContent = "12.1"; l.textContent = "83.7"; raf = requestAnimationFrame(tick);
+      // Land on the 2030 projection even if animation frames are throttled.
+      clearTimeout(tmEnd); tmEnd = setTimeout(() => { cancelAnimationFrame(raf); d.textContent = "17.3"; l.textContent = "188.7"; }, 2600);
       }
       $$(".seg-bar i").forEach(b => b.style.width = 0);
       clearTimeout(tm); tm = setTimeout(() => $$(".seg-bar i").forEach(b => b.style.width = (b.dataset.w / 45 * 100) + "%"), 900);
     },
-    leave() { cancelAnimationFrame(raf); clearTimeout(tm); }
+    leave() { cancelAnimationFrame(raf); clearTimeout(tm); clearTimeout(tmEnd); }
   };
 })();
 
