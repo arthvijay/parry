@@ -28,8 +28,10 @@ Rules for Codex and any other coding agent working in this repo. Short on purpos
   with it; new systems are attached at runtime by `Core/DateBootstrap.cs` rather than by
   editing scene YAML. Never touch `Assets/` (large committed binaries).
 - **Dialects are data.** What each dialect's characters can say offline (host, openers,
-  callouts, wingman lines, closings, stamps, follow-ups) is in
+  callouts, wingman lines, closings, stamps, follow-ups, culture notes) is in
   `scenarios/speed_dating/dialects/*.json`; registries are in `orchestrator/config.py`.
+  Authored dates (the Café Rayuela demo: people, menu and prices, milestones) are in
+  `scenarios/speed_dating/presets/*.json`; a menu item or price exists only there.
   Keep learner-facing lines gender-neutral about the learner.
 - Run `uv run python tools/test_e2e_pipeline.py --offline` after changing the stream.
 - Secrets live only in `orchestrator/.env`, which is git-ignored. Never print, log,

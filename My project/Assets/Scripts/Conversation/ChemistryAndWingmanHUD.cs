@@ -6,8 +6,10 @@ using UnityEngine.InputSystem;
 /// The date on screen, and its clock. Sitting down in the learner's chair rings the bell
 /// and starts the date; the 3:00 countdown runs at the top; Q ends it early.
 ///
-/// Drawn on glass: the chemistry meter (top right) easing to each update with its mood,
-/// the reason it moved and a floating delta; the milestones (top left), ticked with the
+/// Drawn on glass: the live match bar across the top (the clock, then a GHOSTED /
+/// FRIENDZONED / MATCH track whose needle eases to each chemistry update, the score in the
+/// zone's colour, the mood, the reason it moved, a floating +/- delta, the best reading so
+/// far, and a banner when the date crosses into a new zone); the milestones (top left), ticked with the
 /// learner's own words; live subtitles (bottom), coloured by speaker, the learner's line
 /// filling in as they speak; and the wingman's earpiece card sliding in from the bottom
 /// left with three ways to answer when the learner freezes. Enter opens a line to type
@@ -51,6 +53,11 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
     float reasonAt = -10f;
     int lastDelta;
     float deltaAt = -10f;
+    int peak = 50;
+    string zone = "friendzone";
+    string zoneToast;
+    bool zoneRising;
+    float zoneAt = -10f;
     readonly Dictionary<string, string> quotes = new();
 
     string npcLine = "", npcSpeaker = "", userLine = "";
@@ -201,6 +208,15 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
                 if (lastDelta != 0)
                     deltaAt = Time.time;
                 Chemistry = score;
+                peak = Mathf.Max(peak, score);
+                string now = Brand.Zone(score);
+                if (now != zone)
+                {
+                    zoneRising = ZoneRank(now) > ZoneRank(zone);
+                    zone = now;
+                    zoneToast = now;
+                    zoneAt = Time.time;
+                }
                 mood = msg.Str("mood_label", mood);
                 string why = msg.Str("reason");
                 if (!string.IsNullOrEmpty(why) && why != "First impressions")
@@ -311,14 +327,13 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
             GlassUI.Panel(r);
             GlassUI.Label(r, text, 14, Color.white, FontStyle.Normal, TextAnchor.MiddleCenter);
         }
-        else if (client.DateRunning || client.DateOver)
-            Timer(W);
-        else
+        else if (!client.DateRunning && !client.DateOver)
             Waiting(W);
 
         if (client.DateRunning || client.DateOver)
         {
-            Meter(W);
+            MatchBar(W);
+            ZoneBanner(W);
             Milestones();
         }
         Subtitles(W, H);
@@ -340,46 +355,126 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
         GlassUI.Label(r, text, 15, Color.white, FontStyle.Normal, TextAnchor.MiddleCenter);
     }
 
-    void Timer(float W)
-    {
-        int s = Mathf.CeilToInt(SecondsLeft);
-        string text = client.DateOver ? "TIME" : $"{s / 60}:{s % 60:00}";
-        Color ink = SecondsLeft < 10f && !client.DateOver ? Color.Lerp(Brand.Bad, Color.white, Mathf.PingPong(Time.time * 2f, 1f))
-            : SecondsLeft < 30f ? Brand.Warn : Color.white;
-        var r = new Rect((W - 150f) / 2f, 16f, 150f, 52f);
-        GlassUI.Panel(r);
-        GlassUI.Label(new Rect(r.x, r.y + 2f, r.width, 34f), text, 30, ink, FontStyle.Bold, TextAnchor.MiddleCenter);
-        GlassUI.Label(new Rect(r.x, r.y + 33f, r.width, 16f), "SPEED DATE", 9, new Color(1f, 1f, 1f, 0.5f), FontStyle.Bold, TextAnchor.MiddleCenter);
-    }
+    // ---- the live match bar --------------------------------------------------------
 
-    void Meter(float W)
+    const float BarTop = 16f, BarHeight = 80f;
+
+    static int ZoneRank(string z) => z == "match" ? 2 : z == "friendzone" ? 1 : 0;
+
+    static string ZoneTitle(string z) => z == "match" ? "MATCH ZONE" : z == "friendzone" ? "FRIEND ZONE" : "GHOST ZONE";
+
+    static Color Alpha(Color c, float a) => new(c.r, c.g, c.b, a);
+
+    /// <summary>
+    /// The match bar across the top of the screen: the clock, then the chemistry track in
+    /// its three verdict zones with a glowing needle, the score in the zone's colour, the
+    /// mood and the reason it last moved. Every update pulses the bar and floats the delta.
+    /// </summary>
+    void MatchBar(float W)
     {
-        shownChemistry = GlassUI.Ease(shownChemistry, Chemistry, 4f);
-        var r = new Rect(W - 320f, 16f, 300f, 104f);
-        GlassUI.Panel(r);
-        GlassUI.Label(new Rect(r.x + 16f, r.y + 10f, 150f, 18f), "CHEMISTRY", 11, new Color(1f, 1f, 1f, 0.6f), FontStyle.Bold);
-        GlassUI.Label(new Rect(r.x + 16f, r.y + 6f, r.width - 32f, 28f), $"{shownChemistry:0}%", 22, Color.white, FontStyle.Bold, TextAnchor.MiddleRight);
-        float v = shownChemistry / 100f;
-        Color fill = v < 0.4f ? Color.Lerp(Brand.Bad, Brand.Warn, v / 0.4f)
-            : v < 0.7f ? Color.Lerp(Brand.Warn, Brand.Good, (v - 0.4f) / 0.3f)
-            : Color.Lerp(Brand.Good, Brand.Accent, (v - 0.7f) / 0.3f);
-        GlassUI.Bar(new Rect(r.x + 16f, r.y + 38f, r.width - 32f, 12f), v, fill);
-        // Ticks at the verdict lines: friendzone and match.
-        foreach (float mark in new[] { 0.45f, 0.65f })
-            GlassUI.Rounded(new Rect(r.x + 16f + (r.width - 32f) * mark - 1f, r.y + 35f, 2f, 18f), new Color(1f, 1f, 1f, 0.35f), 1);
-        float mw = GlassUI.TextWidth(mood, 12, FontStyle.Bold) + 20f;
-        GlassUI.Pill(new Rect(r.x + 16f, r.y + 58f, mw, 20f), new Color(fill.r, fill.g, fill.b, 0.35f), mood, Color.white, 12);
+        shownChemistry = GlassUI.Ease(shownChemistry, Chemistry, 3f);
+        // Right of the milestones panel, to the right edge.
+        var bar = new Rect(340f, BarTop, W - 360f, BarHeight);
+        string z = Brand.Zone(shownChemistry);
+        Color zc = Brand.VerdictColor(z);
+
+        float pulse = Mathf.Clamp01(1f - (Time.time - deltaAt) / 1.2f);
+        if (pulse > 0f && lastDelta != 0)
+        {
+            Color pc = lastDelta > 0 ? Brand.Match : Brand.Ghosted;
+            GlassUI.Rounded(new Rect(bar.x - 5f, bar.y - 5f, bar.width + 10f, bar.height + 10f), Alpha(pc, 0.4f * pulse), 21);
+        }
+        GlassUI.Panel(bar, 0.95f);
+
+        // The clock.
+        var clock = new Rect(bar.x + 10f, bar.y + 10f, 104f, bar.height - 20f);
+        GlassUI.Rounded(clock, new Color(1f, 1f, 1f, 0.06f), 12);
+        int s = Mathf.CeilToInt(SecondsLeft);
+        string time = client.DateOver ? "TIME" : $"{s / 60}:{s % 60:00}";
+        Color ink = SecondsLeft < 10f && !client.DateOver ? Color.Lerp(Brand.Bad, Color.white, Mathf.PingPong(Time.time * 2f, 1f))
+            : SecondsLeft < 30f && !client.DateOver ? Brand.Warn : Color.white;
+        GlassUI.Label(new Rect(clock.x, clock.y + 4f, clock.width, 36f), time, 30, ink, FontStyle.Bold, TextAnchor.MiddleCenter);
+        GlassUI.Label(new Rect(clock.x, clock.y + 40f, clock.width, 14f), "SPEED DATE", 9, new Color(1f, 1f, 1f, 0.5f), FontStyle.Bold, TextAnchor.MiddleCenter);
+
+        // The label and the mood.
+        float lx = clock.xMax + 16f;
+        GlassUI.Label(new Rect(lx, bar.y + 12f, 130f, 16f), "CHEMISTRY", 11, new Color(1f, 1f, 1f, 0.55f), FontStyle.Bold);
+        float mw = Mathf.Min(130f, GlassUI.TextWidth(mood, 11, FontStyle.Bold) + 18f);
+        GlassUI.Pill(new Rect(lx, bar.y + 32f, mw, 20f), Alpha(zc, 0.3f), mood, Color.white, 11);
+
+        // The score, in the zone's colour.
+        var value = new Rect(bar.xMax - 136f, bar.y + 8f, 122f, 44f);
+        GlassUI.Label(value, $"{shownChemistry:0}%", 36, zc, FontStyle.Bold, TextAnchor.MiddleRight);
+        GlassUI.Label(new Rect(value.x, value.yMax, value.width, 14f), ZoneTitle(z), 9, Alpha(zc, 0.85f), FontStyle.Bold, TextAnchor.MiddleRight);
+
+        // The track: GHOSTED below 45, FRIENDZONED to 65, MATCH above.
+        float tx = lx + 146f, tw = Mathf.Max(80f, value.x - 18f - tx);
+        var track = new Rect(tx, bar.y + 20f, tw, 12f);
+        var zones = new (string id, int from, int to, string label, TextAnchor anchor)[]
+        {
+            ("ghosted", 0, Brand.FriendzoneAt, "GHOSTED", TextAnchor.MiddleLeft),
+            ("friendzone", Brand.FriendzoneAt, Brand.MatchAt, "FRIENDZONED", TextAnchor.MiddleCenter),
+            ("match", Brand.MatchAt, 100, "MATCH", TextAnchor.MiddleRight),
+        };
+        foreach (var zn in zones)
+        {
+            float a = track.x + tw * zn.from / 100f + (zn.from > 0 ? 1.5f : 0f);
+            float b = track.x + tw * zn.to / 100f - (zn.to < 100 ? 1.5f : 0f);
+            bool here = zn.id == z;
+            Color c = Brand.VerdictColor(zn.id);
+            GlassUI.Rounded(new Rect(a, track.y, b - a, track.height), Alpha(c, here ? 0.9f : 0.32f), 6);
+            GlassUI.Label(new Rect(a, track.yMax + 4f, b - a, 14f), zn.label, 9,
+                          here ? c : new Color(1f, 1f, 1f, 0.4f), FontStyle.Bold, zn.anchor);
+        }
+        // The best reading so far.
+        if (peak > Chemistry + 2)
+        {
+            float px = track.x + tw * peak / 100f;
+            GlassUI.Rounded(new Rect(px - 1f, track.y - 5f, 2f, track.height + 10f), new Color(1f, 1f, 1f, 0.45f), 1);
+            GlassUI.Label(new Rect(px - 20f, track.y - 17f, 40f, 12f), "BEST", 8, new Color(1f, 1f, 1f, 0.45f), FontStyle.Bold, TextAnchor.MiddleCenter);
+        }
+        // The needle, glowing in the zone's colour.
+        float nx = track.x + tw * Mathf.Clamp01(shownChemistry / 100f);
+        float glow = 0.35f + 0.25f * pulse;
+        GlassUI.Rounded(new Rect(nx - 7f, track.y - 9f, 14f, track.height + 18f), Alpha(zc, glow), 7);
+        GlassUI.Rounded(new Rect(nx - 2f, track.y - 7f, 4f, track.height + 14f), Color.white, 2);
+
+        // Why it last moved, fading.
         float ra = Mathf.Clamp01(1.5f - (Time.time - reasonAt) / 6f);
-        if (ra > 0f)
-            GlassUI.Label(new Rect(r.x + 16f, r.y + 80f, r.width - 32f, 18f), reason, 11, new Color(1f, 1f, 1f, 0.75f * ra));
+        if (ra > 0f && !string.IsNullOrEmpty(reason))
+            GlassUI.Label(new Rect(track.x, bar.y + 56f, tw, 16f), reason, 11, new Color(1f, 1f, 1f, 0.75f * ra), FontStyle.Italic, TextAnchor.MiddleCenter);
+
+        // The delta, floating up beside the score.
         float da = Time.time - deltaAt;
         if (da < 1.6f && lastDelta != 0)
         {
             string d = lastDelta > 0 ? $"+{lastDelta}" : lastDelta.ToString();
-            GlassUI.Label(new Rect(r.x - 70f, r.y + 30f - da * 18f, 60f, 26f), d, 20,
-                          new Color(lastDelta > 0 ? Brand.Good.r : Brand.Bad.r, lastDelta > 0 ? Brand.Good.g : Brand.Bad.g,
-                                    lastDelta > 0 ? Brand.Good.b : Brand.Bad.b, 1f - da / 1.6f), FontStyle.Bold, TextAnchor.MiddleRight);
+            Color dc = lastDelta > 0 ? Brand.Match : Brand.Ghosted;
+            GlassUI.Label(new Rect(value.x - 64f, value.y + 12f - da * 18f, 56f, 26f), d, 20,
+                          Alpha(dc, 1f - da / 1.6f), FontStyle.Bold, TextAnchor.MiddleRight);
         }
+    }
+
+    /// <summary>A banner when the date crosses into a new verdict zone.</summary>
+    void ZoneBanner(float W)
+    {
+        float t = Time.time - zoneAt;
+        if (zoneToast == null || t > 2.6f || !client.DateRunning)
+            return;
+        string text = zoneToast switch
+        {
+            "match" => "💘  MATCH ZONE · they're into you",
+            "friendzone" => zoneRising ? "🤝  FRIEND ZONE · warming up" : "🤝  FRIEND ZONE · win them back",
+            _ => "👻  GHOST ZONE · ask them something",
+        };
+        Color c = Brand.VerdictColor(zoneToast);
+        float pop = t < 0.25f ? Mathf.Lerp(1.25f, 1f, t / 0.25f) : 1f;
+        float alpha = Mathf.Clamp01((2.6f - t) / 0.5f);
+        float w = (GlassUI.TextWidth(text, 15, FontStyle.Bold) + 40f) * pop, h = 36f * pop;
+        var r = new Rect((W - w) / 2f, BarTop + BarHeight + 58f, w, h);
+        GlassUI.Rounded(new Rect(r.x - 2f, r.y - 2f, r.width + 4f, r.height + 4f), Alpha(c, 0.9f * alpha), Mathf.RoundToInt(h / 2f) + 2);
+        GlassUI.Rounded(r, new Color(0.07f, 0.03f, 0.06f, 0.92f * alpha), Mathf.RoundToInt(h / 2f));
+        GlassUI.Label(r, text, Mathf.RoundToInt(15 * pop), Alpha(c, alpha), FontStyle.Bold, TextAnchor.MiddleCenter);
     }
 
     void Milestones()
@@ -475,12 +570,12 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
             return;
         bool hasMenu = (scenario?.menu?.Length ?? 0) > 0;
         string keys = (hasMenu ? "M  carta     " : "") + "W  wingman     T  translate     Enter  type     V  camera     Q  end";
-        GlassUI.Label(new Rect((W - 520f) / 2f, 72f, 520f, 16f), keys, 10, new Color(1f, 1f, 1f, 0.55f), FontStyle.Normal, TextAnchor.MiddleCenter);
+        GlassUI.Label(new Rect((W - 520f) / 2f, BarTop + BarHeight + 4f, 520f, 16f), keys, 10, new Color(1f, 1f, 1f, 0.55f), FontStyle.Normal, TextAnchor.MiddleCenter);
         if (served != null && Time.time - servedAt < 8f)
         {
             string order = "🧾 Ordered: " + string.Join(", ", served);
             float w = GlassUI.TextWidth(order, 13) + 32f;
-            var r = new Rect((W - w) / 2f, 92f, w, 28f);
+            var r = new Rect((W - w) / 2f, BarTop + BarHeight + 24f, w, 28f);
             GlassUI.Panel(r, Mathf.Clamp01(8f - (Time.time - servedAt)));
             GlassUI.Label(r, order, 13, Color.white, FontStyle.Normal, TextAnchor.MiddleCenter);
         }
@@ -496,9 +591,9 @@ public class ChemistryAndWingmanHUD : MonoBehaviour
         float w = 360f;
         var options = helpCard?.List("suggestions");
         float h = helpCard == null ? 70f : 120f + (options?.Count ?? 0) * 50f;
-        // Left of the vision panel, under the chemistry meter.
+        // Left of the vision panel, below the match bar and its zone banner.
         float x = Mathf.Lerp(W + 20f, W - w - 320f, Mathf.SmoothStep(0f, 1f, helpSlide));
-        var r = new Rect(x, 136f, w, h);
+        var r = new Rect(x, 196f, w, h);
         GlassUI.Panel(r, 0.95f, 16, new Color(0.07f, 0.1f, 0.16f));
         GlassUI.Label(new Rect(r.x + 16f, r.y + 10f, w - 32f, 18f), "🌐 TRANSLATOR", 11, new Color(0.55f, 0.8f, 1f), FontStyle.Bold);
         if (helpCard == null)

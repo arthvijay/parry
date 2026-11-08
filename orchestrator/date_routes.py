@@ -11,6 +11,8 @@
     GET  /v1/date/runs/{run_id}        what was said and how the chemistry moved
     POST /v1/date/report               "Your date, decoded": the learning report
     GET  /v1/date/report/{run_id}.html the same report as a page
+    GET  /v1/date/receipt/{run_id}.svg the shareable receipt, 9:16 (TikTok, Reels, Shorts)
+    GET  /v1/date/share/{run_id}       the share page: download, share sheet, upload links
     GET  /v1/face/status               whether webcam face tracking is ready
 
 Kept as a router so ``app.py`` wires it in one line and the café's routes are untouched.
@@ -19,19 +21,23 @@ Kept as a router so ``app.py`` wires it in one line and the café's routes are u
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from dataclasses import asdict
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import ValidationError
 
 from . import config
-from fastapi.responses import FileResponse
-
 from .date_models import (DateGradeRequest, DateReport, DateReportRequest, DateScenario,
                           DateVerdict, MatchmakerRequest, PresetRequest)
 from .matchmaker import build_preset
+from .share_card import render_page, render_svg
 from .stream_gateway import stream_endpoint, vision_endpoint
+
+log = logging.getLogger("orchestrator")
 
 MAX_JSON_BYTES = 32 * 1024
 RUN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -66,7 +72,30 @@ async def grade_date(state, payload: DateGradeRequest) -> DateVerdict:
         transcript = await asyncio.to_thread(state.transcripts.get, payload.run_id)
     except (FileNotFoundError, ValueError):
         transcript = []
-    return await state.date_grader.grade(scenario, chemistry, transcript, payload.run_id)
+    verdict = await state.date_grader.grade(scenario, chemistry, transcript, payload.run_id)
+    # Kept so the receipt can be shared later (the 9:16 card and its page).
+    folder = getattr(state, "verdict_dir", None)
+    if folder is not None:
+        try:
+            await asyncio.to_thread(_save_verdict, folder, verdict)
+        except OSError as error:
+            log.warning("Verdict not saved: %s", type(error).__name__)
+    return verdict
+
+
+def _save_verdict(folder: Path, verdict: DateVerdict):
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{verdict.run_id}.json").write_text(verdict.model_dump_json(), encoding="utf-8")
+
+
+def _load_verdict(state, run_id: str) -> DateVerdict:
+    if not RUN.match(run_id):
+        raise HTTPException(422, "Invalid run_id")
+    folder = getattr(state, "verdict_dir", None)
+    path = folder / f"{run_id}.json" if folder is not None else None
+    if path is None or not path.is_file():
+        raise HTTPException(404, "No verdict yet: POST /v1/grade first")
+    return DateVerdict.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def build_router() -> APIRouter:
@@ -158,6 +187,19 @@ def build_router() -> APIRouter:
         if not path.is_file():
             raise HTTPException(404, "No report yet: POST /v1/date/report first")
         return FileResponse(path, media_type="text/html")
+
+    @router.get("/v1/date/receipt/{run_id}.svg")
+    async def receipt_card(request: Request, run_id: str):
+        """The shareable receipt, 1080×1920 (9:16), for TikTok, Reels and Shorts."""
+        verdict = await asyncio.to_thread(_load_verdict, request.app.state, run_id)
+        return Response(render_svg(verdict), media_type="image/svg+xml",
+                        headers={"Cache-Control": "no-store"})
+
+    @router.get("/v1/date/share/{run_id}", response_class=HTMLResponse)
+    async def share_page(request: Request, run_id: str):
+        """The receipt with download, share-sheet and per-platform upload buttons."""
+        verdict = await asyncio.to_thread(_load_verdict, request.app.state, run_id)
+        return HTMLResponse(render_page(verdict))
 
     @router.get("/v1/face/status")
     async def face_status(request: Request):

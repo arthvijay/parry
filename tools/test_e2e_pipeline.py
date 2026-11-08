@@ -9,7 +9,8 @@ Starts the orchestrator on a free port (or uses --url), then:
    text, barges in on the reply, looks away mid-line, and ends the date.
 3. Plays the authored demo (Café Rayuela, Cancún): orders so the host serves, asks the
    translator for help.
-4. POST /v1/grade for the run and checks the verdict receipt, then the learning report.
+4. POST /v1/grade for the run and checks the verdict receipt (with its roast, unlock and
+   shareable 9:16 card), then the learning report.
 
 Prints one line per check with timings and exits non-zero on any failure.
 
@@ -323,6 +324,14 @@ def main():
                 if ok:
                     check(bool(verdict["followup"]["text"]), "follow-up text from the date",
                           f"“{verdict['followup']['text'][:70]}”")
+                    check(bool(verdict.get("roast")) and bool(verdict.get("next_date")),
+                          "roast and unlock on the receipt",
+                          f"{(verdict.get('next_date') or {}).get('headline', '')} · “{(verdict.get('roast') or '')[:50]}”")
+                    card = client.get(f"/v1/date/receipt/{run_id}.svg")
+                    page = client.get(verdict.get("share_path") or f"/v1/date/share/{run_id}")
+                    check(card.status_code == 200 and 'width="1080" height="1920"' in card.text
+                          and page.status_code == 200 and "TikTok" in page.text,
+                          "shareable 9:16 receipt and share page", f"{len(card.text) // 1024} KB SVG")
                 started = time.monotonic()
                 response = client.post("/v1/date/report", json={"run_id": run_id,
                                                                "scenario_id": date["scenario_id"]},

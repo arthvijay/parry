@@ -280,3 +280,65 @@ Said plainly so nobody builds on sand:
   gone out, so the learner never waits on it; a tick lands about a second later.
 - `gemini-2.5-flash-lite` was tried as the character model and rejected: it called
   `serve_order` one time in three.
+
+## The speed date: what changed after the first Parry build
+
+Everything above is about the café flow (`/v1/speech`). These are the later changes to
+the speed date itself; the contract is in [api.md](api.md#speed-date) and the reasoning in
+[speed-date.md](speed-date.md).
+
+**Providers.** Both swaps follow the credits available, and each keeps its offline fallback.
+
+| Job | Was | Now | Why it matters |
+| --- | --- | --- | --- |
+| Hearing the learner | Deepgram live (`nova-3`, `nova-2` for Mandarin), `DEEPGRAM_API_KEY` | NVIDIA Nemotron ASR Streaming over Riva gRPC (`nvidia-riva-client`), `NVIDIA_API_KEY`, `NEMOTRON_ASR_*` | Riva gives words, not speech onsets, so a local voice detector now marks speech start and end. Hosted Nemotron is English only, so non-English dates use NVIDIA's hosted Parakeet 1.1B RNNT Multilingual by default (`NVIDIA_ASR_MULTILINGUAL_FUNCTION_ID` overrides; a self-hosted multilingual Nemotron NIM also works). `Dialect.stt_language` / `stt_model` became `asr_language` |
+| The date's voice | Fish Audio (`s2.1-pro`, msgpack socket), `FISH_AUDIO_API_KEY`, `FISH_VOICE_*` | ElevenLabs Flash v2.5 over the `stream-input` WebSocket, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_<DIALECT>_<GENDER>` | `VoiceConfig` is now `{provider: elevenlabs\|sample, voice_id, stability, similarity_boost, speaking_rate 0.7–1.2}`; archetypes carry `voice_stability` instead of `voice_temperature`. Without a voice set, a premade multilingual voice speaks. `ormsgpack` is no longer a dependency |
+
+`/health` and `session_ready` now report `stt: nemotron` and `tts: elevenlabs`.
+
+**Features.**
+
+- **The demo date.** `POST /v1/matchmaker/preset` and `scenarios/speed_dating/presets/`:
+  Café Rayuela, an Argentine café in Cancún, written by hand so a demo is the same every
+  time. `DateScenario` gained `preset_id`, `menu`, `currency`, `serve_line`, `closings`,
+  `followups` and `generated_by: "authored"`; the catalog gained `presets`. Unity: a
+  **▶ Demo date** button, and Play pressed straight in a venue plays it.
+- **Ordering moves the scene.** A fifth milestone, `order_together`, still needs a quote.
+  When it ticks, the server sends `scene_action`, the host walks over (`bring_order` in
+  `npcs_cancun.json`, `NpcSchedule.MoveFinished`), the client answers
+  `scene_event: host_at_table`, and the host serves the order by name.
+- **The translator.** `{"type":"help"}` → `help_card` (meaning in English, three replies, a
+  tip). Counted in `help_requests`, which costs a little on the pacing pillar. Key T.
+- **Your date, decoded.** `POST /v1/date/report` and `GET /v1/date/report/{run_id}.html`
+  (`date_report.py`): what landed, up to three fixes, phrases, culture notes, practice
+  words, pronunciation impressions from saved clips, the full conversation. The stream
+  now saves each recognised learner line as a WAV under `runs/audio/{run_id}/`. Keys Tab
+  (learning page) and L (open in the browser) on the receipt.
+- **Register.** `Dialect.formal_marker` (*usted*, *vous*, 您) costs chemistry as "too
+  formal for a date". It replaces matching `usted`, `vous`, 您 and あなた様 as red flags in
+  every dialect.
+- **Dialect files** gained a `culture` list (used by the offline report). They were also
+  reformatted, one item per line.
+- **Grading.** An authored date's own `followups` (and `<kind>_en` translations) replace
+  the dialect's; its `closings` replace the dialect's goodbyes.
+- **Gamified and shareable.** A full-width live match bar replaces the chemistry
+  meter. The verdict prints as a thermal receipt with a stamp. `DateVerdict` gained
+  `roast` (quotes checked), `next_date` (a match unlocks the next dialect,
+  `config.NEXT_DIALECT`; `Dialect.nickname` names it) and `share_path`. Verdicts are
+  saved under `VERDICT_DIR`; `share_card.py` serves the 9:16 card
+  (`/v1/date/receipt/{run_id}.svg`) and the share page (`/v1/date/share/{run_id}`).
+  Unity: S shares, N opens the matchmaker on the unlocked dialect.
+- **Webcam.** `VisionFeed` tries colour cameras before infrared (face-login) ones, moves
+  on if one won't start, and frees the device properly; the camera survives scene loads.
+- **Editor helpers.** `Editor/OpenDemoScene.cs` opens the matchmaker scene on an empty
+  editor; `Editor/EditorRemote.cs` lets a script drive the editor for headless testing.
+  The client's `MenuItem` became `CafeMenuItem`, so it no longer clashes with Unity's
+  `[MenuItem]` in editor scripts.
+- **Recognition timing.** The start of an utterance now survives the voice detector's
+  "speech ended" arriving before the final words, so measured latency and clip cuts are
+  right.
+
+**Tests.** 212 (`uv run pytest`), with the Nemotron path tested against a local Riva gRPC
+server and ElevenLabs against a local WebSocket server. `tools/test_e2e_pipeline.py` now
+plays the demo date: it orders, waits for the host to serve, asks the translator, then
+checks the verdict (with its roast, unlock and shareable card) and the report.

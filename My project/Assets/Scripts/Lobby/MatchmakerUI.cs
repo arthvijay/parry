@@ -150,7 +150,40 @@ public class MatchmakerUI : MonoBehaviour
         else
             catalogError = "The orchestrator isn't running: uv run python -m orchestrator";
         if (catalog != null && catalog.dialects.Length > 0)
+        {
+            // Arriving from a receipt's "next date unlocked": open on that dialect.
+            string next = DateSession.NextDialect;
+            DateSession.NextDialect = null;
+            if (!string.IsNullOrEmpty(next) && Array.Exists(catalog.dialects, d => d.code == next))
+                dialect = next;
             ChooseDialect(dialect);
+        }
+    }
+
+    /// <summary>The authored demo date: same café, same person, every time.</summary>
+    IEnumerator GeneratePreset(PresetInfo preset)
+    {
+        step = Step.Matching;
+        stepStart = Time.time;
+        matchError = "";
+        city = preset.city;
+        Pin(preset.lat, preset.lon, preset.city);
+        DateSession.LearnerName = learnerName;
+        string body = Json.Write(new Dictionary<string, object>
+        {
+            ["preset"] = preset.id, ["learner_name"] = learnerName, ["proficiency"] = level,
+            ["date_gender"] = dateGender == "male" ? "male" : "female",
+        });
+        using var req = new UnityWebRequest($"{DateSession.Base}/v1/matchmaker/preset", "POST")
+        {
+            uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body)) { contentType = "application/json" },
+            downloadHandler = new DownloadHandlerBuffer(),
+            timeout = 30,
+        };
+        yield return req.SendWebRequest();
+        while (Since < 2.2f)
+            yield return null;
+        yield return Matched(req);
     }
 
     /// <summary>Starts an authored demo date (by preset id; empty = the first), as its button does.</summary>
@@ -553,7 +586,8 @@ public class MatchmakerUI : MonoBehaviour
         for (int i = 0; i < dialects.Length; i++)
         {
             var chip = new Rect(r.x + (i % 2) * (cw + 8f), y + (i / 2) * 36f, cw, 30f);
-            if (GlassUI.Chip(chip, dialects[i].label, dialect == dialects[i].code, 12))
+            string chipLabel = (DateSession.IsUnlocked(dialects[i].code) ? "🔓 " : "") + dialects[i].label;
+            if (GlassUI.Chip(chip, chipLabel, dialect == dialects[i].code, 12))
                 ChooseDialect(dialects[i].code);
         }
         y += Mathf.CeilToInt(dialects.Length / 2f) * 36f + 8f;

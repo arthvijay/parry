@@ -487,11 +487,17 @@ implemented; this is a complete-turn HTTP API.
 
 The speed date's routes sit beside the café's; the café contracts above are unchanged.
 
+`GET /health` has a `date` object saying what each part runs on: `matchmaker`
+(`claude` / `templates`), `chemistry` and `grader` (`claude` / `rules`), `brain`
+(`gemini` / `claude` / `scripted`), `stt` (`nemotron` / `none`), `tts` (`elevenlabs` /
+`sample`) and `face` (`ready` / `loading` / `unavailable` / `off`). `stt` is `nemotron`
+when `NVIDIA_API_KEY` is set or `NEMOTRON_ASR_SERVER` points at a self-hosted NIM.
+
 | Route | What it does |
 | --- | --- |
-| `GET /v1/matchmaker/catalog` | Dialects (with cities), venues, personalities, appearances, levels, genders |
+| `GET /v1/matchmaker/catalog` | Authored `presets`, dialects (with cities), venues, personalities, appearances, levels, genders |
 | `POST /v1/matchmaker/generate` | Builds one date from the learner's choices |
-| `POST /v1/matchmaker/preset` | An authored date: `{"preset":"cafe_cancun_ar","learner_name","proficiency","date_gender"}` |
+| `POST /v1/matchmaker/preset` | An authored date, the same every time (below) |
 | `GET /v1/matchmaker/{scenario_id}` | A date built earlier |
 | `POST /v1/avatar/from-selfie` | `image/jpeg` in; skin and hair colours sampled around the face landmarks out |
 | `WS /v1/stream` | The live date (below) |
@@ -500,6 +506,8 @@ The speed date's routes sit beside the café's; the café contracts above are un
 | `GET /v1/date/runs/{run_id}` | The recorded transcript and the chemistry state of a run |
 | `POST /v1/date/report` | *Your date, decoded* for a run: `{"run_id","scenario_id"}` |
 | `GET /v1/date/report/{run_id}.html` | The same report as a self-contained page |
+| `GET /v1/date/receipt/{run_id}.svg` | The shareable receipt, 1080×1920 (9:16), from the saved verdict |
+| `GET /v1/date/share/{run_id}` | The share page: download, system share sheet, TikTok / Reels / Shorts |
 | `GET /v1/face/status` | Whether MediaPipe and its model are loaded |
 
 ### `POST /v1/matchmaker/generate`
@@ -529,9 +537,10 @@ The response is a `DateScenario`:
 - **The date:** `scenario_id` (`date_…`), `city`, `language_code`, `dialect`, `venue`, `venue_scene` (the Unity scene), `lighting_preset`, `scene_description`.
 - **`date_character`:** name, age, occupation, interests, backstory, `avatar_config` (base model, skin and hair tint, resting smile), `voice_config` (ElevenLabs voice id, stability, similarity, speed), `opening_line`, the live `system_prompt`, `green_flags`, `red_flags`.
 - **`host_character`:** with a `greeting`.
-- **`milestones`:** `break_ice`, `find_common_ground`, `cultural_vibe` and `close_the_date`, each with `evidence_required`.
+- **`milestones`:** `break_ice`, `find_common_ground`, `cultural_vibe` and `close_the_date`, each with `evidence_required` and `core`. An authored date can add `order_together`.
 - **Timing:** `date_seconds` (180), `wingman_seconds`, `chemistry_start` (50).
-- **`generated_by`:** `model` or `template`.
+- **`generated_by`:** `model`, `template`, or `authored` for a preset.
+- **The café (authored dates only):** `preset_id`, `menu`, `currency`, `serve_line`, `closings`, `followups`. Empty on a generated date.
 
 Claude writes the creative fields; code writes the ids, voice, avatar parameters and the
 system prompt, so its speaking style, chemistry protocol and safety rules are the same
@@ -567,8 +576,8 @@ character's voice as binary frames and sends JSON events.
 | Message | Meaning |
 | --- | --- |
 | binary | The voice: 24 kHz PCM16 LE mono, for the NPC named by the last `audio_start` |
-| `session_ready` | Joined; `providers` says which STT, TTS, brain, judge and face tracker are live |
-| `audio_start` `{npc_id, turn_id, kind, first_audio_ms}` | Voice frames for this NPC follow (`kind`: greeting, opening, reply, callout, closing) |
+| `session_ready` | Joined; `providers` says which are live: `stt` (`nemotron` / `none`), `tts` (`elevenlabs` / `sample`), `brain` (`gemini` / `claude` / `scripted`), `judge` (`claude` / `rules`), `face` (`mediapipe` / `off`) |
+| `audio_start` `{npc_id, turn_id, kind, first_audio_ms}` | Voice frames for this NPC follow (`kind`: greeting, opening, reply, callout, closing, serve) |
 | `audio_end` `{npc_id, turn_id, duration_ms}` | Last frame of the line sent |
 | `transcript` `{speaker, text, is_final, confidence, unheard?}` | Subtitles: the learner's line filling in, the date's line sentence by sentence. `unheard: true` = said before sitting down, so the date did not hear it (a one-time `notice` says so) |
 | `chemistry_update` `{chemistry_score, delta, mood_label, reason, npc_posture, completed_milestones, evidence_quotes, green_flags_hit, red_flags_hit, source}` | After every learner turn, and on non-verbal events |
@@ -577,8 +586,8 @@ character's voice as binary frames and sends JSON events.
 | `face_analysis` `{found, blendshapes, head:{pitch,yaw,roll}, contours, mesh, frame, analysis_ms, expressions}` | One per analysed webcam frame |
 | `signal` `{kind, label, effect, during_npc}` | A smile, laugh, nod, head shake, puzzled or surprised look, look-away, look-back |
 | `user_speech` `{speaking}` | The recogniser heard speech start or end |
-| `help_card` `{said, meaning_en, suggestions:[{target, gloss}], tip}` | The translator's answer |
-| `scene_action` `{action:"order_placed", npc_id:"host", items}` | An order was placed: send the host to the table |
+| `help_card` `{said, meaning_en, suggestions:[{target, gloss}]×1–3, tip}` | The translator's answer. Without Claude, `meaning_en` says translation needs the key and the suggestions are the wingman's lines |
+| `scene_action` `{action:"order_placed", npc_id:"host", items}` | An order was placed (once per date): send the host to the table |
 | `date_started` `{seconds}` / `date_ended` `{verdict, chemistry_score, run_id, scenario_id}` | The clock |
 | `notice`, `error` `{detail, fatal}` | Human-readable problems |
 
@@ -600,6 +609,19 @@ the date's prompt each turn:
 Looking away for more than 4.5 s while the date talks costs chemistry and triggers an
 in-character callout after the line ends.
 
+**The translator.** `help` is answered with a `help_card` for the learner's eyes only:
+nothing is said to the date. It adds an `event` line to the transcript and counts in
+`metrics.help_requests`.
+
+**Too formal.** Each dialect can name what stiff, textbook address sounds like
+(`formal_marker` in `config.py`: *usted* in the Spanish dialects, *vous* in French, 您 in
+Mandarin). The rules judge takes a little chemistry for it ("too formal for a date").
+Japanese and Hinglish have no marker, because polite speech there is normal and warm.
+
+**The learner's voice.** The server keeps the last 30 s of microphone audio and, at each
+final recognised line, saves that line as `runs/audio/{run_id}/turn_NNN.wav` with a
+`.json` of what was heard (up to 60 per run). The report's pronunciation pass reads them.
+
 ### `POST /v1/grade` (speed date)
 
 ```json
@@ -612,22 +634,49 @@ The response is a `DateVerdict`:
 - **The stamp:** `stamp` in the dialect, with `stamp_en`.
 - **`pillars`:** each with `grade` A+…F, `comment` and `evidence_quote`.
   - `icebreaker`, `dialect_authenticity` and `active_listening` are judged.
-  - `agility_pacing` is measured: latency, recogniser confidence, wingman use.
+  - `agility_pacing` is measured: latency, recogniser confidence, wingman use, and a small cost per translator use.
 - **`milestones`:** each with its quote.
-- **`metrics`:** turns, words, average response latency, pronunciation confidence, wingman hints and lines used, unassisted fluency, eye contact, smiles, look-away callouts, barge-ins.
-- **`followup`:** a text from the date in the dialect, its translation, and one `correction` drawn from the learner's words.
+- **`metrics`:** turns, words, average response latency, pronunciation confidence, wingman hints and lines used, unassisted fluency, eye contact, smiles, look-away callouts, barge-ins, `help_requests`.
+- **`followup`:** a text from the date in the dialect, its translation, and one `correction` drawn from the learner's words. An authored date's own `followups` replace the dialect's.
 - **Also:** `overall`, `summary`, `chemistry_timeline` and `graded_by` (`model` or `rules`).
+- **`roast`:** one short, affectionate English line about how the date went (at most
+  160 characters). Claude writes it; any quote in it (in «», “” or "") must be the
+  learner's own words, checked against the transcript, or the line is replaced by an
+  offline one built from the metrics (wingman lines, translator peeks, English turns,
+  look-away callouts, the verdict).
+- **`next_date`:** `{kind, dialect, label, city, headline}`. A match is `unlocked`: the
+  next dialect on a fixed trip (`config.NEXT_DIALECT`: es-MX → es-AR → ja-JP-kansai →
+  fr-FR → zh-CN → es-ES → hi-IN → ja-JP → es-MX), e.g. *NEXT DATE UNLOCKED · KANSAI-BEN,
+  OSAKA*. Friendzone and ghosted are a `rematch` in the same dialect and city (*REMATCH ·
+  …*, *TRY AGAIN · …*).
+- **`share_path`:** `/v1/date/share/{run_id}`.
+
+Every graded verdict is saved as `VERDICT_DIR/{run_id}.json` (default `runs/verdicts`),
+so the receipt can be shared after the fact.
 
 A judged pillar graded C- or better must quote the learner's own words, checked against
 the transcript; otherwise it is capped at D+.
 
-### Authored dates and the café
+### `POST /v1/matchmaker/preset`: authored dates and the café
 
-`POST /v1/matchmaker/preset` builds a date from a hand-written file in
-`scenarios/speed_dating/presets/`: `cafe_cancun_ar` (Valeria, Argentine Spanish) and
-`cafe_cancun_south` (Savannah, Southern American English), both at Café Rayuela. A variant
-may set `outfit` (e.g. `black_dress`, which the client dyes into the body texture). It goes through the same code as a generated date
-(voice, avatar, persona rules), plus the café:
+```json
+{"preset": "cafe_cancun_ar", "learner_name": "Arth", "proficiency": "B1", "date_gender": "female"}
+```
+
+- `preset`: a file in `scenarios/speed_dating/presets/` (default `cafe_cancun_ar`). Two
+  ship, both at Café Rayuela: `cafe_cancun_ar` (Valeria or Tomás, Argentine Spanish, B1)
+  and `cafe_cancun_south` (Savannah or Beau, Southern American English, B2). The
+  catalog's `presets` lists them with `label`, `summary`, `dialect`, `city`, `lat`, `lon`
+  and `default_proficiency`. An unknown id is a 404.
+- `proficiency`: optional; the preset's `default_proficiency` otherwise.
+- `date_gender`: `female` or `male`; each preset authors both variants. A variant may set
+  `outfit` (e.g. `black_dress`, which the client dyes into the body texture).
+
+The response is a `DateScenario` with `generated_by: "authored"`. Only who the learner is
+can change; the person, place and lines are fixed, so a demo is the same every time. It
+goes through the same code as a generated date (voice, avatar, persona rules), plus the
+café, which is also written into the date's prompt so it can recommend things and never
+invents items or prices:
 
 - `menu` (items with prices and the aliases a learner might say), `currency`, and
   the host's `serve_line`;
@@ -636,15 +685,45 @@ may set `outfit` (e.g. `black_dress`, which the client dyes into the body textur
 Ordering works like this:
 
 1. The `order_together` milestone ticks (quoted, as always).
-2. The server matches the menu items in the quote and sends `scene_action`.
+2. The server matches the menu items in the quote (longest alias first, accents
+   ignored) and sends `scene_action`. If the quote names no item, it uses what the
+   learner said this date; failing that, the first menu item.
 3. The client walks the host over (the `bring_order` move in `npcs_cancun.json`) and
    reports `scene_event: host_at_table`.
 4. The host serves with the serve line, after the date finishes their sentence.
 
+### Sharing the receipt
+
+`GET /v1/date/receipt/{run_id}.svg` draws the saved verdict as a 1080×1920 card: the
+receipt paper (chemistry, the four pillars with the learner's quotes, the unlock
+headline), the stamp across it, the roast, and the date's follow-up text when it fits.
+It is plain SVG (no external resources), so a browser can turn it into a PNG.
+
+`GET /v1/date/share/{run_id}` is the page around it:
+
+- **Share…** turns the card into a PNG and opens the system share sheet
+  (`navigator.share` with a file; on a phone, that is where TikTok, Instagram and
+  YouTube are). Without one, it saves the image and copies the caption.
+- **Download image** saves the PNG.
+- **TikTok / Reels / Shorts** save the image, copy the caption, and open
+  `tiktok.com/upload`, `instagram.com` or `youtube.com/upload`. Nothing is posted for
+  the learner; there are no platform accounts or API keys involved.
+- **Copy caption**: the verdict, the date's name and city, the chemistry, the roast and
+  hashtags.
+
+Both return 404 until the run has been graded and 422 for a malformed `run_id`.
+
 ### `POST /v1/date/report`
 
-*Your date, decoded*. The `DateReport` contains:
+```json
+{"run_id": "run_…", "scenario_id": "date_…"}
+```
 
+*Your date, decoded*: the learning page for a finished date. A 404 if the date or run was
+never recorded. It can take tens of seconds with Claude, so the client fetches it while
+the learner reads the verdict. The `DateReport` contains:
+
+- `run_id`, `scenario_id`, `date_name`, `dialect`, `verdict`, `final_chemistry`;
 - `summary`;
 - `went_well` (a learner quote);
 - up to three `fixes` (`heard` → `better`, `why_en`);
@@ -652,11 +731,17 @@ Ordering works like this:
 - `culture_notes`;
 - `practice_words` (words the recogniser doubted);
 - `pronunciation` (Gemini's impressions of up to three recorded clips, only naming words
-  that were said);
-- the `chemistry_timeline`, the full `transcript` and `counters`;
-- `next_date` and `html_path`.
+  that were said) and its `pronunciation_disclaimer`;
+- the `chemistry_timeline`, the full `transcript` (`learner`, `date`, `host`, `event`
+  turns) and `counters` (lines, wingman hints and lines used, help requests, English and
+  local-slang turns, smiles, look-away callouts);
+- `next_date`, `written_by` (`model` or `rules`) and `html_path`.
+
+The report is saved as JSON and HTML under `REPORT_DIR` (default `runs/reports`).
+`GET /v1/date/report/{run_id}.html` serves the page, with a 404 until the report has been
+written.
 
 Every learner quote is checked against the transcript, and nothing built on a doubted word
 is shown as a mistake. Without Claude the dialect's authored lines write a plainer
-report. The learner's spoken lines are saved as WAV clips under `runs/audio/{run_id}/`
-for the pronunciation pass.
+report. The pronunciation pass needs Gemini (`PRONUNCIATION_MODEL`, default the date's
+model) and is skipped with `PRONUNCIATION=0`; if it fails, the page goes out without it.

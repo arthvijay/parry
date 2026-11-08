@@ -25,6 +25,12 @@ public static class Brand
         public string good = "#4CD787";
         public string warn = "#FFC24B";
         public string bad = "#FF5A5A";
+        // The three verdict zones, on the live match bar and the receipt.
+        public string match = "#FF3D6E";
+        public string friendzone = "#FFB454";
+        public string ghosted = "#7FA6FF";
+        public string paper = "#F7ECDF";
+        public string paperInk = "#2A1820";
     }
 
     [Serializable]
@@ -72,6 +78,25 @@ public static class Brand
     public static Color Good => Hex(D.colors.good, new Color(0.3f, 0.84f, 0.53f));
     public static Color Warn => Hex(D.colors.warn, new Color(1f, 0.76f, 0.29f));
     public static Color Bad => Hex(D.colors.bad, new Color(1f, 0.35f, 0.35f));
+
+    public static Color Match => Hex(D.colors.match, new Color(1f, 0.24f, 0.43f));
+    public static Color Friendzone => Hex(D.colors.friendzone, new Color(1f, 0.71f, 0.33f));
+    public static Color Ghosted => Hex(D.colors.ghosted, new Color(0.5f, 0.65f, 1f));
+    public static Color Paper => Hex(D.colors.paper, new Color(0.97f, 0.93f, 0.87f));
+    public static Color PaperInk => Hex(D.colors.paperInk, new Color(0.16f, 0.09f, 0.13f));
+
+    /// <summary>Chemistry at which a date ends in each verdict (the server's thresholds).</summary>
+    public const int FriendzoneAt = 45, MatchAt = 65;
+
+    public static string Zone(float chemistry) =>
+        chemistry >= MatchAt ? "match" : chemistry >= FriendzoneAt ? "friendzone" : "ghosted";
+
+    public static Color VerdictColor(string kind) => kind switch
+    {
+        "match" => Match,
+        "friendzone" => Friendzone,
+        _ => Ghosted,
+    };
 
     public static Color Hex(string hex, Color fallback)
         => !string.IsNullOrEmpty(hex) && ColorUtility.TryParseHtmlString(hex, out var c) ? c : fallback;

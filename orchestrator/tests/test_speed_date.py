@@ -909,3 +909,78 @@ def test_claude_speaks_as_the_date_by_default(monkeypatch):
     assert brain.rest_when_slow is False  # a slow Claude is waited for, not benched
     monkeypatch.setenv("DATE_BRAIN", "gemini")
     assert [b.name for b in date_brain.create_brain().brains][0] == "gemini"
+# --------------------------------------------------------------------------- the shareable receipt
+
+def test_a_roast_that_misquotes_the_learner_is_dropped():
+    from orchestrator.date_grader import checked_roast
+    transcript = [learner("Pedimos unas medialunas y tres alfajores, che")]
+    ok = "You ordered «tres alfajores» on a first date. Iconic."
+    assert checked_roast(ok, transcript) == ok
+    assert checked_roast("You said «te amo» in minute one.", transcript) is None
+    assert checked_roast("x" * 400, transcript) is None
+    assert checked_roast("Plain and kind, no quotes.", transcript) == "Plain and kind, no quotes."
+
+
+def test_the_offline_roast_comes_from_what_was_measured(tmp_path):
+    from orchestrator.date_grader import metrics_for, rules_roast
+    d, _ = director(tmp_path)
+    d.state.wingman_lines_used = 3
+    roast = rules_roast("friendzone", d.scenario, d.state, metrics_for(d.state, [learner("hola")]))
+    assert "3 lines" in roast and "wingman" in roast
+
+
+def test_every_verdict_unlocks_something():
+    from orchestrator.date_grader import next_date_for
+    from orchestrator.date_models import PresetRequest
+    from orchestrator.matchmaker import build_preset
+    cafe = build_preset(PresetRequest())
+    up = next_date_for("match", cafe)
+    assert (up.kind, up.dialect, up.headline) == ("unlocked", "ja-JP-kansai",
+                                                  "NEXT DATE UNLOCKED · KANSAI-BEN, OSAKA")
+    again = next_date_for("friendzone", cafe)
+    assert (again.kind, again.dialect, again.city) == ("rematch", "es-AR", "Cancún")
+    assert next_date_for("ghosted", cafe).headline.startswith("TRY AGAIN")
+    # The ladder visits every dialect once before coming home.
+    code, seen = "es-MX", []
+    for _ in config.DIALECTS:
+        seen.append(code)
+        code = config.NEXT_DIALECT[code]
+    assert code == "es-MX" and sorted(seen) == sorted(config.DIALECTS)
+
+
+def test_the_receipt_is_shareable_in_9_16(tmp_path):
+    import xml.etree.ElementTree as ET
+    with TestClient(app(tmp_path)) as client:
+        sid = preset(client)["scenario_id"]
+        with client.websocket_connect("/v1/stream") as ws:
+            ws.send_text(json.dumps({"type": "init", "run_id": "run_s", "scenario_id": sid}))
+            until(ws, "session_ready")
+            ws.send_text(json.dumps({"type": "start_date"}))
+            until(ws, "audio_end")
+            ws.send_text(json.dumps({"type": "user_text",
+                                     "text": "Hola, soy Arth, che. ¿Vos sacás fotos del arrecife? <b>&"}))
+            until(ws, "chemistry_update")
+            ws.send_text(json.dumps({"type": "end_date", "reason": "timer"}))
+            until(ws, "date_ended")
+        verdict = client.post("/v1/grade", json={"run_id": "run_s", "scenario_id": sid}).json()
+        assert verdict["roast"] and verdict["share_path"] == "/v1/date/share/run_s"
+        assert verdict["next_date"]["headline"]
+        card = client.get("/v1/date/receipt/run_s.svg")
+        assert card.status_code == 200 and card.headers["content-type"].startswith("image/svg+xml")
+        root = ET.fromstring(card.text)  # well-formed, whatever the learner said
+        assert (root.get("width"), root.get("height")) == ("1080", "1920")
+        assert verdict["stamp"] in card.text and "THE ROAST" in card.text
+        page = client.get("/v1/date/share/run_s")
+        assert page.status_code == 200
+        for needle in ("TikTok", "Reels", "Shorts", "/v1/date/receipt/run_s.svg", "navigator.share"):
+            assert needle in page.text
+        assert client.get("/v1/date/share/nobody").status_code == 404
+        assert client.get("/v1/date/receipt/bad%20id.svg").status_code == 422
+
+
+def test_card_text_wraps_wide_glyphs_and_escapes():
+    from orchestrator.share_card import esc, wrap
+    lines = wrap("你好" * 40, 24, 480, 3)
+    assert len(lines) == 3 and lines[-1].endswith("…")
+    assert wrap("short line", 24, 480, 2) == ["short line"]
+    assert esc('<b> & "x"') == "&lt;b&gt; &amp; &quot;x&quot;"

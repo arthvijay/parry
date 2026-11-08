@@ -147,6 +147,9 @@ def create_app(*, speech: SpeechProvider | None = None,
             app.state.date_reporter = create_reporter()
             app.state.date_reporter.directory = Path(os.getenv(
                 "REPORT_DIR", str(transcripts.directory.parent / "reports")))
+            # Graded verdicts, kept so a receipt can be shared after the fact.
+            app.state.verdict_dir = Path(os.getenv(
+                "VERDICT_DIR", str(transcripts.directory.parent / "verdicts")))
             tracking = face_tracking if face_tracking is not None \
                 else os.getenv("FACE_TRACKING", "1") != "0"
             if tracking:
@@ -217,8 +220,7 @@ def create_app(*, speech: SpeechProvider | None = None,
         return {"matchmaker": "claude" if m.anthropic_ready else "templates",
                 "chemistry": "claude" if m.anthropic_ready else "rules",
                 "grader": "claude" if m.anthropic_ready else "rules",
-                "brain": ("gemini" if m.date_brain_provider == "gemini" and m.gemini_ready
-                          else "claude" if m.anthropic_ready else "scripted"),
+                "brain": "claude" if m.anthropic_ready else "scripted",
                 "stt": "nemotron" if p.nvidia_key or not p.asr_server.endswith(":443") else "none",
                 "tts": "elevenlabs" if p.elevenlabs_key else "sample",
                 "face": "off" if face is None else "ready" if face.landmarker is not None

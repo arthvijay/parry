@@ -48,6 +48,25 @@ public static class DateSession
         set { PlayerPrefs.SetString(NamePref, value ?? ""); PlayerPrefs.Save(); }
     }
 
+    // ---- unlocks: a match opens the next dialect on the trip --------------------------
+
+    const string UnlockedPref = "parry.unlocked";
+
+    /// <summary>The dialect the matchmaker should open on next (set by N on the receipt).</summary>
+    public static string NextDialect { get; set; }
+
+    public static bool IsUnlocked(string code)
+        => !string.IsNullOrEmpty(code) && ("," + PlayerPrefs.GetString(UnlockedPref, "") + ",").Contains("," + code + ",");
+
+    public static void Unlock(string code)
+    {
+        if (string.IsNullOrEmpty(code) || IsUnlocked(code))
+            return;
+        string had = PlayerPrefs.GetString(UnlockedPref, "");
+        PlayerPrefs.SetString(UnlockedPref, string.IsNullOrEmpty(had) ? code : had + "," + code);
+        PlayerPrefs.Save();
+    }
+
     /// <summary>The current date, from memory or the last one saved; null if there has never been one.</summary>
     public static DateScenario Scenario
     {
@@ -340,6 +359,20 @@ public class DateVerdict
     public string summary;
     public int[] chemistry_timeline = Array.Empty<int>();
     public string graded_by;
+    // The shareable bits.
+    public string roast;
+    public NextDate next_date;
+    public string share_path;
+}
+
+[Serializable]
+public class NextDate
+{
+    public string kind;      // unlocked | rematch
+    public string dialect;
+    public string label;
+    public string city;
+    public string headline;  // "NEXT DATE UNLOCKED · KANSAI-BEN, OSAKA"
 }
 
 [Serializable]

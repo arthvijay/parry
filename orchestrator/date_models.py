@@ -257,6 +257,17 @@ class DateMetrics(Model):
     help_requests: int = 0
 
 
+class NextDate(Model):
+    """What the verdict unlocks: a match opens the next dialect on the trip; anything else
+    offers a rematch where the learner is."""
+
+    kind: Literal["unlocked", "rematch"]
+    dialect: str
+    label: str
+    city: str
+    headline: str
+
+
 class DateVerdict(Model):
     scenario_id: str
     run_id: str
@@ -277,6 +288,11 @@ class DateVerdict(Model):
     summary: Line
     chemistry_timeline: list[int]
     graded_by: Literal["model", "rules"]
+    # The shareable bits: one affectionate line about how it went (any quote in it is the
+    # learner's own words, checked), what the verdict unlocks, and the share page.
+    roast: str = ""
+    next_date: NextDate | None = None
+    share_path: str | None = None
 
 
 # --------------------------------------------------------------------------- learning
