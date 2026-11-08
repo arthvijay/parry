@@ -1,0 +1,55 @@
+{
+  "host": {
+    "name": "Pau",
+    "gender": "female",
+    "greeting": "¡Buenas noches! Te damos la bienvenida. Tu cita ya te está esperando en la mesa del fondo, se llama {date_name}. Tienes tres minutos, ¿eh? ¡Mucha suerte!",
+    "chat": ["Por allá, la mesa del fondo. ¡Ándale, que el tiempo corre!", "Tú tranquis, nomás sé tú. ¡Suerte!"]
+  },
+  "names": {
+    "female": ["Valeria", "Ximena", "Regina", "Fernanda", "Camila"],
+    "male": ["Diego", "Santiago", "Emiliano", "Mateo", "Rodrigo"],
+    "nonbinary": ["Alex", "Dani", "Sam"]
+  },
+  "occupations": ["muralist", "pastry chef", "radio host", "architect", "marine biologist", "indie game designer"],
+  "openings": {
+    "playful_sarcastic": "¡Por fin! La persona de antes me habló diez minutos de criptomonedas. Dime que tú eres más interesante, porfa.",
+    "warm_romantic": "¡Hola! Qué gusto conocerte. Oye, tienes cara de que traes una buena historia. ¿Cómo estuvo tu día?",
+    "reserved_intellectual": "Hola. Te advierto: odio el clima como tema de conversación. Mejor dime algo que te tenga obsesionado últimamente.",
+    "high_energy_creative": "¡Qué onda! Justo estaba pensando en tacos al pastor, perdón. ¿Tú qué? ¿Qué te emociona en la vida?"
+  },
+  "callouts": {
+    "female": ["Oye, ¿tan aburrida estoy que miras para otro lado?", "¿Hola? Aquí estoy, ¿eh? ¿Qué tanto ves por allá?"],
+    "male": ["Oye, ¿tan aburrido estoy que miras para otro lado?", "¿Hola? Aquí estoy, ¿eh? ¿Qué tanto ves por allá?"],
+    "nonbinary": ["Oye, ¿tanto aburro que miras para otro lado?", "¿Hola? Aquí estoy, ¿eh? ¿Qué tanto ves por allá?"]
+  },
+  "offline": {
+    "reactions": ["¡No manches! ¿Neta?", "Jaja, qué padre.", "Mmm, interesante...", "Órale, no me lo esperaba.", "Ay, qué chistoso."],
+    "questions": ["¿Y a qué te dedicas?", "¿Qué haces un domingo perfecto?", "¿Cuál es tu comida favorita?", "¿Has viajado mucho?", "¿Qué música traes en el celular ahorita?"],
+    "nudges": ["¿Y tú? Cuéntame algo.", "Ándale, no te hagas. ¿Qué me dices?"],
+    "smile": "Esa sonrisa, ¿eh? Me caes bien.",
+    "puzzled": "¿Qué pasa? Pusiste una cara... ¿Te lo digo más despacio?"
+  },
+  "wingman": [
+    [
+      {"tone": "Flirty 🔥", "target": "Más interesante que las criptos, seguro. Y con mucha mejor plática.", "gloss": "More interesting than crypto, for sure. And much better conversation."},
+      {"tone": "Curious 💬", "target": "¿Y tú qué haces cuando no estás en citas rápidas?", "gloss": "And what do you do when you're not speed dating?"},
+      {"tone": "Playful 😂", "target": "Te juro que lo único en lo que invierto es en tacos.", "gloss": "I swear the only thing I invest in is tacos."}
+    ],
+    [
+      {"tone": "Flirty 🔥", "target": "Mi plan perfecto incluye buena compañía... como ahorita.", "gloss": "My perfect plan includes good company... like right now."},
+      {"tone": "Curious 💬", "target": "Oye, ¿y cuál es tu lugar favorito de la ciudad?", "gloss": "Hey, and what's your favourite spot in the city?"},
+      {"tone": "Playful 😂", "target": "Perdón, son los nervios. No esperaba a alguien tan buena onda.", "gloss": "Sorry, it's the nerves. I didn't expect someone this cool."}
+    ]
+  ],
+  "closings": {
+    "match": "¡Ay, ya se acabó! La neta me la pasé súper bien. ¿Me pasas tu WhatsApp?",
+    "friendzone": "Bueno, ya sonó la campana. Me caíste bien, ¿eh? Ojalá nos veamos por ahí.",
+    "ghosted": "Ah, ya se acabó el tiempo. Bueno... suerte con las demás citas."
+  },
+  "stamps": {"match": "¡HUBO MATCH!", "friendzone": "SOLO AMIGOS", "ghosted": "TE DEJÓ EN VISTO"},
+  "followups": {
+    "match": "Oye, me encantó platicar contigo 😊 ¿Unos tacos el viernes?",
+    "friendzone": "Fue chido conocerte. Si vas al concierto del sábado, ahí nos vemos 🤝",
+    "ghosted": "Hola, gracias por la plática. Creo que no hicimos mucho clic, pero suerte 🙏"
+  }
+}

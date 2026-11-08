@@ -1,0 +1,29 @@
+{
+  "npcs": [
+    {
+      "id": "host",
+      "role": "host",
+      "displayName": "Host",
+      "avatar": "Avatars/Female_Adult_08/Export/Female_Adult_08_facial",
+      "position": { "x": 0.85, "y": -1.52, "z": 1.6 },
+      "yaw": 180,
+      "scale": 0.7,
+      "walkSpeed": 0.8,
+      "greeting": "",
+      "moves": []
+    },
+    {
+      "id": "date_npc",
+      "role": "date",
+      "displayName": "Your date",
+      "avatar": "Avatars/Female_Adult_08/Export/Female_Adult_08_facial",
+      "position": { "x": 0.0, "y": -1.52, "z": 3.5 },
+      "yaw": 180,
+      "scale": 0.7,
+      "walkSpeed": 0.8,
+      "seat": "table_a",
+      "greeting": "",
+      "moves": []
+    }
+  ]
+}

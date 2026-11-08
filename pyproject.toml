@@ -1,0 +1,75 @@
+[project]
+name = "orchestrator"
+version = "0.1.0"
+description = "Parry orchestrator: matchmaker, live speed-date stream, chemistry and grading"
+readme = "README.md"
+requires-python = ">=3.11"
+
+# Runtime dependencies of the orchestrator service. Ranges, not pins — uv.lock
+# holds the exact resolution. Keep these bounds in sync with what the code imports.
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.34,<1",
+    "pydantic>=2.12,<3",
+    "openai>=2.14,<3",
+    "websockets>=14,<17",
+    "python-dotenv>=1,<2",
+    "httpx>=0.28,<1",
+    # The speed date: Claude (matchmaker, chemistry, grading), Gemini (live replies),
+    # msgpack for Fish Audio's TTS socket, numpy for audio and voice detection.
+    "anthropic>=2.6,<3",
+    "google-genai>=3,<4",
+    "ormsgpack>=1.10,<2",
+    "numpy>=2,<3",
+]
+
+[dependency-groups]
+# Installed by default with `uv sync`.
+dev = [
+    "pytest>=8,<10",
+    "httpx>=0.28,<1",
+]
+# Heavy scientific stack, used only by tools/spz_to_collider.py (Unity lane).
+# Opt in with: uv sync --group mesh
+mesh = [
+    "numpy",
+    "scipy",
+    "scikit-image",
+    "trimesh",
+    "fast-simplification",
+]
+# Webcam face tracking for the date (MediaPipe Face Landmarker). Opt in with:
+# uv sync --group face
+face = [
+    "mediapipe>=1.2,<2",
+]
+# Bundled ffmpeg for producing audio fixtures such as tools/sample_es.mp3.
+# Opt in with: uv sync --group media
+media = [
+    "imageio-ffmpeg>=0.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["orchestrator"]
+# Never ship secrets, tests or run artifacts inside the distribution.
+exclude = ["orchestrator/tests", "orchestrator/.env", "orchestrator/.env.example"]
+
+[tool.pytest.ini_options]
+testpaths = ["orchestrator/tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# tools/ scripts and the Unity project are out of scope for linting.
+extend-exclude = ["My project", "Assets", ".venv"]
+
+[tool.ruff.lint]
+# Ruff's defaults (E4/E7/E9 + F) plus pyupgrade and bugbear. E501 line-length and
+# I001 import-sorting are deliberately not selected: they would churn existing files
+# without catching real defects. Tighten once the lanes have settled.
+select = ["E4", "E7", "E9", "F", "UP", "B"]

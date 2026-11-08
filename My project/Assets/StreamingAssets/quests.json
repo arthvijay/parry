@@ -1,0 +1,18 @@
+{
+  "title": "Speed Date",
+  "quests": [
+    { "id": "break_ice",          "text": "Survive the opener and introduce yourself", "status": "todo" },
+    { "id": "find_common_ground", "text": "Discover their passion and share one of yours", "status": "todo" },
+    { "id": "cultural_vibe",      "text": "Use local slang or match their banter (bonus)", "status": "todo" },
+    { "id": "close_the_date",     "text": "Ask for a second date or their number", "status": "todo" }
+  ],
+  "flags": {
+    "green": ["Asks follow-up questions", "Uses local expressions naturally", "Steady eye contact, quick turn-taking"],
+    "red": ["Bragging about money or work", "Stiff textbook phrasing", "One-word answers or staring away from the table"]
+  },
+  "wingman": {
+    "stall_seconds": 4.0,
+    "tones": ["Flirty 🔥", "Curious 💬", "Playful 😂"],
+    "note": "Reading a wingman line rescues the moment but lowers the Unassisted Fluency score."
+  }
+}

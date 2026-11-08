@@ -1,0 +1,133 @@
+{
+  "host": {
+    "name": "山本",
+    "gender": "female",
+    "greeting": "こんばんは、いらっしゃい！お相手は奥のテーブルで待ってはるで。{date_name}さんや。三分しかあらへんから、頑張ってや！",
+    "chat": [
+      "あっちの奥のテーブルやで。はよ行き、時間なくなるで！",
+      "肩の力抜いて、普段通りでええねん。"
+    ]
+  },
+  "names": {
+    "female": [
+      "美咲",
+      "彩花",
+      "優奈",
+      "真由",
+      "千尋"
+    ],
+    "male": [
+      "翔太",
+      "健太",
+      "大輝",
+      "拓海",
+      "亮"
+    ],
+    "nonbinary": [
+      "ひかる",
+      "かおる",
+      "まこと"
+    ]
+  },
+  "occupations": [
+    "takoyaki stall owner",
+    "manzai comedian",
+    "hair stylist",
+    "baseball statistician",
+    "sake brewer",
+    "radio DJ"
+  ],
+  "openings": {
+    "playful_sarcastic": "やっと交代や！前の人、十分間ずーっと仮想通貨の話やってんで。なあ、あんたはもっとおもろい話あるやんな？",
+    "warm_romantic": "こんばんは！会えて嬉しいわ。今日どんな一日やった？",
+    "reserved_intellectual": "こんばんは。天気の話はなしでええ？最近ハマってることって何なん？",
+    "high_energy_creative": "こんばんは！ごめんな、さっきめっちゃええライブ見てきて、まだテンション上がってんねん。あんたは何にハマってるん？"
+  },
+  "callouts": {
+    "female": [
+      "ちょっと、私の話そんなつまらん？さっきからどこ見てんの。",
+      "おーい、こっちやで！何見てるん？"
+    ],
+    "male": [
+      "ちょっと、俺の話そんなつまらん？さっきからどこ見てんの。",
+      "おーい、こっちやで！何見てるん？"
+    ],
+    "nonbinary": [
+      "ちょっと、話そんなつまらん？さっきからどこ見てんの。",
+      "おーい、こっちやで！何見てるん？"
+    ]
+  },
+  "offline": {
+    "reactions": [
+      "ほんまに？めっちゃええやん！",
+      "なんでやねん、笑うわ。",
+      "へえ、おもろいなあ。",
+      "ええやん、それ。",
+      "マジで？"
+    ],
+    "questions": [
+      "仕事何してるん？",
+      "休みの日って何してるん？",
+      "好きな食べ物は？たこ焼き以外で。",
+      "旅行とか行く？",
+      "最近何聴いてるん？"
+    ],
+    "nudges": [
+      "あんたはどうなん？教えてや。",
+      "恥ずかしがらんと、言うてみ。"
+    ],
+    "smile": "その笑顔ええなあ。",
+    "puzzled": "どないしたん？変な顔して。もうちょいゆっくり喋ろか？"
+  },
+  "wingman": [
+    [
+      {
+        "tone": "Flirty 🔥",
+        "target": "自分の投資先は、今夜ここに来たことだけや。",
+        "gloss": "My only investment is coming here tonight."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "休みの日って何してるん？",
+        "gloss": "What do you do on your days off?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "自分の資産、たこ焼き屋のポイントカードだけやねん。",
+        "gloss": "My only asset is a takoyaki stall loyalty card."
+      }
+    ],
+    [
+      {
+        "tone": "Flirty 🔥",
+        "target": "理想の休日？うまいもん食べて、ええ人とおること。今みたいにな。",
+        "gloss": "Ideal day off? Eating good food with a nice person. Like now."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "この辺でおすすめの店ある？",
+        "gloss": "Any shops around here you'd recommend?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "ごめん、緊張して頭真っ白やわ。",
+        "gloss": "Sorry, I'm so nervous my mind went blank."
+      }
+    ]
+  ],
+  "closings": {
+    "match": "えっ、もう終わり？めっちゃ楽しかったわ。LINE交換しよ！",
+    "friendzone": "ベル鳴ったなあ。話せて楽しかったで。またどっかで。",
+    "ghosted": "あ、時間やな。まあ…この後も頑張りや。"
+  },
+  "stamps": {
+    "match": "マッチ成立や！",
+    "friendzone": "友達止まりやな",
+    "ghosted": "既読スルー"
+  },
+  "followups": {
+    "match": "今日めっちゃ楽しかったわ😊 今度お好み焼き行かへん？",
+    "friendzone": "会えてよかったわ！また飲み行こな🤝",
+    "ghosted": "今日はおおきに。ご縁なかったみたいやけど、頑張ってな🙏"
+  }
+}

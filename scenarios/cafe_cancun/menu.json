@@ -1,0 +1,16 @@
+{
+  "currency": "MXN",
+  "note": "Single source of truth for prices. The orchestrator prices every order from this file, and tools/provision_agents.py injects the Spanish list into Maria's system prompt. Never let a character invent a price.",
+  "items": {
+    "americano":   { "name_es": "Café americano",     "price_mxn": 45,  "available": true },
+    "cafe_olla":   { "name_es": "Café de olla",       "price_mxn": 50,  "available": true },
+    "latte":       { "name_es": "Latte",              "price_mxn": 65,  "available": true, "milk": true },
+    "capuchino":   { "name_es": "Capuchino",          "price_mxn": 65,  "available": true, "milk": true },
+    "horchata":    { "name_es": "Horchata fría",      "price_mxn": 55,  "available": true },
+    "jamaica":     { "name_es": "Agua de jamaica",    "price_mxn": 40,  "available": true },
+    "chocolate":   { "name_es": "Chocolate caliente", "price_mxn": 60,  "available": true, "milk": true },
+    "concha":      { "name_es": "Concha",             "price_mxn": 30,  "available": true },
+    "pay_limon":   { "name_es": "Pay de limón",       "price_mxn": 70,  "available": false, "sold_out_today": true },
+    "chilaquiles": { "name_es": "Chilaquiles verdes", "price_mxn": 120, "available": true }
+  }
+}

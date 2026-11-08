@@ -1,0 +1,132 @@
+{
+  "scenario_id": "cafe_cancun_v1",
+  "title": "Café Nader — Cancún",
+  "setting": "A small independent café a few blocks from Avenida Náder in downtown Cancún, 5:30 pm. Table service. Maria greets you at the door and walks you to the window table where Luis is already sitting.",
+  "language": "es",
+  "language_label": "Mexican Spanish",
+  "level": "A2",
+  "currency": "MXN",
+
+  "npcs": [
+    {
+      "npc_id": "maria",
+      "aliases": ["mariana"],
+      "name": "Maria",
+      "role": "Waitress at Café Nader. You meet her first; she seats you with Luis and takes your order.",
+      "gender": "female",
+      "voice_id": "qGUobVOQFekqmtk6YZdK",
+      "voice_name": "Maria (MX female)",
+      "voice_library_owner_id": "7398804d9eaf2f463899a907587c33a390591775784f87857b6d0e1e4e3e66f6",
+      "prompt_file": "prompts/maria.md",
+      "first_message": "¡Buenas tardes! Pásale, joven. Tu amigo ya está en la mesa. Ven conmigo, te llevo.",
+      "tools": ["serve_order", "show_bill"],
+      "max_duration_seconds": 180,
+      "tts": { "speed": 1.0, "stability": 0.40, "similarity_boost": 0.8 },
+      "tts_model": "flash",
+      "supported_voices": [
+        { "label": "despacio", "language": "es", "speed": 0.78,
+          "description": "Repeat slowly and clearly when the learner asks you to slow down or repeat" }
+      ],
+      "turn": { "eagerness": "patient", "timeout": 8 }
+    },
+    {
+      "npc_id": "luis",
+      "name": "Luis",
+      "role": "Marine biologist from Guadalajara. The person you came to meet, already at the table.",
+      "gender": "male",
+      "voice_id": "LZ0fpGC6iVFQ3i0EHB7h",
+      "voice_name": "Luis (MX male)",
+      "voice_library_owner_id": "02475b5ae957cc81d5748108d2aa08ab67630dd0728860267b23f63061c9be8d",
+      "prompt_file": "prompts/luis.md",
+      "first_message": "¡Hola! ¿Qué tal? Siéntate, siéntate. Qué bueno que llegaste.",
+      "tools": [],
+      "max_duration_seconds": 300,
+      "tts": { "speed": 1.0, "stability": 0.35, "similarity_boost": 0.8 },
+      "tts_model": "flash",
+      "supported_voices": [
+        { "label": "despacio", "language": "es", "speed": 0.78,
+          "description": "Repeat slowly and clearly when the learner asks you to slow down or repeat" }
+      ],
+      "turn": { "eagerness": "patient", "timeout": 8 }
+    }
+  ],
+
+  "soft_timeout": { "timeout_seconds": 2.2, "message": "Mmm, a ver...", "use_llm_generated_message": false },
+
+  "ambience": [
+    { "id": "ocean_loop", "file": "ocean_loop.mp3", "duration_seconds": 30, "loop": true,
+      "prompt": "gentle ocean waves on a sandy beach heard from inside an open-air café, distant, calm, soft, no birds, no music, seamless loop",
+      "prompt_influence": 0.3, "volume": 0.12, "duck_db": -6, "spatial": false },
+    { "id": "cafe_murmur_loop", "file": "cafe_murmur_loop.mp3", "duration_seconds": 30, "loop": true,
+      "prompt": "quiet café interior, soft indistinct murmur of a few people talking far away, occasional ceramic cup and spoon, slow ceiling fan, no music, seamless loop",
+      "prompt_influence": 0.3, "volume": 0.08, "duck_db": -6, "spatial": false },
+    { "id": "cup_on_table", "file": "cup_on_table.mp3", "duration_seconds": 1.5, "loop": false,
+      "prompt": "a ceramic coffee cup and saucer set down gently on a wooden table, close, dry, no voices",
+      "prompt_influence": 0.5, "volume": 0.6, "duck_db": 0, "spatial": true },
+    { "id": "receipt", "file": "receipt.mp3", "duration_seconds": 2, "loop": false,
+      "prompt": "a small thermal receipt printer printing a short receipt and the paper being torn off, close, dry, no voices",
+      "prompt_influence": 0.5, "volume": 0.5, "duck_db": 0, "spatial": true }
+  ],
+  "action_sfx": { "serve_order": "cup_on_table", "show_bill": "receipt" },
+
+  "asr_keywords": [
+    "café de olla", "horchata", "jamaica", "concha", "chilaquiles",
+    "capuchino", "pay de limón", "americano", "deslactosada"
+  ],
+
+  "gestures": ["wave", "nod", "shake_head", "laugh", "think", "shrug", "point_menu", "lean_in"],
+
+  "goals": [
+    { "id": "introduce", "npc_id": "maria", "core": true, "label": "Introduce yourself to Maria",
+      "evidence_required": "The learner tells Maria their name in Spanish (me llamo…, soy…, mi nombre es…), with or without a greeting. Any name counts; a greeting alone without a name does not." },
+    { "id": "hometown", "npc_id": "luis", "core": true, "label": "Tell Luis where you're from",
+      "evidence_required": "The learner says where they are from in Spanish, naming a place (soy de…, vengo de…, vivo en…). A bare place name in answer to Luis's question counts if it is a real place." },
+    { "id": "order", "npc_id": "maria", "core": true, "label": "Order something in Spanish",
+      "evidence_required": "The learner asks Maria for a menu item in Spanish, in any request form (quiero…, quisiera…, me da…, un X por favor, para mí un X). Pointing, English, or only saying 'sí' to a suggestion does not count." }
+  ],
+
+  "tools": {
+    "serve_order": {
+      "type": "client",
+      "description": "Place the customer's complete order on the table. Call once, when the order is final. Always pass the FULL order, not just newly added items \u2014 this call replaces any previous one. Returns the total price in pesos.",
+      "expects_response": true,
+      "response_timeout_secs": 3,
+      "pre_tool_speech": "force",
+      "parameters": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Menu item ids, one entry per unit ordered. Two conchas is [\"concha\",\"concha\"].",
+            "items": { "type": "string", "description": "A menu item id" }
+          },
+          "to_go": { "type": "boolean", "description": "True if the customer said para llevar." }
+        }
+      }
+    },
+    "show_bill": {
+      "type": "client",
+      "description": "Show the customer the bill for what they have ordered. Call when they ask what they owe, or try to leave without asking. Returns the total in pesos.",
+      "expects_response": true,
+      "response_timeout_secs": 3,
+      "pre_tool_speech": "force",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    "play_gesture": {
+      "type": "client",
+      "description": "Make your body perform a gesture while you speak. At most one per reply.",
+      "expects_response": false,
+      "parameters": {
+        "type": "object",
+        "required": ["gesture"],
+        "properties": {
+          "gesture": {
+            "type": "string",
+            "description": "One of: wave, nod, shake_head, laugh, think, shrug, point_menu, lean_in"
+          }
+        }
+      }
+    }
+  }
+}

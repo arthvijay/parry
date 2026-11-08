@@ -1,0 +1,19 @@
+{
+  "name": "Parry",
+  "tagline": "Keep up. Flirt back. Speak like a local.",
+  "description": "A cultural speed-dating simulator: three minutes, one date, a real dialect.",
+  "verdicts": {
+    "match": "SECOND DATE UNLOCKED",
+    "friendzone": "FRIENDZONED",
+    "ghosted": "GHOSTED"
+  },
+  "colors": {
+    "accent": "#FF5A7A",
+    "accentSoft": "#FFB3C1",
+    "ink": "#14151C",
+    "glass": "#1A1C26",
+    "good": "#4CD787",
+    "warn": "#FFC24B",
+    "bad": "#FF5A5A"
+  }
+}

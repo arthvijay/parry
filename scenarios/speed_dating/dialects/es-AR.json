@@ -1,0 +1,133 @@
+{
+  "host": {
+    "name": "Flor",
+    "gender": "female",
+    "greeting": "¡Buenas noches! Te damos la bienvenida. Tu cita ya te está esperando en la mesa del fondo, se llama {date_name}. Tenés tres minutos, ¿eh? ¡Mucha suerte!",
+    "chat": [
+      "Es por allá, la mesa del fondo. ¡Dale, que el tiempo corre!",
+      "Tranqui, sé vos. ¡Suerte!"
+    ]
+  },
+  "names": {
+    "female": [
+      "Valeria",
+      "Lucía",
+      "Martina",
+      "Sofía",
+      "Agustina"
+    ],
+    "male": [
+      "Tomás",
+      "Joaquín",
+      "Facundo",
+      "Nicolás",
+      "Bruno"
+    ],
+    "nonbinary": [
+      "Juli",
+      "Lu",
+      "Sasha"
+    ]
+  },
+  "occupations": [
+    "editorial photographer",
+    "tango teacher",
+    "sommelier",
+    "comic artist",
+    "urban planner",
+    "psychologist"
+  ],
+  "openings": {
+    "playful_sarcastic": "¡Hola! Menos mal que te sentaste, el de antes me habló diez minutos seguidos de su portafolio de acciones. Decime que vos tenés mejores temas...",
+    "warm_romantic": "¡Hola! Qué lindo conocerte. Contame, ¿cómo terminaste en una cita rápida un jueves a la noche?",
+    "reserved_intellectual": "Hola. Te pido una sola cosa: nada de hablar del clima. ¿Qué estás leyendo últimamente?",
+    "high_energy_creative": "¡Che, hola! Perdón, vengo de un recital buenísimo y tengo toda la energía. ¿Vos qué onda? ¿Qué te apasiona?"
+  },
+  "callouts": {
+    "female": [
+      "Che, ¿tan aburrida soy que mirás para otro lado?",
+      "¿Hola? Acá estoy, ¿eh? ¿Qué tanto mirás?"
+    ],
+    "male": [
+      "Che, ¿tan aburrido soy que mirás para otro lado?",
+      "¿Hola? Acá estoy, ¿eh? ¿Qué tanto mirás?"
+    ],
+    "nonbinary": [
+      "Che, ¿tanto aburro que mirás para otro lado?",
+      "¿Hola? Acá estoy, ¿eh? ¿Qué tanto mirás?"
+    ]
+  },
+  "offline": {
+    "reactions": [
+      "¡No! ¿Posta?",
+      "Jaja, re copado.",
+      "Mirá vos, qué interesante.",
+      "Bárbaro, me encanta.",
+      "Ah, buenísimo."
+    ],
+    "questions": [
+      "¿Y vos de qué laburás?",
+      "¿Qué hacés un domingo ideal?",
+      "¿Sos más de mate o de café?",
+      "¿Viajaste mucho?",
+      "¿Qué música estás escuchando ahora?"
+    ],
+    "nudges": [
+      "¿Y vos? Contame algo.",
+      "Dale, no te hagas. ¿Qué me decís?"
+    ],
+    "smile": "Uh, esa sonrisa. Me caés bien, eh.",
+    "puzzled": "¿Qué pasó? Pusiste una cara... ¿Te lo digo más despacio?"
+  },
+  "wingman": [
+    [
+      {
+        "tone": "Flirty 🔥",
+        "target": "Tranqui, cero acciones. Lo único en que invierto es en buena compañía.",
+        "gloss": "Relax, zero stocks. The only thing I invest in is good company."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "¿Y vos qué hacés cuando no estás en citas rápidas?",
+        "gloss": "And what do you do when you're not speed dating?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "Mi portafolio es una colección de facturas de la panadería.",
+        "gloss": "My portfolio is a collection of pastries from the bakery."
+      }
+    ],
+    [
+      {
+        "tone": "Flirty 🔥",
+        "target": "Perderme por la ciudad, pero mejor si tengo buena compañía.",
+        "gloss": "Getting lost in the city, but better with good company."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "Me gusta ir a cafés tranquilos. ¿Cuál es tu rincón favorito de acá?",
+        "gloss": "I like quiet cafés. What's your favourite spot around here?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "Dormir hasta tarde y fingir que sé cocinar.",
+        "gloss": "Sleeping late and pretending I know how to cook."
+      }
+    ]
+  ],
+  "closings": {
+    "match": "¡Uh, ya se terminó! La pasé re bien, posta. ¿Me pasás tu WhatsApp?",
+    "friendzone": "Bueno, sonó la campana. Me caíste bien, eh. Capaz nos cruzamos por ahí.",
+    "ghosted": "Ah, bueno, se terminó el tiempo. Suerte con las otras citas."
+  },
+  "stamps": {
+    "match": "¡HUBO MATCH!",
+    "friendzone": "SOLO AMIGOS",
+    "ghosted": "TE CLAVÓ EL VISTO"
+  },
+  "followups": {
+    "match": "Che, me encantó charlar con vos 😊 ¿Un café en Palermo el sábado?",
+    "friendzone": "Fue copado conocerte. Si vas a la feria del domingo, nos vemos ahí 🤝",
+    "ghosted": "Hola, gracias por la charla. No sentí mucha onda, pero suerte 🙏"
+  }
+}

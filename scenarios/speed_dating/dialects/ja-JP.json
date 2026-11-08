@@ -1,0 +1,133 @@
+{
+  "host": {
+    "name": "佐藤",
+    "gender": "female",
+    "greeting": "こんばんは、ようこそ！お相手は奥のテーブルでお待ちです。{date_name}さんです。持ち時間は三分です。頑張ってくださいね！",
+    "chat": [
+      "あちらの奥のテーブルです。お急ぎください、時間が過ぎちゃいますよ！",
+      "リラックスして、自然体で大丈夫ですよ。"
+    ]
+  },
+  "names": {
+    "female": [
+      "美咲",
+      "結衣",
+      "さくら",
+      "葵",
+      "陽菜"
+    ],
+    "male": [
+      "蓮",
+      "大翔",
+      "悠真",
+      "湊",
+      "颯太"
+    ],
+    "nonbinary": [
+      "ひかる",
+      "かおる",
+      "まこと"
+    ]
+  },
+  "occupations": [
+    "vintage clothing shop owner",
+    "game composer",
+    "pastry chef",
+    "translator",
+    "photographer",
+    "ramen shop heir"
+  ],
+  "openings": {
+    "playful_sarcastic": "あ、やっと交代ですね。前の人、十分間ずっと仮想通貨の話だったんですよ。あなたはもっと面白い話、ありますよね？",
+    "warm_romantic": "こんばんは！お会いできて嬉しいです。今日はどんな一日でしたか？",
+    "reserved_intellectual": "こんばんは。最初にお願いがあって、天気の話はなしでいいですか？最近夢中になってることって何ですか？",
+    "high_energy_creative": "こんばんは！すみません、さっきすごいライブ見てきて、まだテンション高いんです。あなたは何にハマってますか？"
+  },
+  "callouts": {
+    "female": [
+      "あれ、私の話つまらないですか？ずっと別のところ見てますよね。",
+      "もしもし？こっちですよー。何見てるんですか？"
+    ],
+    "male": [
+      "あれ、僕の話つまらないですか？ずっと別のところ見てますよね。",
+      "もしもし？こっちですよー。何見てるんですか？"
+    ],
+    "nonbinary": [
+      "あれ、話つまらないですか？ずっと別のところ見てますよね。",
+      "もしもし？こっちですよー。何見てるんですか？"
+    ]
+  },
+  "offline": {
+    "reactions": [
+      "へえ、そうなんですね！",
+      "えー、すごい！",
+      "なるほど、面白いですね。",
+      "あはは、それいいですね。",
+      "マジですか？"
+    ],
+    "questions": [
+      "お仕事は何をされてるんですか？",
+      "理想の休日ってどんな感じですか？",
+      "好きな食べ物は何ですか？",
+      "旅行はよくしますか？",
+      "最近どんな音楽聴いてますか？"
+    ],
+    "nudges": [
+      "あなたはどうですか？聞かせてください。",
+      "恥ずかしがらないで、教えてくださいよ。"
+    ],
+    "smile": "その笑顔、いいですね。",
+    "puzzled": "あれ、どうしました？もう少しゆっくり話しましょうか？"
+  },
+  "wingman": [
+    [
+      {
+        "tone": "Flirty 🔥",
+        "target": "私の唯一の投資は、今夜ここに来たことです。",
+        "gloss": "My only investment was coming here tonight."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "休みの日は何をして過ごしてるんですか？",
+        "gloss": "What do you do on your days off?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "私の資産はコンビニのポイントだけです。",
+        "gloss": "My only assets are convenience store points."
+      }
+    ],
+    [
+      {
+        "tone": "Flirty 🔥",
+        "target": "理想の休日は、美味しいものと素敵な人と一緒に過ごすことです。今みたいに。",
+        "gloss": "My ideal day off is good food with a lovely person. Like now."
+      },
+      {
+        "tone": "Curious 💬",
+        "target": "この辺でおすすめのお店ってありますか？",
+        "gloss": "Are there any shops around here you'd recommend?"
+      },
+      {
+        "tone": "Playful 😂",
+        "target": "すみません、緊張して頭が真っ白になりました。",
+        "gloss": "Sorry, I'm so nervous my mind went blank."
+      }
+    ]
+  ],
+  "closings": {
+    "match": "あ、もう時間ですね！本当に楽しかったです。よかったらLINE交換しませんか？",
+    "friendzone": "あ、ベルが鳴りましたね。お話できて楽しかったです。またどこかで。",
+    "ghosted": "あ、時間ですね。では…この後も頑張ってください。"
+  },
+  "stamps": {
+    "match": "マッチ成立！",
+    "friendzone": "友達止まり",
+    "ghosted": "既読スルー"
+  },
+  "followups": {
+    "match": "今日はすごく楽しかったです😊 今度ごはん行きませんか？",
+    "friendzone": "お会いできてよかったです！またみんなで飲みに行きましょう🤝",
+    "ghosted": "今日はありがとうございました。ご縁がなかったみたいですが、頑張ってください🙏"
+  }
+}
