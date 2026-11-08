@@ -40,6 +40,14 @@ server is reachable. **F11** toggles fullscreen. `./play build` refuses while th
 is open in the editor (Unity locks it); use the editor's **Build ▸ Linux App** then, which
 writes the same app. Logs go to `runs/server.log`, `runs/game.log` and `runs/build.log`.
 
+To check how the app looks without sitting at it, the built game takes
+`-scene Assets/Scenes/CancunCafe.unity` (open a scene), `-matchmaker-step Language` (open
+the matchmaker on a step) and `-shot out.png -shot-after 10` (capture the screen, then quit).
+
+The UI type is bundled in `Assets/Resources/Fonts` (Fraunces, Bricolage Grotesque,
+JetBrains Mono, Yellowtail; open licences in `licenses/`), falling back to the system's Noto
+fonts for Chinese, Japanese and Devanagari. The colours come from `BrandConfig.json`.
+
 Every key is optional. Without one, that part falls back, so the whole flow runs offline:
 
 | Job | Provider | Key | Offline fallback |
@@ -91,6 +99,11 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
 
 ## The demo, end to end
 
+0. **The start screen** (`Wish.unity`), styled like the pitch deck: the neon name over a
+   night sky and a lit Earth (atmosphere glow, ocean glint, city lights on the night side;
+   shaders in `Assets/Shaders/Matchmaker/`). One card per authored demo date (the Spanish
+   date and the American date), a woman/man choice for who you meet, and **Create your
+   own date** for the full matchmaker below.
 1. **Face scan** (`Wish.unity`). A live webcam viewfinder. *Capture selfie* sends the
    photo to `POST /v1/avatar/from-selfie`, where MediaPipe finds the face and samples
    skin from the cheeks and hair from above the hairline. Those colours tint the
@@ -259,7 +272,7 @@ in [docs/speed-date.md](docs/speed-date.md).
 
 | Script | Job |
 | --- | --- |
-| `Lobby/MatchmakerUI.cs` | The three-step studio over the globe; matchmaking; the **▶ Demo date** button; the flight to the venue |
+| `Lobby/MatchmakerUI.cs` | The start screen (demo date cards, create your own), the three-step studio over the lit Earth, matchmaking, the flight to the venue |
 | `Lobby/AvatarOnboarding.cs` | Webcam viewfinder, selfie, avatar built from it, live preview |
 | `Vision/VisionFeed.cs` | Webcam service: frames to the face tracker, latest reading, signal feed |
 | `Vision/VisionPanel.cs` | The on-screen computer vision panel |
@@ -278,7 +291,8 @@ in [docs/speed-date.md](docs/speed-date.md).
 | `Quests/DateVerdictReceipt.cs` | The printed Match-or-Ghost receipt (roast, unlock, stamp), share (S), the phone follow-up, the learning page (Tab) and the full report in the browser (L) |
 | `Venue/VenueAmbience.cs` | Post-processing grade, lights and ambient loops per venue |
 | `Core/DateBootstrap.cs` | Adds the speed-date systems to any venue scene at load |
-| `Core/SessionMenu.cs` | Esc: the app's session menu (resume, restart the date, new session, fullscreen, quit, server status); created at startup |
+| `Core/SessionMenu.cs` | Esc: the app's session menu (resume, restart the date, new session, fullscreen, quit, server status); created at startup; the `-scene` / `-shot` dev flags |
+| `Core/GlassUI.cs` | The deck look for every panel: wine glass, cream hairlines, rose glow, the four typefaces |
 | `Editor/AppBuild.cs` | **Build ▸ Linux / Windows / macOS App**: the standalone build (all three scenes, named from `BrandConfig.json`, keeps running when unfocused) |
 | `Editor/OpenDemoScene.cs` | Opens `Wish.unity` when the editor starts on an empty scene |
 | `Editor/EditorRemote.cs` | Dev aid: drive the editor from a script through `Temp/remote_cmd.txt` (play, stop, open, shot, call, key) |
