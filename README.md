@@ -39,7 +39,22 @@ Every key is optional. Without one, that part falls back, so the whole flow runs
 | The date's voice | ElevenLabs streaming TTS (`eleven_flash_v2_5`) | `ELEVENLABS_API_KEY` | a bundled sample voice |
 | Face, smiles, nods, head pose | MediaPipe Face Landmarker (local) | none (`uv sync --group face`) | no face; the date carries on |
 
-`GET /health` reports which of these are live (`"date": {...}`).
+`GET /health` reports which of these are live (`"date": {...}`) and the `plan`.
+
+### Settings worth knowing
+
+All in `orchestrator/.env` (see `.env.example`); every one is optional.
+
+| Setting | What it does |
+| --- | --- |
+| `PLAN=free` | Runs the per-turn chemistry judge and the wingman on the rules instead of Claude: most of a date's model calls gone, the rest of the date unchanged |
+| `CLAUDE_MODEL`, `MATCHMAKER_MODEL`, `CHEMISTRY_MODEL`, `DATE_GRADER_MODEL`, `DATE_MODEL` | Which model does which job (`*_EFFORT` sets Claude's effort per job) |
+| `NEMOTRON_ASR_LANGUAGE`, `NVIDIA_ASR_MULTILINGUAL_FUNCTION_ID`, `NEMOTRON_ASR_SERVER` | Force one recognition locale, pick another multilingual model, or use a self-hosted NIM |
+| `ELEVENLABS_VOICE_<DIALECT>_<GENDER>` | A voice per dialect and gender (e.g. `ELEVENLABS_VOICE_ES_AR_FEMALE`) |
+| `CLAUDE_PRICE_*`, `GEMINI_PRICE_*`, `NVIDIA_ASR_PRICE_PER_MINUTE`, `ELEVENLABS_PRICE_PER_MILLION_CHARS` | Prices for the cost report. Claude's list prices are built in; the others report usage only until you set theirs |
+| `PRONUNCIATION=0`, `PRONUNCIATION_MODEL` | Turn off, or pick the model for, the report's pronunciation notes |
+| `FACE_TRACKING=0` | Turn off webcam face tracking |
+| `DATE_DIR`, `CHEMISTRY_DIR`, `RUN_DIR`, `RUN_AUDIO_DIR`, `REPORT_DIR`, `VERDICT_DIR`, `LEARNER_DIR`, `COST_DIR`, `VOICE_CACHE_DIR` | Where each kind of record is kept (all under `runs/` by default) |
 
 ## The demo date: Café Rayuela, Cancún
 
@@ -67,7 +82,9 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
    learner's chosen Rocketbox body, which is rendered live beside the photo and already
    mirrors their expressions. The **vision panel** in the corner shows the camera with
    the face mesh over it, the expression levels, head pose and a feed of signals.
-2. **Language.** Dialect, city and level. The low-poly globe turns and pins the city.
+2. **Language.** Your name (how the date says it, and how Parry remembers you from one
+   date to the next), dialect, city and level. The low-poly globe turns and pins the
+   city. Dialects you've unlocked are marked 🔓.
 3. **Your date.** Gender, appearance (3D look only), personality, venue or *let my
    prompt decide*, a free-text scene ("a rooftop bar at sunset after the rain") and
    notes ("loves indie rock, hates crypto bros"). *Start Speed Date* calls
@@ -137,9 +154,10 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
   minute in, and it becomes that date's cultural milestone.
 - **Locals hear where you learned it.** Say «güey» in Buenos Aires and the date teases you
   about sounding Mexican.
-- **The app remembers you.** A phrase you got wrong comes back on your next date in that
-  dialect. The date steers toward it without teaching, and the receipt says when you got
-  it right, quoting you.
+- **The app remembers you** (by the name you give the matchmaker). A phrase you got
+  wrong comes back on your next date in that dialect. The date steers toward it without
+  teaching, and the receipt says when you got it right, quoting you. `GET /v1/learners/{name}`
+  shows a learner's dates and practice list.
 - **Nothing is corrected that may not have been said.** A correction built on a word the
   recogniser doubted is dropped; those words become "words to practise" instead.
 - **How you hesitate counts.** A local «este…» or «えーと» is noticed, and so is an English
@@ -153,7 +171,10 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
   page (with what you said right this time); `/v1/reports/class` shows a whole class at a
   glance.
 - **Parroting earns nothing.** Repeating the date's own line back is not evidence: a
-  milestone or a quoted grade needs words that are the learner's own, not an echo.
+  milestone or a quoted grade needs words that are the learner's own, not an echo. In
+  Hinglish, where English words are welcome, a line with no Hindi at all still counts as
+  English. `eval/date_selfplay.py` plays whole dates with one-word, English and echoing
+  learners and fails on any award they get.
 
 ## How the pieces talk
 
@@ -161,6 +182,7 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
 Unity                                      orchestrator (FastAPI, :8765)
 ─────                                      ─────────────────────────────
 MatchmakerUI ── POST /v1/matchmaker/generate ──▶ matchmaker.py ─▶ Claude
+             │                                   (+ the learner's practice list: learner_profile.py)
              └─ POST /v1/matchmaker/preset ───▶ matchmaker.py (presets/*.json)
 AvatarOnboarding ── POST /v1/avatar/from-selfie ─▶ face_tracker.py (MediaPipe)
 VisionFeed ── WS /v1/vision (before the date) ───▶ face_tracker + nonverbal.py
@@ -174,9 +196,28 @@ FullDuplexStreamClient ═══ WS /v1/stream ═══▶ stream_gateway.py
   ◀── transcript, chemistry_update, wingman_hint, help_card, scene_action,
       face_analysis, signal, clear_audio
 DateVerdictReceipt ── POST /v1/grade ───────▶ date_grader.py ─▶ Claude
+                   │       └─ saves the verdict, the learner profile and the cost (run_records.py)
                    ├─ POST /v1/date/report ─▶ date_report.py ─▶ Claude, Gemini (clips)
                    └─ GET /v1/date/share/{run_id} ─▶ share_card.py (9:16 receipt)
+
+Every paid call reports its usage to costs.py; scripted lines replay from voice_cache.py.
 ```
+
+### HTTP routes at a glance
+
+| Route | What it does |
+| --- | --- |
+| `GET /v1/matchmaker/catalog` | What the matchmaker offers: presets, dialects and cities, venues, personalities, levels |
+| `POST /v1/matchmaker/generate` · `POST /v1/matchmaker/preset` | Build a date from the learner's choices, or the authored demo date |
+| `WS /v1/stream` · `WS /v1/vision` | The live date; face tracking alone for onboarding |
+| `POST /v1/avatar/from-selfie` | Skin and hair colours for the avatar |
+| `POST /v1/grade` (or `/v1/date/grade`) | The verdict: stamp, pillars, roast, unlock, follow-up, progress, cost |
+| `GET /v1/date/runs/{run_id}` · `…/verdict` · `…/card` | The transcript and chemistry; the stored verdict; the receipt as a readable page |
+| `GET /v1/date/receipt/{run_id}.svg` · `GET /v1/date/share/{run_id}` | The 9:16 shareable receipt and its share page |
+| `POST /v1/date/report` · `GET /v1/date/report/{run_id}.html` | *Your date, decoded* |
+| `GET /v1/learners/{name}` · `GET /v1/reports/class` | One learner's profile; a whole class at a glance (`?format=json`) |
+| `GET /v1/costs` | Usage and dollars by provider since the server started |
+| `GET /v1/face/status` · `GET /health` | Readiness |
 
 The protocol is documented in [docs/api.md](docs/api.md#speed-date) and the design
 in [docs/speed-date.md](docs/speed-date.md).
@@ -193,6 +234,8 @@ in [docs/speed-date.md](docs/speed-date.md).
 - `runs/`: what a date leaves behind (not committed): `dates/`, `chemistry/`, `transcripts/`, `audio/{run_id}/` (the learner's lines as WAV), `reports/`, `verdicts/` (for sharing), `learners/`, `costs/`, `voice_cache/`.
 - `My project/`: the Unity 6 (URP) client. Scenes: `Wish.unity` (matchmaker), `CancunCafe.unity` (primary venue), `SampleScene.unity` (fallback venue).
 - `demo-pitch/`: the animated HTML pitch deck (open `demo-pitch/index.html` in Chrome; see its README).
+- `eval/`: `date_selfplay.py` (simulated learners on whole dates; the zero-false-award
+  gate) and the café director's eval (`run_eval.py`). See `eval/README.md`.
 - `tools/test_e2e_pipeline.py`: headless end-to-end check against a running server.
 - `tools/spz_to_collider.py`: builds a walkable collider `.glb` from a Gaussian splat.
 
@@ -229,7 +272,8 @@ uv run pytest                                  # 245 tests, no network (2 need t
 uvx ruff check orchestrator tools eval
 uv run python tools/test_e2e_pipeline.py --offline   # starts a server, plays the demo date: order, translator, verdict, report
 uv run python tools/test_e2e_pipeline.py             # same, with your keys
-uv run python eval/date_selfplay.py --offline        # simulated learners; fails on any false award
+uv run python eval/date_selfplay.py --offline        # 40 simulated dates; fails on any false award
+uv run python eval/date_selfplay.py --learner model  # Claude plays the engaged learners (needs a key)
 ```
 
 ElevenLabs and Nemotron ASR are tested against local servers speaking their real protocols (a Riva gRPC server for Nemotron).
@@ -244,5 +288,10 @@ The Claude request shape is tested against a mock transport.
 - **Voices.** Set ElevenLabs voices per dialect and gender with
   `ELEVENLABS_VOICE_<DIALECT>_<GENDER>` (for the demo, porteño voices from the Voice Library
   added to My Voices); otherwise a premade multilingual voice speaks every dialect.
+- **Server-only extras.** The verdict's `cost`, `progress` and filler and register
+  measures are in the JSON, the readable receipt page and the report; the in-game receipt
+  doesn't draw them yet.
+- **Culture data is a first draft.** Body-language norms, fillers, register notes and
+  cultural moments are tendencies, written to be reviewed and tuned by native speakers.
 - **Echo.** Use headphones. The client gates echo while the date talks, but speakers next
   to the mic still make barge-in less reliable.
