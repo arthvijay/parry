@@ -32,8 +32,10 @@ Every key is optional. Without one, that part falls back, so the whole flow runs
 | Building the date (persona, opener, flags, venue) | Claude `claude-sonnet-5-5` | `ANTHROPIC_API_KEY` | authored dialect templates |
 | Live chemistry judge, wingman lines | Claude (effort `low`) | same | a rules judge, authored wingman lines |
 | Final receipt and follow-up text | Claude | same | a rules grader |
+| Translator card (T), *Your date, decoded* | Claude | same | wingman lines; a plainer report from the dialect's authored lines |
+| Pronunciation notes in the report | Gemini, listening to the learner's clips | same as the date's replies | left out |
 | The date's live replies | Gemini `gemini-3.8-flash` | `GEMINI_API_KEY` or Vertex (`GOOGLE_CLOUD_PROJECT`) | Claude, then a scripted date |
-| Hearing the learner | NVIDIA Nemotron ASR Streaming (Riva gRPC; `es-US` for Argentine Spanish) | `NVIDIA_API_KEY` (+ `NEMOTRON_ASR_FUNCTION_ID` or a self-hosted NIM for Spanish) | voice detection only; type with Enter |
+| Hearing the learner | NVIDIA Nemotron ASR Streaming over Riva gRPC (locale per dialect: `es-US` for Mexican and Argentine Spanish, `es-ES`, `fr-FR`, `ja-JP`, `hi-IN`, auto for Mandarin) | `NVIDIA_API_KEY`; the default hosted function is English, so for Spanish set `NEMOTRON_ASR_FUNCTION_ID` to a multilingual deployment or `NEMOTRON_ASR_SERVER` to a self-hosted NIM | voice detection only; type with Enter |
 | The date's voice | ElevenLabs streaming TTS (`eleven_flash_v2_5`) | `ELEVENLABS_API_KEY` | a bundled sample voice |
 | Face, smiles, nods, head pose | MediaPipe Face Landmarker (local) | none (`uv sync --group face`) | no face; the date carries on |
 
@@ -54,7 +56,8 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
 - **The menu.** M shows the carta: cortado, medialunas, submarino, alfajores, tostado…
   Order in Spanish and Don Julio walks over and serves it.
 - **Five milestones:** introduce yourself, order something to share, find common ground,
-  talk like a porteño, and ask for her WhatsApp.
+  talk like a porteño, and ask for their WhatsApp.
+- **Its own goodbyes and follow-up texts**, in place of the dialect's general ones.
 
 ## The demo, end to end
 
@@ -83,8 +86,10 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
    - **Wingman:** freeze for 4 s and the wingman whispers three options.
    - **V** toggles the cinematic two-shot, where your avatar, wearing your live face,
      sits across from them.
+   - **Too formal costs a little.** *Usted* or *vous* on a speed date reads as distance.
    - **T** opens the **translator**: what the date just said, in English, plus three
-     replies. It's counted, gently, in the pacing grade.
+     replies. The date never knows. It's counted, gently, in the pacing grade.
+   - **M** (authored dates) shows the menu with prices.
 6. **The verdict.** At the bell the date says goodbye in character. The receipt shows:
    - **The stamp:** MATCH (65+), FRIENDZONED (45+) or GHOSTED.
    - **Four graded pillars**, each with a verbatim quote.
@@ -109,16 +114,20 @@ the authored date, the same every time: `scenarios/speed_dating/presets/cafe_can
 Unity                                      orchestrator (FastAPI, :8765)
 ─────                                      ─────────────────────────────
 MatchmakerUI ── POST /v1/matchmaker/generate ──▶ matchmaker.py ─▶ Claude
+             └─ POST /v1/matchmaker/preset ───▶ matchmaker.py (presets/*.json)
 AvatarOnboarding ── POST /v1/avatar/from-selfie ─▶ face_tracker.py (MediaPipe)
 VisionFeed ── WS /v1/vision (before the date) ───▶ face_tracker + nonverbal.py
 
 FullDuplexStreamClient ═══ WS /v1/stream ═══▶ stream_gateway.py
   mic 16 kHz PCM16 ─────────────────────────▶   stt.py (Nemotron ASR, Riva gRPC)
   telemetry 250 ms, webcam frames ──────────▶   nonverbal.py, face_tracker.py
-  barge_in / start_date / end_date ─────────▶   chemistry_director.py ─▶ Claude
+  barge_in / start_date / end_date / help ──▶   chemistry_director.py ─▶ Claude
+  scene_event host_at_table ────────────────▶   (the host serves the order)
   ◀───────── 24 kHz PCM16 voice frames ─────    date_brain.py (Gemini) ─▶ tts.py (ElevenLabs)
-  ◀── transcript, chemistry_update, wingman_hint, face_analysis, signal, clear_audio
+  ◀── transcript, chemistry_update, wingman_hint, help_card, scene_action,
+      face_analysis, signal, clear_audio
 DateVerdictReceipt ── POST /v1/grade ───────▶ date_grader.py ─▶ Claude
+                   └─ POST /v1/date/report ─▶ date_report.py ─▶ Claude, Gemini (clips)
 ```
 
 The protocol is documented in [docs/api.md](docs/api.md#speed-date) and the design
@@ -128,11 +137,11 @@ in [docs/speed-date.md](docs/speed-date.md).
 
 - `orchestrator/`: the Python service.
   - `config.py` holds the brand, dialects, venues, personas, models and voices.
-  - The speed-date modules are `matchmaker.py`, `stream_gateway.py`, `chemistry_director.py`, `date_grader.py`, `stt.py`, `tts.py`, `date_brain.py`, `face_tracker.py`, `nonverbal.py`, `claude.py` and `date_routes.py`.
+  - The speed-date modules are `matchmaker.py` (generated and authored dates), `stream_gateway.py`, `chemistry_director.py` (also the translator), `date_grader.py`, `date_report.py` (*Your date, decoded*), `stt.py` (Nemotron ASR), `tts.py` (ElevenLabs), `date_brain.py`, `face_tracker.py`, `nonverbal.py`, `claude.py` and `date_routes.py`.
   - The original café modules (`/v1/speech`, `/v1/scenarios`, `director.py`, `grading.py`) are kept and still pass their tests.
 - `scenarios/speed_dating/dialects/*.json`: authored lines per dialect (host, openers per personality, look-away callouts, wingman fallbacks, closings, verdict stamps, follow-up texts, culture notes).
-- `scenarios/speed_dating/presets/cafe_cancun_ar.json`: the authored demo date.
-- `orchestrator/date_report.py`: *Your date, decoded* (Claude writes it; Gemini listens to the recorded voice clips).
+- `scenarios/speed_dating/presets/cafe_cancun_ar.json`: the authored demo date (people, venue, menu, milestones, closings, follow-ups).
+- `runs/`: what a date leaves behind (not committed): `dates/`, `chemistry/`, `transcripts/`, `audio/{run_id}/` (the learner's lines as WAV), `reports/`.
 - `My project/`: the Unity 6 (URP) client. Scenes: `Wish.unity` (matchmaker), `CancunCafe.unity` (primary venue), `SampleScene.unity` (fallback venue).
 - `tools/test_e2e_pipeline.py`: headless end-to-end check against a running server.
 - `tools/spz_to_collider.py`: builds a walkable collider `.glb` from a Gaussian splat.
@@ -141,7 +150,7 @@ in [docs/speed-date.md](docs/speed-date.md).
 
 | Script | Job |
 | --- | --- |
-| `Lobby/MatchmakerUI.cs` | The three-step studio over the globe; matchmaking; the flight to the venue |
+| `Lobby/MatchmakerUI.cs` | The three-step studio over the globe; matchmaking; the **▶ Demo date** button; the flight to the venue |
 | `Lobby/AvatarOnboarding.cs` | Webcam viewfinder, selfie, avatar built from it, live preview |
 | `Vision/VisionFeed.cs` | Webcam service: frames to the face tracker, latest reading, signal feed |
 | `Vision/VisionPanel.cs` | The on-screen computer vision panel |
@@ -149,23 +158,24 @@ in [docs/speed-date.md](docs/speed-date.md).
 | `Vision/PlayerAvatar.cs` | The learner's seated avatar for the cinematic view |
 | `Conversation/FullDuplexStreamClient.cs` | The `/v1/stream` socket, open mic, voice activity, barge-in, telemetry |
 | `Conversation/StreamingAudioPlayer.cs` | Ring-buffer playback of streamed voice; audio analysis for lip-sync |
-| `Conversation/ChemistryAndWingmanHUD.cs` | Timer, chemistry meter, milestones, subtitles, wingman card, type-to-talk |
+| `Conversation/ChemistryAndWingmanHUD.cs` | Timer, chemistry meter, milestones, subtitles, wingman card, type-to-talk, translator card (T), menu (M), sending the host with the order |
 | `Conversation/SpatialTelemetryBroadcaster.cs` | Eye contact, gaze target, look-away time, seat |
-| `Conversation/ScenarioClient.cs`, `CastClient.cs` | The date into the venue: milestones, lighting, cast |
+| `Conversation/ScenarioClient.cs`, `CastClient.cs` | The date into the venue: milestones, lighting, cast; plays the demo date when Play is pressed straight in a venue |
 | `Npc/DateBodyLanguage.cs` | Lean, smile, frown, blinks from chemistry |
 | `Npc/NpcSpeaker.cs` | Streamed voice at the mouth; jaw and vowel visemes from the audio |
 | `Npc/NpcLookAt.cs` | Eye contact, boredom glances, gaze reciprocity |
+| `Npc/NpcSchedule.cs` | Scripted NPC walks from `npcs_*.json` (the host's `bring_order`), with a `MoveFinished` event |
 | `Seating/DateCameraRig.cs` | V: first person ↔ cinematic two-shot |
-| `Quests/DateVerdictReceipt.cs` | The verdict card and the phone follow-up |
+| `Quests/DateVerdictReceipt.cs` | The verdict card, the phone follow-up, the learning page (Tab) and the full report in the browser (L) |
 | `Venue/VenueAmbience.cs` | Post-processing grade, lights and ambient loops per venue |
 | `Core/DateBootstrap.cs` | Adds the speed-date systems to any venue scene at load |
 
 ## Tests
 
 ```sh
-uv run pytest                                  # 205 tests, no network
+uv run pytest                                  # 206 tests, no network (2 need the face group)
 uvx ruff check orchestrator tools eval
-uv run python tools/test_e2e_pipeline.py --offline   # starts a server, plays a whole date
+uv run python tools/test_e2e_pipeline.py --offline   # starts a server, plays the demo date: order, translator, verdict, report
 uv run python tools/test_e2e_pipeline.py             # same, with your keys
 ```
 
