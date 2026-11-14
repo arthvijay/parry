@@ -3,7 +3,7 @@
 # Quitting the game (Esc ▸ Quit) stops the backend again.
 #
 #   ./date            from the repo root
-#   date              anywhere, once the shell alias is set up (see README: "One command")
+#   parry             anywhere, once you add the alias (see README: "Or run it as an app")
 #
 # It is ./play --fullscreen; any extra arguments are passed through.
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"

@@ -59,6 +59,18 @@ uv run python -m orchestrator    # serves http://127.0.0.1:8765
 3. Press **Play** in `Wish.unity`
 4. Capture your selfie, pick a demo date or create your own, and talk
 
+### Or run it as an app, without the editor
+
+```sh
+./play build      # once: builds the Linux app into Builds/Linux/ (or in the editor: Build ▸ Linux App)
+./date            # starts the server and opens the game fullscreen; quitting stops the server
+./play            # same, in a window   ·   ./play install adds it to your app menu
+```
+
+To start it from any folder with one word, add an alias to `~/.bashrc`:
+`alias parry='/path/to/repo/date'`, then type `parry`. Don't name the alias `date`:
+that hides the system `date` command, and every shell that calls it would open the game.
+
 ---
 
 ## How It Works
